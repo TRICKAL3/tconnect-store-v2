@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Gift Card Placeholder Generator</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #0a0a0a; 
+            color: white; 
+        }
+        .card { 
+            width: 300px; 
+            height: 180px; 
+            margin: 15px; 
+            display: inline-block; 
+            border-radius: 12px; 
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+        .card:hover { transform: scale(1.05); }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; }
+        
+        /* AI-style gradients for different brands */
+        .amazon { background: linear-gradient(135deg, #ff9900 0%, #ff6600 100%); }
+        .netflix { background: linear-gradient(135deg, #e50914 0%, #b81d13 100%); }
+        .spotify { background: linear-gradient(135deg, #1db954 0%, #1ed760 100%); }
+        .steam { background: linear-gradient(135deg, #1b2838 0%, #2a475e 100%); }
+        .xbox { background: linear-gradient(135deg, #107c10 0%, #0e6b0e 100%); }
+        .playstation { background: linear-gradient(135deg, #003791 0%, #0070f3 100%); }
+        .nintendo { background: linear-gradient(135deg, #e60012 0%, #ff6b6b 100%); }
+        .apple { background: linear-gradient(135deg, #000000 0%, #333333 100%); }
+        .google { background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); }
+        .starbucks { background: linear-gradient(135deg, #00704a 0%, #00a86b 100%); }
+        .mcdonalds { background: linear-gradient(135deg, #ffc72c 0%, #da020e 100%); }
+        .uber { background: linear-gradient(135deg, #000000 0%, #333333 100%); }
+        .airbnb { background: linear-gradient(135deg, #ff5a5f 0%, #e00007 100%); }
+        .disney { background: linear-gradient(135deg, #113ccf 0%, #8b5cf6 100%); }
+        .hbo { background: linear-gradient(135deg, #8b0000 0%, #ff0000 100%); }
+        .youtube { background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%); }
+        .twitch { background: linear-gradient(135deg, #9146ff 0%, #772ce8 100%); }
+        .ebay { background: linear-gradient(135deg, #e53238 0%, #0064d2 100%); }
+        .razer { background: linear-gradient(135deg, #00ff00 0%, #00cc00 100%); }
+        .epic { background: linear-gradient(135deg, #313131 0%, #000000 100%); }
+        .walmart { background: linear-gradient(135deg, #004c91 0%, #0074e4 100%); }
+        .booking { background: linear-gradient(135deg, #003580 0%, #0074e4 100%); }
+        
+        .card-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            color: white;
+        }
+        
+        .brand-name {
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .gift-card-text {
+            font-size: 14px;
+            opacity: 0.9;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .value {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: right;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .chip {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 30px;
+            height: 20px;
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            border-radius: 3px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .stripes {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 10px,
+                rgba(255,255,255,0.3) 10px,
+                rgba(255,255,255,0.3) 20px
+            );
+        }
+    </style>
+</head>
+<body>
+    <h1>AI-Style Gift Card Placeholders</h1>
+    <p>Right-click on each card and "Save image as" to save them as individual images.</p>
+    <div class="container">
+        <div class="card amazon">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Amazon</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$50.00</div>
+            </div>
+        </div>
+        
+        <div class="card netflix">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Netflix</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$15.99</div>
+            </div>
+        </div>
+        
+        <div class="card spotify">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Spotify</div>
+                <div class="gift-card-text">Premium</div>
+                <div class="value">$29.99</div>
+            </div>
+        </div>
+        
+        <div class="card steam">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Steam</div>
+                <div class="gift-card-text">Wallet</div>
+                <div class="value">$20.00</div>
+            </div>
+        </div>
+        
+        <div class="card xbox">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Xbox</div>
+                <div class="gift-card-text">Live Gold</div>
+                <div class="value">$19.00</div>
+            </div>
+        </div>
+        
+        <div class="card playstation">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">PlayStation</div>
+                <div class="gift-card-text">Store</div>
+                <div class="value">$50.00</div>
+            </div>
+        </div>
+        
+        <div class="card nintendo">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Nintendo</div>
+                <div class="gift-card-text">eShop</div>
+                <div class="value">$20.00</div>
+            </div>
+        </div>
+        
+        <div class="card apple">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Apple</div>
+                <div class="gift-card-text">Store</div>
+                <div class="value">$100.00</div>
+            </div>
+        </div>
+        
+        <div class="card google">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Google Play</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$25.00</div>
+            </div>
+        </div>
+        
+        <div class="card starbucks">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Starbucks</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$20.00</div>
+            </div>
+        </div>
+        
+        <div class="card mcdonalds">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">McDonald's</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$15.00</div>
+            </div>
+        </div>
+        
+        <div class="card uber">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Uber</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$30.00</div>
+            </div>
+        </div>
+        
+        <div class="card airbnb">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Airbnb</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$100.00</div>
+            </div>
+        </div>
+        
+        <div class="card disney">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Disney+</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$25.00</div>
+            </div>
+        </div>
+        
+        <div class="card hbo">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">HBO Max</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$20.00</div>
+            </div>
+        </div>
+        
+        <div class="card youtube">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">YouTube</div>
+                <div class="gift-card-text">Premium</div>
+                <div class="value">$12.00</div>
+            </div>
+        </div>
+        
+        <div class="card twitch">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Twitch</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$20.00</div>
+            </div>
+        </div>
+        
+        <div class="card ebay">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">eBay</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$25.00</div>
+            </div>
+        </div>
+        
+        <div class="card razer">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Razer Gold</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$5.00</div>
+            </div>
+        </div>
+        
+        <div class="card epic">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Epic Games</div>
+                <div class="gift-card-text">Store</div>
+                <div class="value">$15.00</div>
+            </div>
+        </div>
+        
+        <div class="card walmart">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Walmart</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$75.00</div>
+            </div>
+        </div>
+        
+        <div class="card booking">
+            <div class="stripes"></div>
+            <div class="chip"></div>
+            <div class="card-content">
+                <div class="brand-name">Booking.com</div>
+                <div class="gift-card-text">Gift Card</div>
+                <div class="value">$75.00</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Add click to save functionality
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', function() {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 300;
+                canvas.height = 180;
+                
+                // Get computed styles
+                const styles = window.getComputedStyle(this);
+                const gradient = styles.background;
+                
+                // Draw the card
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(0, 0, 300, 180);
+                
+                // Add gradient background
+                const gradientObj = ctx.createLinearGradient(0, 0, 300, 180);
+                if (this.classList.contains('amazon')) {
+                    gradientObj.addColorStop(0, '#ff9900');
+                    gradientObj.addColorStop(1, '#ff6600');
+                } else if (this.classList.contains('netflix')) {
+                    gradientObj.addColorStop(0, '#e50914');
+                    gradientObj.addColorStop(1, '#b81d13');
+                }
+                // Add more gradient cases as needed
+                
+                ctx.fillStyle = gradientObj;
+                ctx.fillRect(0, 0, 300, 180);
+                
+                // Add text
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(this.querySelector('.brand-name').textContent, 20, 40);
+                
+                ctx.font = '14px Arial';
+                ctx.fillText(this.querySelector('.gift-card-text').textContent, 20, 60);
+                
+                ctx.font = 'bold 18px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText(this.querySelector('.value').textContent, 280, 160);
+                
+                // Convert to blob and download
+                canvas.toBlob(function(blob) {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = this.querySelector('.brand-name').textContent.toLowerCase().replace(/\s+/g, '-') + '-gift-card.jpg';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                }.bind(this));
+            });
+        });
+    </script>
+</body>
+</html>

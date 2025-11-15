@@ -1,0 +1,29 @@
+===========================================
+COPY THESE VALUES FOR STEP 1
+===========================================
+
+KEY (copy this exactly):
+REACT_APP_API_BASE
+
+VALUE (copy this exactly):
+https://backend-2c1k13ejq-trickals-projects.vercel.app
+
+===========================================
+INSTRUCTIONS:
+===========================================
+
+1. Go to Vercel Dashboard
+2. Click your frontend project
+3. Settings → Environment Variables
+4. Click "Add New"
+5. Paste KEY in the "Key" field
+6. Paste VALUE in the "Value" field
+7. Check all 3 boxes: Production, Preview, Development
+8. Click "Save"
+9. Go to Deployments tab
+10. Click three dots (⋯) on latest deployment
+11. Click "Redeploy"
+12. Wait 2 minutes
+
+===========================================
+

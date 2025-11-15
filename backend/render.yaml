@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: tconnect-backend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        value: file:./prisma/dev.db
+      - key: ADMIN_PASS
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+

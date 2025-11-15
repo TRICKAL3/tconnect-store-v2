@@ -1,0 +1,64 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import authRouter from './routes/auth';
+import productsRouter from './routes/products';
+import ordersRouter from './routes/orders';
+import ratesRouter from './routes/rates';
+import invoicesRouter from './routes/invoices';
+import quotesRouter from './routes/quotes';
+import usersRouter from './routes/users';
+import slidesRouter from './routes/slides';
+import ttOrdersRouter from './routes/ttorders';
+import chatsRouter from './routes/chats';
+
+dotenv.config();
+
+const app = express();
+
+// CORS configuration - allow all origins for now (can be restricted later)
+app.use(cors({
+  origin: '*', // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Password'],
+  credentials: false
+}));
+
+app.use(express.json());
+
+// Handle CORS preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Password');
+  res.sendStatus(200);
+});
+
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.use('/auth', authRouter);
+app.use('/products', productsRouter);
+app.use('/orders', ordersRouter);
+app.use('/rates', ratesRouter);
+app.use('/invoices', invoicesRouter);
+app.use('/quotes', quotesRouter);
+app.use('/users', usersRouter);
+app.use('/slides', slidesRouter);
+app.use('/ttorders', ttOrdersRouter);
+app.use('/chats', chatsRouter);
+
+// Export for Vercel serverless functions
+// Vercel expects a handler function, not the app directly
+export default app;
+
+// For Vercel, we also export a handler function
+export const handler = app;
+
+// Only listen if not in Vercel environment (for local development)
+if (process.env.VERCEL !== '1') {
+  const port = process.env.PORT || 4000;
+  app.listen(port, () => {
+    console.log(`API running on http://localhost:${port}`);
+  });
+}
+
+

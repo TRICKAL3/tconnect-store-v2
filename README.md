@@ -1,98 +1,52 @@
 # TConnect Store v2.0
 
-A modern e-commerce platform for gift cards and cryptocurrency purchases.
+## Quick Setup
 
-## Features
+### 1. Connect to GitHub
 
-- **Gift Cards**: Categorized gift cards across Gaming, Entertainment, Retail, Food & Dining, Travel, and Streaming
-- **Cryptocurrency**: Buy and sell major cryptocurrencies with real-time pricing
-- **Shopping Cart**: Full cart functionality with quantity management
-- **Responsive Design**: Modern, mobile-first design with Tailwind CSS
-- **TypeScript**: Type-safe development with React and TypeScript
-
-## Categories
-
-### Gift Cards
-- Gaming (Steam, PlayStation, Xbox, Nintendo, Epic Games)
-- Entertainment (Netflix, Spotify, Disney+, HBO Max)
-- Retail (Amazon, Apple Store, Google Play, Walmart)
-- Food & Dining (Starbucks, McDonald's, Uber Eats)
-- Travel (Uber, Airbnb, Booking.com)
-- Streaming (YouTube Premium, Twitch)
-
-### Cryptocurrency
-- Bitcoin (BTC)
-- Ethereum (ETH)
-- Binance Coin (BNB)
-- Cardano (ADA)
-- Solana (SOL)
-- Polkadot (DOT)
-- Chainlink (LINK)
-- Litecoin (LTC)
-- Bitcoin Cash (BCH)
-- Dogecoin (DOGE)
-
-## Getting Started
-
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-2. Start the development server:
-   ```bash
-   npm start
-   ```
-
-3. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-
-## Available Scripts
-
-- `npm start` - Runs the app in development mode
-- `npm build` - Builds the app for production
-- `npm test` - Launches the test runner
-- `npm eject` - Ejects from Create React App (one-way operation)
-
-## Technologies Used
-
-- React 18
-- TypeScript
-- React Router DOM
-- Tailwind CSS
-- Lucide React (Icons)
-- Context API (State Management)
-
-## Project Structure
-
-```
-src/
-├── components/          # Reusable UI components
-│   ├── Header.tsx
-│   └── Footer.tsx
-├── context/            # React Context for state management
-│   └── CartContext.tsx
-├── pages/              # Page components
-│   ├── Home.tsx
-│   ├── GiftCards.tsx
-│   ├── Crypto.tsx
-│   └── Cart.tsx
-├── App.tsx             # Main app component
-├── index.tsx           # App entry point
-└── index.css           # Global styles
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/tconnect-store-v2.git
+git branch -M main
+git push -u origin main
 ```
 
-## Security Features
+### 2. Deploy to Vercel
 
-- 256-bit SSL encryption
-- Secure payment processing
-- No storage of sensitive data
-- Instant digital delivery
+1. Go to https://vercel.com/dashboard
+2. Click "Add New Project"
+3. Import from GitHub
+4. Select your repository
+5. Configure:
+   - **Root Directory:** `./` (root)
+   - **Framework:** Create React App
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `build`
 
-## Future Enhancements
+### 3. Backend Deployment
 
-- User authentication and accounts
-- Order history and tracking
-- Payment gateway integration
-- Real-time cryptocurrency pricing
-- Advanced filtering and search
-- Mobile app development
+The backend is in the `backend/` folder. Deploy it separately:
+
+1. In Vercel, create a new project
+2. Same GitHub repo
+3. **Root Directory:** `backend`
+4. **Framework:** Other
+5. Add environment variables (see backend/.env.example)
+
+## Environment Variables
+
+### Frontend (Vercel)
+- `REACT_APP_API_BASE` (optional - code has fallback)
+
+### Backend (Vercel)
+- `DATABASE_URL` - PostgreSQL connection string
+- `ADMIN_PASS` - Admin password
+- `JWT_SECRET` - JWT secret key
+- `SUPABASE_URL` - Supabase URL
+- `SUPABASE_KEY` - Supabase key
+- `VERCEL=1`
+
+## Current Backend URL
+
+`https://backend-1zlnbxr38-trickals-projects.vercel.app`
+
+Update in `src/lib/getApiBase.ts` if backend is redeployed.

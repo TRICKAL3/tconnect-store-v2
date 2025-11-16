@@ -2,7 +2,7 @@
 // DIRECT APPROACH: Always use the backend URL directly
 // This is the most reliable method - no proxy needed
 
-const BACKEND_URL = 'https://backend-1zlnbxr38-trickals-projects.vercel.app';
+const BACKEND_URL = 'https://backend-e5399lu6s-trickals-projects.vercel.app';
 
 export const getApiBase = (): string => {
   // Check if we're in development (localhost)

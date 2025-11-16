@@ -47,11 +47,14 @@ app.use('/ttorders', ttOrdersRouter);
 app.use('/chats', chatsRouter);
 
 // Export for Vercel serverless functions
-// Vercel expects a handler function, not the app directly
+// Vercel needs the app exported as default
 export default app;
 
-// For Vercel, we also export a handler function
+// Also export as handler for compatibility
 export const handler = app;
+
+// For Vercel, we need to handle the request properly
+// The app will be used by @vercel/node automatically
 
 // Only listen if not in Vercel environment (for local development)
 if (process.env.VERCEL !== '1') {

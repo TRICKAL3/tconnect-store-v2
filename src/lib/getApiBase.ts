@@ -1,13 +1,14 @@
 // API Base URL Configuration
-// DIRECT APPROACH: Always use the backend URL directly
-// This is the most reliable method - no proxy needed
-
-const BACKEND_URL = 'https://tconnect-backend-2k8q7yzk6-trickals-projects.vercel.app';
+// Uses environment variable first, then falls back to hardcoded URL
 
 export const getApiBase = (): string => {
+  // Priority 1: Environment variable (set in Vercel - MOST RELIABLE)
+  if (process.env.REACT_APP_API_BASE) {
+    return process.env.REACT_APP_API_BASE;
+  }
+
   // Check if we're in development (localhost)
   if (typeof window === 'undefined') {
-    // SSR or build time - default to localhost
     return 'http://localhost:4000';
   }
 
@@ -19,8 +20,11 @@ export const getApiBase = (): string => {
     return 'http://localhost:4000';
   }
   
-  // Production - use backend URL directly
-  // The backend has CORS configured to allow all origins
-  return BACKEND_URL;
+  // Priority 2: Hardcoded fallback (UPDATE THIS with your current backend URL)
+  // Get this from: Vercel Dashboard → Backend Project → Copy the URL
+  const FALLBACK_BACKEND_URL = 'https://tconnect-backend-2k8q7yzk6-trickals-projects.vercel.app';
+  
+  console.warn('⚠️ [API] Using hardcoded backend URL. Set REACT_APP_API_BASE in Vercel for better reliability!');
+  return FALLBACK_BACKEND_URL;
 };
 

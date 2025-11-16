@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import authRouter from './routes/auth';
 import productsRouter from './routes/products';
@@ -66,4 +66,5 @@ app.get('/', (_req, res) => res.json({
 }));
 
 // Export for Vercel serverless functions
+// Vercel will automatically handle this with @vercel/node
 export default app;

@@ -67,4 +67,8 @@ app.get('/', (_req, res) => res.json({
 
 // Export for Vercel serverless functions
 // Vercel will automatically handle this with @vercel/node
+// The catch-all route [...path] means all /api/* requests come here
 export default app;
+
+// Also export as handler for compatibility
+export const handler = app;

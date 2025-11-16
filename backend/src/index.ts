@@ -34,6 +34,25 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
+// Root route
+app.get('/', (_req, res) => res.json({ 
+  message: 'TConnect Store API v2.0',
+  status: 'running',
+  endpoints: {
+    health: '/health',
+    auth: '/auth',
+    products: '/products',
+    orders: '/orders',
+    rates: '/rates',
+    invoices: '/invoices',
+    quotes: '/quotes',
+    users: '/users',
+    slides: '/slides',
+    ttorders: '/ttorders',
+    chats: '/chats'
+  }
+}));
+
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/auth', authRouter);
 app.use('/products', productsRouter);

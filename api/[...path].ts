@@ -1,101 +1,69 @@
-// Vercel Serverless Function to proxy API calls to backend
-// Catch-all route that handles all /api/* paths
+import express from 'express';
+import cors from 'cors';
+import authRouter from './routes/auth';
+import productsRouter from './routes/products';
+import ordersRouter from './routes/orders';
+import ratesRouter from './routes/rates';
+import invoicesRouter from './routes/invoices';
+import quotesRouter from './routes/quotes';
+import usersRouter from './routes/users';
+import slidesRouter from './routes/slides';
+import ttOrdersRouter from './routes/ttorders';
+import chatsRouter from './routes/chats';
 
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+const app = express();
 
-// Backend URL - set this in Vercel environment variables as BACKEND_URL
-const BACKEND_URL = process.env.BACKEND_URL || 'https://backend-72zfcspmp-trickals-projects.vercel.app';
+// CORS configuration - allow all origins
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Admin-Password'],
+  credentials: false
+}));
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  try {
-    // Handle CORS preflight
-    if (req.method === 'OPTIONS') {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Password');
-      return res.status(200).end();
-    }
+app.use(express.json());
 
-    // Get the path from the catch-all parameter
-    const pathArray = req.query.path as string[] | string;
-    const path = Array.isArray(pathArray) ? pathArray.join('/') : (pathArray || '');
-    const fullPath = path ? `/${path}` : '';
-    
-    // Add query string if present
-    const queryString = req.url?.includes('?') ? '?' + req.url.split('?')[1] : '';
-    const backendUrl = `${BACKEND_URL}${fullPath}${queryString}`;
+// Handle CORS preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Password');
+  res.sendStatus(200);
+});
 
-    console.log(`[API Proxy] ${req.method} ${fullPath || '/'} -> ${backendUrl}`);
-    console.log(`[API Proxy] Query:`, req.query);
-    console.log(`[API Proxy] Body:`, req.body);
+// Health check
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-    // Prepare headers
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+// API routes
+app.use('/auth', authRouter);
+app.use('/products', productsRouter);
+app.use('/orders', ordersRouter);
+app.use('/rates', ratesRouter);
+app.use('/invoices', invoicesRouter);
+app.use('/quotes', quotesRouter);
+app.use('/users', usersRouter);
+app.use('/slides', slidesRouter);
+app.use('/ttorders', ttOrdersRouter);
+app.use('/chats', chatsRouter);
 
-    // Forward authorization header if present
-    if (req.headers.authorization) {
-      headers['Authorization'] = req.headers.authorization as string;
-    }
-    
-    // Forward admin password header if present
-    if (req.headers['x-admin-password']) {
-      headers['X-Admin-Password'] = req.headers['x-admin-password'] as string;
-    }
-
-    // Prepare body for requests that need it
-    let body: string | undefined;
-    if (['POST', 'PUT', 'PATCH'].includes(req.method || '')) {
-      if (req.body) {
-        body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-      }
-    }
-
-    // Forward the request to the backend
-    const fetchOptions: RequestInit = {
-      method: req.method || 'GET',
-      headers,
-    };
-
-    if (body) {
-      fetchOptions.body = body;
-    }
-
-    const response = await fetch(backendUrl, fetchOptions);
-
-    // Get response data
-    const contentType = response.headers.get('content-type');
-    let data: any;
-    
-    if (contentType?.includes('application/json')) {
-      data = await response.json();
-    } else {
-      const text = await response.text();
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = text;
-      }
-    }
-
-    // Forward status and data
-    res.status(response.status);
-    
-    // Copy response headers
-    response.headers.forEach((value, key) => {
-      res.setHeader(key, value);
-    });
-    
-    res.json(data);
-  } catch (error: any) {
-    console.error('[API Proxy] Error:', error);
-    console.error('[API Proxy] Stack:', error.stack);
-    res.status(500).json({ 
-      error: 'Failed to proxy request to backend', 
-      message: error.message,
-      details: error.toString()
-    });
+// Root route
+app.get('/', (_req, res) => res.json({ 
+  message: 'TConnect Store API v2.0',
+  status: 'running',
+  endpoints: {
+    health: '/health',
+    auth: '/auth',
+    products: '/products',
+    orders: '/orders',
+    rates: '/rates',
+    invoices: '/invoices',
+    quotes: '/quotes',
+    users: '/users',
+    slides: '/slides',
+    ttorders: '/ttorders',
+    chats: '/chats'
   }
-}
+}));
 
+// Export for Vercel serverless functions
+export default app;

@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?  // Optional for Firebase OAuth users
+  name      String
+  phone     String?
+  avatarUrl String?
+  role      String   @default("user") // user, admin, staff
+  orders    Order[]
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  type        String   // giftcard | crypto | wallet | virtual-card
+  priceUsd    Float
+  image       String?
+  description String?
+  inStock     Boolean  @default(true)
+  featured    Boolean  @default(false)
+  popular     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Slide {
+  id          String   @id @default(cuid())
+  title       String
+  subtitle    String?
+  description String?
+  image       String
+  cta         String?
+  ctaLink     String?
+  order       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id         String   @id @default(cuid())
+  userId     String?
+  customer   String
+  email      String?
+  serviceType String?  // giftcard | crypto | wallet | virtual-card | tt-order | payment-transfer | other
+  items      String
+  totalUsd   Float
+  totalMwk   Int
+  notes      String?
+  status     String   @default("pending") // pending | sent | paid | cancelled
+  createdAt  DateTime @default(now())
+}
+
+model Quote {
+  id         String   @id @default(cuid())
+  userId     String?
+  customer   String
+  email      String?
+  items      String
+  totalUsd   Float
+  totalMwk   Int
+  status     String   @default("draft") // draft | sent | accepted | rejected
+  createdAt  DateTime @default(now())
+}
+
+model Rate {
+  id        String   @id @default(cuid())
+  type      String   // giftcard | crypto | wallet
+  value     Int      // MWK per 1 USD
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  status       String        @default("pending") // pending | approved | rejected | fulfilled
+  totalUsd     Float
+  totalMwk     Int
+  payment      PaymentSubmission?
+  items        OrderItem[]
+  createdAt    DateTime      @default(now())
+}
+
+model OrderItem {
+  id            String  @id @default(cuid())
+  orderId       String
+  order         Order   @relation(fields: [orderId], references: [id])
+  productId     String?
+  name          String
+  type          String
+  category      String
+  image         String?
+  priceUsd      Float
+  quantity      Int
+  metadata      String? // JSON string for crypto details, wallet email, etc.
+  giftCardCodes String? // JSON array of objects: [{"serialNumber": "SN123", "redeemCode": "REDEEM456"}, ...] - one per quantity
+}
+
+model PaymentSubmission {
+  id           String   @id @default(cuid())
+  orderId      String   @unique
+  order        Order    @relation(fields: [orderId], references: [id])
+  method       String   @default("bank")
+  bankName     String   @default("National Bank of Malawi")
+  accountName  String
+  accountNumber String?
+  transactionId String?
+  popUrl       String?
+  senderName   String
+  createdAt    DateTime @default(now())
+}
+
+model TTOrder {
+  id          String   @id @default(cuid())
+  customerName String
+  email       String
+  phone       String?
+  orderType   String   // TT Transfer | Payment to Supplier | Buy Currency | Vehicle Purchase | Other
+  amount      Float?
+  currency    String?  // USD | ZAR | CNY | MWK
+  details     String
+  status      String   @default("pending") // pending | in-progress | completed | cancelled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Chat {
+  id          String       @id @default(cuid())
+  userId      String?      // Optional - can be anonymous
+  userName    String?      // User's name if provided
+  userEmail   String?      // User's email if provided
+  status      String       @default("bot") // bot | waiting | active | closed
+  agentId     String?      // Admin/staff user ID when agent joins
+  messages    ChatMessage[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  chatId      String
+  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderType  String   // bot | user | agent
+  senderId    String?  // User ID if senderType is user or agent
+  senderName  String?  // Display name
+  content     String
+  imageUrl    String?  // URL to uploaded image if message contains image
+  createdAt   DateTime @default(now())
+}
+

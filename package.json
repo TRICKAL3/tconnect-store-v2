@@ -4,14 +4,20 @@
   "description": "TConnect Store v2.0 - Gift Cards & Crypto Purchases",
   "private": true,
   "dependencies": {
+    "@prisma/client": "^5.22.0",
     "@supabase/supabase-js": "^2.78.0",
     "@types/node": "^16.18.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.14",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
     "firebase": "^12.5.0",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.263.1",
     "postcss": "^8.4.21",
+    "prisma": "^5.18.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.0",
@@ -19,13 +25,15 @@
     "recharts": "^3.3.0",
     "tailwindcss": "^3.3.0",
     "typescript": "^4.9.0",
-    "web-vitals": "^2.1.0"
+    "web-vitals": "^2.1.0",
+    "zod": "^3.23.8"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "postinstall": "prisma generate"
   },
   "eslintConfig": {
     "extends": [
@@ -46,7 +54,11 @@
     ]
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
     "@types/jest": "^27.5.0",
+    "@types/jsonwebtoken": "^9.0.6",
     "@vercel/node": "^3.2.29"
   }
 }

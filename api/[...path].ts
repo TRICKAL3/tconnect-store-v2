@@ -35,6 +35,12 @@ app.options('*', (req, res) => {
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 // API routes
+// Add logging middleware to see what routes are being hit
+app.use((req, res, next) => {
+  console.log(`📡 API Request: ${req.method} ${req.path}`);
+  next();
+});
+
 app.use('/auth', authRouter);
 app.use('/products', productsRouter);
 app.use('/orders', ordersRouter);

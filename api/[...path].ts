@@ -1,15 +1,15 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import authRouter from './routes/auth';
-import productsRouter from './routes/products';
-import ordersRouter from './routes/orders';
-import ratesRouter from './routes/rates';
-import invoicesRouter from './routes/invoices';
-import quotesRouter from './routes/quotes';
-import usersRouter from './routes/users';
-import slidesRouter from './routes/slides';
-import ttOrdersRouter from './routes/ttorders';
-import chatsRouter from './routes/chats';
+import authRouter from '../server/routes/auth';
+import productsRouter from '../server/routes/products';
+import ordersRouter from '../server/routes/orders';
+import ratesRouter from '../server/routes/rates';
+import invoicesRouter from '../server/routes/invoices';
+import quotesRouter from '../server/routes/quotes';
+import usersRouter from '../server/routes/users';
+import slidesRouter from '../server/routes/slides';
+import ttOrdersRouter from '../server/routes/ttorders';
+import chatsRouter from '../server/routes/chats';
 
 const app = express();
 

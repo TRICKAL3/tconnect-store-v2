@@ -74,6 +74,16 @@ app.get('/', (_req, res) => res.json({
 
 // Export for Vercel serverless functions
 // Use handler function format for Vercel
-export default function handler(req: VercelRequest, res: VercelResponse) {
-  return app(req, res);
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    console.log('🚀 API Handler called:', req.method, req.url);
+    return app(req, res);
+  } catch (error: any) {
+    console.error('❌ Handler error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
 }

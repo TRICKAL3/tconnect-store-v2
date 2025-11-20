@@ -11,32 +11,32 @@ import perfectMoneyLogo from '../assets/perfect-money.jpg';
 const sampleSlides = [
   {
     id: 'sample-1',
-    title: 'Special Offer',
-    subtitle: 'Limited Time',
-    description: 'Get 10% off on all gift cards this week!',
-    image: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=600&fit=crop',
-    cta: 'Shop Now',
+    title: 'Gaming Gift Cards',
+    subtitle: 'Level Up Your Gaming',
+    description: 'Get instant access to Steam, PlayStation, Xbox, and more gaming platforms!',
+    image: 'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?w=800&h=600&fit=crop&q=80',
+    cta: 'Shop Gaming',
     ctaLink: '/giftcards',
     active: true
   },
   {
     id: 'sample-2',
-    title: 'New Arrivals',
-    subtitle: 'Fresh Stock',
-    description: 'Check out our latest gift card collection',
-    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop',
-    cta: 'Explore',
+    title: 'Welcome to tconnect',
+    subtitle: 'Your Ultimate Gifting Solution',
+    description: 'Discover premium gift cards for all your favorite brands. Easy to purchase, instant to deliver!',
+    image: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=600&fit=crop&q=80',
+    cta: 'Start Shopping',
     ctaLink: '/giftcards',
     active: true
   },
   {
     id: 'sample-3',
-    title: 'Best Deals',
-    subtitle: 'Hot Deals',
-    description: 'Don\'t miss out on our exclusive offers',
-    image: 'https://images.unsplash.com/photo-1556740758-90de374c12ad?w=800&h=600&fit=crop',
-    cta: 'View Deals',
-    ctaLink: '/giftcards',
+    title: 'Cryptocurrency',
+    subtitle: 'Trade Digital Assets',
+    description: 'Buy and sell Bitcoin, Ethereum, USDT, and other cryptocurrencies securely!',
+    image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop&q=80',
+    cta: 'Explore Crypto',
+    ctaLink: '/crypto',
     active: true
   }
 ];

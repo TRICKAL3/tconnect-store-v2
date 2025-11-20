@@ -105,15 +105,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       path = '/' + path;
     }
     
+    // Preserve query string if present
+    const originalQuery = req.url?.includes('?') ? req.url.split('?')[1] : '';
+    const fullPath = originalQuery ? `${path}?${originalQuery}` : path;
+    
     // Update the request URL and path to match what Express expects
-    req.url = path;
+    req.url = fullPath;
     req.path = path;
+    
+    // Preserve query parameters in req.query
+    if (originalQuery && !req.query.path) {
+      // Parse query string and merge with existing query
+      const queryParams = new URLSearchParams(originalQuery);
+      queryParams.forEach((value, key) => {
+        if (!req.query[key]) {
+          req.query[key] = value;
+        }
+      });
+    }
     
     console.log('🚀 API Handler called:', {
       method: req.method,
       originalUrl: req.url,
-      query: req.query,
       path: path,
+      fullPath: fullPath,
+      query: req.query,
       queryPath: req.query.path
     });
     

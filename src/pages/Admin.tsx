@@ -1935,15 +1935,23 @@ function TTOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
   const load = async () => {
     setLoading(true);
     try {
+      console.log('📦 [TTOrders] Loading TT orders from:', `${API_BASE}/ttorders`);
       const res = await fetch(`${API_BASE}/ttorders`, { headers: getAdminHeaders() as HeadersInit });
+      console.log('📥 [TTOrders] Response status:', res.status);
+      
       if (!res.ok) {
-        throw new Error('Failed to load TT orders');
+        const errorText = await res.text();
+        console.error('❌ [TTOrders] Failed to load:', res.status, errorText);
+        throw new Error(`Failed to load TT orders: ${res.status} ${res.statusText}`);
       }
+      
       const data = await res.json();
+      console.log('✅ [TTOrders] Loaded', Array.isArray(data) ? data.length : 'non-array', 'orders');
       setOrders(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Failed to load TT orders:', error);
+    } catch (error: any) {
+      console.error('❌ [TTOrders] Error loading TT orders:', error);
       setOrders([]);
+      alert(`Failed to load TT orders: ${error.message || 'Unknown error'}. Check console for details.`);
     } finally {
       setLoading(false);
     }

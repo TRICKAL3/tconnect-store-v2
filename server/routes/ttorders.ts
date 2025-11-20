@@ -36,10 +36,12 @@ router.post('/', async (req: any, res) => {
 // Get all TT orders (Admin only)
 router.get('/', basicAdminAuth, async (_req: any, res) => {
   try {
+    console.log('📦 [TTOrders] Fetching all TT orders...');
     const orders = await prisma.tTOrder.findMany({ orderBy: { createdAt: 'desc' } });
+    console.log(`✅ [TTOrders] Found ${orders.length} TT orders`);
     res.json(orders);
   } catch (error: any) {
-    console.error('Error fetching TT orders:', error);
+    console.error('❌ [TTOrders] Error fetching TT orders:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch TT orders' });
   }
 });

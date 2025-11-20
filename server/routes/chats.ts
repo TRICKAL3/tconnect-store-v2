@@ -149,29 +149,6 @@ router.post('/:id/messages', async (req, res) => {
   }
 });
 
-// Admin: Get all chats (must be before /:id route)
-router.get('/all', basicAdminAuth, async (_req, res) => {
-  try {
-    const chats = await prisma.chat.findMany({
-      include: {
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 1 // Get only the latest message for preview
-        },
-        _count: {
-          select: { messages: true }
-        }
-      },
-      orderBy: { updatedAt: 'desc' }
-    });
-
-    res.json(chats);
-  } catch (error: any) {
-    console.error('Failed to get chats:', error);
-    res.status(500).json({ error: error.message || 'Failed to get chats' });
-  }
-});
-
 // Admin: Join a chat (agent joins)
 router.post('/:id/join', basicAdminAuth, async (req, res) => {
   try {
@@ -297,4 +274,3 @@ router.post('/:id/close', basicAdminAuth, async (req, res) => {
 });
 
 export default router;
-

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { getApiBase } from '../lib/getApiBase';
+import { getApiBase } from '../lib/getApiBase';
 
 const OrderHistory: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -32,8 +33,15 @@ const OrderHistory: React.FC = () => {
       const API_BASE = getApiBase();
       const url = `${API_BASE}/orders/me?email=${encodeURIComponent(user.email)}`;
       console.log('📤 [OrderHistory] Fetching orders for:', user.email, 'from:', url);
+      console.log('📤 [OrderHistory] API Base:', API_BASE);
       
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Don't include credentials to avoid CORS issues
+      });
       console.log('📥 [OrderHistory] Response status:', res.status, res.statusText);
       
       if (res.ok) {

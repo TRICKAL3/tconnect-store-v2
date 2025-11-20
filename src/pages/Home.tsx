@@ -349,54 +349,53 @@ const Home: React.FC = () => {
                           index === currentSlide ? 'opacity-100 relative' : 'opacity-0 absolute inset-0 pointer-events-none'
                         }`}
                       >
-                        <div className="bg-dark-surface/50 backdrop-blur-sm border border-neon-blue/30 rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden">
-                          <div className="text-center">
-                            <div className="mb-4 transform hover:scale-105 transition-transform duration-500 rounded-xl overflow-hidden">
-                              {slide.image && (slide.image.startsWith('http') || slide.image.startsWith('/') || slide.image.startsWith('data:')) ? (
-                                <img 
-                                  src={slide.image} 
-                                  alt={slide.title || 'Promotion'} 
-                                  className="w-full h-48 sm:h-56 md:h-64 lg:h-72 object-cover rounded-xl"
-                                  onError={(e) => {
-                                    // Fallback to emoji if image fails
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    const fallback = document.createElement('div');
-                                    fallback.className = 'text-6xl sm:text-7xl md:text-8xl lg:text-9xl mb-4 neon-glow';
-                                    fallback.textContent = '🎁';
-                                    target.parentElement?.appendChild(fallback);
-                                  }}
-                                />
-                              ) : (
-                                <div className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl mb-4 neon-glow">
-                                  {slide.image || '🎁'}
+                        <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+                          {slide.image && (slide.image.startsWith('http') || slide.image.startsWith('/') || slide.image.startsWith('data:')) ? (
+                            <>
+                              <img 
+                                src={slide.image} 
+                                alt={slide.title || 'Promotion'} 
+                                className="w-full h-64 sm:h-72 md:h-80 lg:h-96 object-cover"
+                                onError={(e) => {
+                                  // Fallback to emoji if image fails
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const fallback = document.createElement('div');
+                                  fallback.className = 'w-full h-64 sm:h-72 md:h-80 lg:h-96 bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow';
+                                  fallback.textContent = '🎁';
+                                  target.parentElement?.appendChild(fallback);
+                                }}
+                              />
+                              {/* Title overlay - Top Left */}
+                              {slide.title && (
+                                <div className="absolute top-4 left-4">
+                                  <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg holographic">
+                                    {slide.title}
+                                  </h3>
+                                  {slide.subtitle && (
+                                    <p className="text-sm sm:text-base md:text-lg text-neon-blue drop-shadow-lg mt-1">
+                                      {slide.subtitle}
+                                    </p>
+                                  )}
                                 </div>
                               )}
+                              {/* CTA Button - Bottom Right */}
+                              {slide.cta && slide.ctaLink && (
+                                <div className="absolute bottom-4 right-4">
+                                  <Link
+                                    to={slide.ctaLink}
+                                    className="inline-block bg-neon-blue/90 hover:bg-neon-blue text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-semibold text-sm md:text-base shadow-lg hover:shadow-xl transition-all active:scale-95 neon-glow"
+                                  >
+                                    {slide.cta}
+                                  </Link>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="w-full h-64 sm:h-72 md:h-80 lg:h-96 bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow rounded-2xl">
+                              {slide.image || '🎁'}
                             </div>
-                            {slide.title && (
-                              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2 holographic">
-                                {slide.title}
-                              </h3>
-                            )}
-                            {slide.subtitle && (
-                              <p className="text-base sm:text-lg md:text-xl text-neon-blue mb-2">
-                                {slide.subtitle}
-                              </p>
-                            )}
-                            {slide.description && (
-                              <p className="text-sm sm:text-base text-gray-300 mb-4">
-                                {slide.description}
-                              </p>
-                            )}
-                            {slide.cta && slide.ctaLink && (
-                              <Link
-                                to={slide.ctaLink}
-                                className="inline-block cyber-border text-white px-4 py-2 rounded-lg font-semibold text-sm md:text-base hover:neon-glow transition-all active:scale-95"
-                              >
-                                {slide.cta}
-                              </Link>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -420,13 +419,15 @@ const Home: React.FC = () => {
                     )}
                   </>
                 ) : (
-                  <div className="bg-dark-surface/50 backdrop-blur-sm border border-neon-blue/30 rounded-2xl p-6 md:p-8 shadow-2xl text-center">
+                  <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                     <img 
                       src="https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=600&fit=crop" 
                       alt="No promotions" 
-                      className="w-full h-48 sm:h-56 md:h-64 lg:h-72 object-cover rounded-xl mb-4"
+                      className="w-full h-64 sm:h-72 md:h-80 lg:h-96 object-cover"
                     />
-                    <p className="text-gray-400 text-sm">No promotions available</p>
+                    <div className="absolute bottom-4 right-4">
+                      <p className="text-white text-sm bg-black/50 px-3 py-2 rounded">No promotions available</p>
+                    </div>
                   </div>
                 )}
               </div>

@@ -30,11 +30,18 @@ const GiftCards: React.FC = () => {
   ];
 
   const [remote, setRemote] = useState<GiftCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
+      setError(null);
       try {
+        console.log('🛍️ [GiftCards] Fetching products...');
         const products = await fetchProducts();
+        console.log('✅ [GiftCards] Received products:', products.length);
+        
         const cards = products
           .filter(p => p.type === 'giftcard')
           .map<GiftCard>(p => ({
@@ -47,9 +54,14 @@ const GiftCards: React.FC = () => {
             rating: 5,
             inStock: p.inStock
           }));
+        
+        console.log('🎁 [GiftCards] Gift cards after filtering:', cards.length);
         setRemote(cards);
       } catch (e: any) {
-        console.error('Failed to load products:', e);
+        console.error('❌ [GiftCards] Failed to load products:', e);
+        setError(e.message || 'Failed to load products');
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -158,13 +170,49 @@ const GiftCards: React.FC = () => {
           </div>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-neon-blue mb-4"></div>
+            <p className="text-gray-300">Loading products...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="card-dark p-6 mb-8 text-center">
+            <p className="text-red-400 mb-2">❌ Error loading products</p>
+            <p className="text-gray-400 text-sm">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-neon-blue text-white rounded-lg hover:bg-neon-blue/80 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-gray-300">
-            Showing {sortedCards.length} of {giftCards.length} gift cards
-            {selectedCategory !== 'All' && ` in ${selectedCategory}`}
-          </p>
-        </div>
+        {!loading && !error && (
+          <div className="mb-6">
+            <p className="text-gray-300">
+              Showing {sortedCards.length} of {giftCards.length} gift cards
+              {selectedCategory !== 'All' && ` in ${selectedCategory}`}
+            </p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && sortedCards.length === 0 && (
+          <div className="card-dark p-12 text-center">
+            <p className="text-gray-400 text-lg mb-2">No gift cards found</p>
+            <p className="text-gray-500 text-sm">
+              {giftCards.length === 0 
+                ? 'No products available. Please add products in the admin panel.'
+                : 'Try adjusting your filters or search term.'}
+            </p>
+          </div>
+        )}
 
         {/* Gift Cards Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">

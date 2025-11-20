@@ -5,8 +5,18 @@ import { basicAdminAuth } from '../lib/adminAuth';
 const router = Router();
 
 router.get('/', async (_req, res) => {
-  const products = await prisma.product.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json(products);
+  try {
+    console.log('📦 [Products] Fetching all products...');
+    const products = await prisma.product.findMany({ orderBy: { createdAt: 'desc' } });
+    console.log(`✅ [Products] Found ${products.length} products`);
+    res.json(products);
+  } catch (error: any) {
+    console.error('❌ [Products] Error fetching products:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch products',
+      message: error.message 
+    });
+  }
 });
 
 // Create/update (temporarily open for setup)

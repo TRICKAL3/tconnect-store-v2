@@ -45,6 +45,7 @@ const Home: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slides, setSlides] = useState<any[]>([]);
   const navigate = useNavigate();
+  const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
 
   // Fetch slides from backend
   useEffect(() => {

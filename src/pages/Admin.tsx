@@ -1056,10 +1056,10 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
         headers: headers as HeadersInit,
         body: JSON.stringify({ 
           codes: isVirtualCard 
-            ? giftCardCodes.map(c => ({ activationLink: c.activationLink.trim() }))
+            ? giftCardCodes.map(c => ({ activationLink: (c.activationLink || '').trim() }))
             : giftCardCodes.map(c => ({ 
-                serialNumber: c.serialNumber.trim(), 
-                redeemCode: c.redeemCode.trim() 
+                serialNumber: (c.serialNumber || '').trim(), 
+                redeemCode: (c.redeemCode || '').trim() 
               }))
         })
       });

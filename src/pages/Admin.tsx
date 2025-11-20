@@ -1194,6 +1194,25 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                           </div>
                         )}
                         
+                        {/* Virtual Card Activation Links */}
+                        {item.type === 'virtual-card' && codes && codes.length > 0 && (
+                          <div className="mt-2 ml-3 p-2 bg-dark-bg rounded border border-blue-400/30">
+                            <div className="text-blue-400 font-bold mb-1">Activation Links:</div>
+                            <div className="space-y-2">
+                              {codes.map((link: any, linkIdx: number) => {
+                                const activationLink = typeof link === 'object' ? link.activationLink : link;
+                                return (
+                                  <div key={linkIdx} className="text-xs">
+                                    <div className="font-mono text-blue-300 break-all">
+                                      <strong>#{linkIdx + 1}</strong> <a href={activationLink} target="_blank" rel="noopener noreferrer" className="hover:underline">{activationLink}</a>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
                         {/* Crypto Order Details */}
                         {item.type === 'crypto' && metadata && (
                           <div className="mt-2 ml-3 p-2 bg-dark-bg rounded border border-neon-blue/30">

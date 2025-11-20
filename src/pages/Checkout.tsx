@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { getMwkAmountFromUsd } from '../utils/rates';
 import { getApiBase } from '../lib/getApiBase';
 import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../context/AuthContext';
 
 const Checkout: React.FC = () => {
   const { state, dispatch } = useCart();

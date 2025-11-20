@@ -976,7 +976,7 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [giftCardCodes, setGiftCardCodes] = useState<Array<{ serialNumber: string; redeemCode: string }>>([]);
+  const [giftCardCodes, setGiftCardCodes] = useState<Array<{ serialNumber?: string; redeemCode?: string; activationLink?: string }>>([]);
   
   const load = async () => {
     setLoading(true);

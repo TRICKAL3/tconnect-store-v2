@@ -782,6 +782,25 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       setUploading(false);
     }
   };
+  const deleteProduct = async (id: string) => {
+    try {
+      const headers = getHeaders();
+      const res = await fetch(`${API_BASE}/products/${id}`, {
+        method: 'DELETE',
+        headers: headers as HeadersInit
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `Server error: ${res.status}`);
+      }
+      await load();
+      alert('Product deleted successfully');
+    } catch (error: any) {
+      console.error('Failed to delete product:', error);
+      alert(`Failed to delete product: ${error.message || 'Unknown error'}`);
+    }
+  };
+
   const toggle = async (p: any, field: 'inStock'|'featured'|'popular') => {
     const body = { [field]: !p[field] } as any;
     await fetch(`${API_BASE}/products/${p.id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(body) });

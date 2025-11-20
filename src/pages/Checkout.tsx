@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, CreditCard, Coins, Shield, CheckCircle, Building2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { getMwkAmountFromUsd } from '../utils/rates';
+import { getApiBase } from '../lib/getApiBase';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
@@ -72,7 +74,18 @@ const Checkout: React.FC = () => {
         }
       }
       const totalMwkInt = Math.round(totalMwk);
-      const response = await fetch((process.env.REACT_APP_API_BASE || 'http://localhost:4000') + '/orders', {
+      const API_BASE = getApiBase();
+      const url = `${API_BASE}/orders`;
+      
+      console.log('🛒 [Checkout] Submitting order to:', url);
+      console.log('🛒 [Checkout] Order data:', {
+        itemsCount: state.items.length,
+        totalUsd: state.total,
+        totalMwk: totalMwkInt,
+        userEmail: user?.email
+      });
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -90,6 +103,8 @@ const Checkout: React.FC = () => {
           }
         })
       });
+      
+      console.log('📥 [Checkout] Response status:', response.status);
 
       const orderData = await response.json();
 

@@ -105,20 +105,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       path = '/' + path;
     }
     
-    // Preserve query string if present
-    const originalQuery = req.url?.includes('?') ? req.url.split('?')[1] : '';
+    // Preserve query string if present in original URL
+    let originalQuery = '';
+    if (req.url && typeof req.url === 'string' && req.url.includes('?')) {
+      originalQuery = req.url.split('?')[1];
+    } else if (req.query && Object.keys(req.query).length > 0) {
+      // Build query string from req.query (excluding path)
+      const queryParts: string[] = [];
+      Object.keys(req.query).forEach(key => {
+        if (key !== 'path') {
+          const value = req.query[key];
+          if (Array.isArray(value)) {
+            value.forEach(v => queryParts.push(`${key}=${encodeURIComponent(String(v))}`));
+          } else if (value !== undefined && value !== null) {
+            queryParts.push(`${key}=${encodeURIComponent(String(value))}`);
+          }
+        }
+      });
+      originalQuery = queryParts.join('&');
+    }
+    
     const fullPath = originalQuery ? `${path}?${originalQuery}` : path;
     
     // Update the request URL and path to match what Express expects
     req.url = fullPath;
     req.path = path;
     
-    // Preserve query parameters in req.query
-    if (originalQuery && !req.query.path) {
-      // Parse query string and merge with existing query
+    // Preserve query parameters in req.query (already handled by Vercel, but ensure they're there)
+    if (originalQuery) {
       const queryParams = new URLSearchParams(originalQuery);
       queryParams.forEach((value, key) => {
-        if (!req.query[key]) {
+        if (key !== 'path' && !req.query[key]) {
           req.query[key] = value;
         }
       });

@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { getApiBase } from '../lib/getApiBase';
-import { getApiBase } from '../lib/getApiBase';
 
 const OrderHistory: React.FC = () => {
   const { user, loading: authLoading } = useAuth();

@@ -40,5 +40,20 @@ router.put('/:id', basicAdminAuth, async (req: any, res) => {
   res.json(product);
 });
 
+router.delete('/:id', basicAdminAuth, async (req: any, res) => {
+  try {
+    console.log('🗑️ [Products] Deleting product:', req.params.id);
+    await prisma.product.delete({ where: { id: req.params.id } });
+    console.log('✅ [Products] Product deleted successfully');
+    res.json({ success: true, message: 'Product deleted successfully' });
+  } catch (error: any) {
+    console.error('❌ [Products] Error deleting product:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete product',
+      message: error.message 
+    });
+  }
+});
+
 export default router;
 

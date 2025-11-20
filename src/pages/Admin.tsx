@@ -900,6 +900,16 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete "${p.name}"? This action cannot be undone.`)) {
+                        deleteProduct(p.id);
+                      }
+                    }}
+                    className="px-3 py-1 text-red-400 border border-red-400/30 rounded text-sm hover:bg-red-400/10 transition-colors"
+                  >
+                    Delete
+                  </button>
                   <button onClick={() => toggle(p, 'inStock')} className="cyber-border text-white px-3 py-1 rounded text-sm hover:neon-glow transition-all">
                     {p.inStock ? 'Set Out' : 'Set In'} Stock
                   </button>

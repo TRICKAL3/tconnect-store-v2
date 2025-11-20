@@ -930,8 +930,28 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
 
   const save = async () => {
     setSaving(true);
-    await fetch(`${API_BASE}/rates`, { method: 'POST', headers: { ...{'Content-Type': 'application/json'}, ...getAdminHeaders() }, body: JSON.stringify({ type, value: Math.round(value) }) });
-    setSaving(false);
+    try {
+      const res = await fetch(`${API_BASE}/rates`, { 
+        method: 'POST', 
+        headers: { ...{'Content-Type': 'application/json'}, ...getAdminHeaders() }, 
+        body: JSON.stringify({ type, value: Math.round(value) }) 
+      });
+      if (res.ok) {
+        alert('Rate saved successfully! The UI will update within 30 seconds.');
+        // Force refresh rates cache in all open tabs
+        if (typeof window !== 'undefined' && (window as any).refreshRates) {
+          (window as any).refreshRates();
+        }
+        setValue(0); // Reset form
+      } else {
+        throw new Error(`Failed to save rate: ${res.statusText}`);
+      }
+    } catch (error: any) {
+      console.error('Failed to save rate:', error);
+      alert(`Failed to save rate: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
   return (
     <div className="space-y-4">

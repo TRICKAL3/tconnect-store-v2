@@ -21,11 +21,11 @@ const sampleSlides = [
   },
   {
     id: 'sample-2',
-    title: 'Welcome to tconnect',
-    subtitle: 'Your Ultimate Gifting Solution',
-    description: 'Discover premium gift cards for all your favorite brands. Easy to purchase, instant to deliver!',
-    image: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=600&fit=crop&q=80',
-    cta: 'Start Shopping',
+    title: 'Entertainment',
+    subtitle: 'Netflix & Spotify',
+    description: 'Stream your favorite shows and music with premium entertainment gift cards!',
+    image: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&h=600&fit=crop&q=80',
+    cta: 'Explore Entertainment',
     ctaLink: '/giftcards',
     active: true
   },
@@ -34,9 +34,19 @@ const sampleSlides = [
     title: 'Cryptocurrency',
     subtitle: 'Trade Digital Assets',
     description: 'Buy and sell Bitcoin, Ethereum, USDT, and other cryptocurrencies securely!',
-    image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1620321023374-d1a68fbc720d?w=800&h=600&fit=crop&q=80',
     cta: 'Explore Crypto',
     ctaLink: '/crypto',
+    active: true
+  },
+  {
+    id: 'sample-4',
+    title: 'Digital Wallets',
+    subtitle: 'PayPal & Virtual Cards',
+    description: 'Get PayPal, Skrill, Neteller, and virtual prepaid cards for online payments!',
+    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop&q=80',
+    cta: 'View Wallets',
+    ctaLink: '/wallets',
     active: true
   }
 ];

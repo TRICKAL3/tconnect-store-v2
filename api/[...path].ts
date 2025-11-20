@@ -76,7 +76,23 @@ app.get('/', (_req, res) => res.json({
 // Use handler function format for Vercel
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    console.log('🚀 API Handler called:', req.method, req.url);
+    // Extract path from Vercel's catch-all route
+    // When /api/products is requested, Vercel passes it as req.query.path = ['products']
+    const path = Array.isArray(req.query.path) 
+      ? '/' + req.query.path.join('/')
+      : req.query.path 
+        ? '/' + req.query.path
+        : '/';
+    
+    // Remove /api prefix if present (Vercel rewrite already handles this)
+    const cleanPath = path.startsWith('/api') ? path.slice(4) : path;
+    
+    // Update the request URL to match what Express expects
+    req.url = cleanPath || '/';
+    req.path = cleanPath || '/';
+    
+    console.log('🚀 API Handler called:', req.method, req.url, 'Original path:', path);
+    
     return app(req, res);
   } catch (error: any) {
     console.error('❌ Handler error:', error);

@@ -4,6 +4,29 @@ import { basicAdminAuth } from '../lib/adminAuth';
 
 const router = Router();
 
+// Admin: Get all chats (MUST be before /:id route to avoid conflicts)
+router.get('/all', basicAdminAuth, async (_req, res) => {
+  try {
+    const chats = await prisma.chat.findMany({
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1 // Get only the latest message for preview
+        },
+        _count: {
+          select: { messages: true }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    res.json(chats);
+  } catch (error: any) {
+    console.error('Failed to get chats:', error);
+    res.status(500).json({ error: error.message || 'Failed to get chats' });
+  }
+});
+
 // Create a new chat session
 router.post('/', async (req, res) => {
   try {

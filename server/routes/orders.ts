@@ -59,13 +59,40 @@ router.post('/', async (req: any, res) => {
   }
 });
 
-// Current user's orders
+// Current user's orders (MUST be before /:id routes)
 router.get('/me', async (req: any, res) => {
-  if (!req.query.email) return res.json([]);
-  const user = await prisma.user.findUnique({ where: { email: String(req.query.email) } });
-  if (!user) return res.json([]);
-  const orders = await prisma.order.findMany({ where: { userId: user.id }, include: { items: true, payment: true }, orderBy: { createdAt: 'desc' } });
-  res.json(orders);
+  try {
+    if (!req.query.email) {
+      console.log('⚠️ [Orders] /me called without email');
+      return res.json([]);
+    }
+    
+    const email = String(req.query.email);
+    console.log('📦 [Orders] Fetching orders for email:', email);
+    
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      console.log('⚠️ [Orders] User not found for email:', email);
+      return res.json([]);
+    }
+    
+    const orders = await prisma.order.findMany({ 
+      where: { userId: user.id }, 
+      include: { 
+        items: {
+          orderBy: { createdAt: 'asc' }
+        }, 
+        payment: true 
+      }, 
+      orderBy: { createdAt: 'desc' } 
+    });
+    
+    console.log('✅ [Orders] Found', orders.length, 'orders for user:', email);
+    res.json(orders);
+  } catch (error: any) {
+    console.error('❌ [Orders] Error fetching user orders:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch orders' });
+  }
 });
 
 // Admin: list all and update status

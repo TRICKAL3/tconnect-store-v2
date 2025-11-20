@@ -34,7 +34,7 @@ const sampleSlides = [
     title: 'Cryptocurrency',
     subtitle: 'Trade Digital Assets',
     description: 'Buy and sell Bitcoin, Ethereum, USDT, and other cryptocurrencies securely!',
-    image: 'https://images.unsplash.com/photo-1620321023374-d1a68fbc720d?w=800&h=600&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop&q=80',
     cta: 'Explore Crypto',
     ctaLink: '/crypto',
     active: true

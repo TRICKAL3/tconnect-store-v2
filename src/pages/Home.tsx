@@ -64,12 +64,19 @@ const Home: React.FC = () => {
         const API_BASE = getApiBase();
         const res = await fetch(`${API_BASE}/slides`);
         const data = await res.json();
-        const backendSlides = Array.isArray(data) ? data.filter((s: any) => s.active) : [];
-        // Use backend slides if available, otherwise use samples
-        setSlides(backendSlides.length > 0 ? backendSlides : sampleSlides);
+        const backendSlides = Array.isArray(data) ? data.filter((s: any) => s.active && s.image) : [];
+        // Use backend slides if available and have images, otherwise use samples
+        if (backendSlides.length > 0) {
+          console.log('📸 Using backend slides:', backendSlides.length);
+          setSlides(backendSlides);
+        } else {
+          console.log('📸 Using sample slides:', sampleSlides.length);
+          setSlides(sampleSlides);
+        }
       } catch (error) {
         console.error('Failed to load slides:', error);
         // Use sample slides if backend fails
+        console.log('📸 Using sample slides (fallback):', sampleSlides.length);
         setSlides(sampleSlides);
       }
     };

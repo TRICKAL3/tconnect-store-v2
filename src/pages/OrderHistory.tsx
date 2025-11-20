@@ -233,13 +233,19 @@ const OrderHistory: React.FC = () => {
                   <div className="space-y-2">
                     {order.items?.map((item: any, idx: number) => {
                       let codes = null;
+                      let activationLinks = null;
                       try {
-                        codes = item.giftCardCodes ? (typeof item.giftCardCodes === 'string' ? JSON.parse(item.giftCardCodes) : item.giftCardCodes) : null;
+                        const parsed = item.giftCardCodes ? (typeof item.giftCardCodes === 'string' ? JSON.parse(item.giftCardCodes) : item.giftCardCodes) : null;
+                        if (item.type === 'virtual-card' && parsed) {
+                          activationLinks = parsed;
+                        } else {
+                          codes = parsed;
+                        }
                       } catch (e) {
-                        console.error('Failed to parse codes:', e);
+                        console.error('Failed to parse codes/links:', e);
                       }
 
-                      // Only show codes if order is fulfilled/approved/done
+                      // Only show codes/links if order is fulfilled/approved/done
                       const orderComplete = order.status === 'fulfilled' || order.status === 'approved' || order.status === 'done';
 
                       return (
@@ -350,10 +356,85 @@ const OrderHistory: React.FC = () => {
                             </div>
                           )}
                           
+                          {/* Virtual Card Activation Links Section */}
+                          {item.type === 'virtual-card' && activationLinks && activationLinks.length > 0 && orderComplete && (
+                            <div className="mt-3">
+                              {!visibleCodes[`${order.id}-${idx}`] ? (
+                                <button
+                                  onClick={() => {
+                                    setVisibleCodes({ ...visibleCodes, [`${order.id}-${idx}`]: true });
+                                  }}
+                                  className="w-full px-3 md:px-4 py-2 bg-blue-400/20 border border-blue-400/30 rounded-lg text-blue-300 hover:bg-blue-400/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  <span className="font-semibold text-sm md:text-base">View Activation Links</span>
+                                </button>
+                              ) : (
+                                <div className="p-3 md:p-4 bg-blue-400/10 border border-blue-400/30 rounded-lg">
+                                  <div className="flex items-center justify-between mb-2 md:mb-3">
+                                    <div className="text-blue-400 font-bold text-xs md:text-sm">💳 Your Virtual Card Activation Links:</div>
+                                    <button
+                                      onClick={() => {
+                                        setVisibleCodes({ ...visibleCodes, [`${order.id}-${idx}`]: false });
+                                      }}
+                                      className="px-2 md:px-3 py-1 bg-dark-bg border border-blue-400/30 rounded text-blue-300 hover:bg-blue-400/20 active:scale-95 transition-all flex items-center gap-1 text-xs"
+                                    >
+                                      <EyeOff className="w-3 h-3" />
+                                      Hide
+                                    </button>
+                                  </div>
+                                  <div className="space-y-2 md:space-y-3">
+                                    {activationLinks.map((link: any, linkIdx: number) => {
+                                      const activationLink = typeof link === 'object' ? link.activationLink : link;
+                                      
+                                      return (
+                                        <div key={linkIdx} className="p-2 md:p-3 bg-dark-bg rounded border border-blue-400/20">
+                                          <div className="text-blue-300 font-semibold text-xs mb-2">Virtual Card #{linkIdx + 1}</div>
+                                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-gray-400 text-xs mb-1">Activation Link:</div>
+                                              <a 
+                                                href={activationLink} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="font-mono text-blue-300 text-xs md:text-sm break-all hover:underline"
+                                              >
+                                                {activationLink}
+                                              </a>
+                                            </div>
+                                            <button
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(activationLink);
+                                                alert('Activation link copied to clipboard!');
+                                              }}
+                                              className="px-2 py-1.5 bg-blue-400/20 text-blue-300 rounded text-xs hover:bg-blue-400/30 active:scale-95 transition-all flex-shrink-0"
+                                            >
+                                              Copy Link
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <p className="text-blue-300/70 text-xs mt-2 md:mt-3">
+                                    Click the activation link to activate your virtual card. Please save these links securely.
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
                           {/* Show message if gift card but codes not available yet */}
                           {item.type === 'giftcard' && (!codes || codes.length === 0) && !orderComplete && (
                             <div className="mt-3 p-3 bg-gray-400/10 border border-gray-400/30 rounded-lg">
                               <p className="text-gray-400 text-xs">Gift card codes will be available after your order is fulfilled.</p>
+                            </div>
+                          )}
+                          
+                          {/* Show message if virtual card but links not available yet */}
+                          {item.type === 'virtual-card' && (!activationLinks || activationLinks.length === 0) && !orderComplete && (
+                            <div className="mt-3 p-3 bg-gray-400/10 border border-gray-400/30 rounded-lg">
+                              <p className="text-gray-400 text-xs">Activation links will be available after your order is fulfilled.</p>
                             </div>
                           )}
                         </div>

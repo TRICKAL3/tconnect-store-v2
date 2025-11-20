@@ -1010,6 +1010,8 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   const handleFulfill = (order: any) => {
     // Check if order has gift card items without codes
     const giftCardItems = order.items?.filter((item: any) => item.type === 'giftcard' && !item.giftCardCodes);
+    // Check if order has virtual card items without activation links
+    const virtualCardItems = order.items?.filter((item: any) => item.type === 'virtual-card' && !item.giftCardCodes);
     
     if (giftCardItems && giftCardItems.length > 0) {
       // Show code entry modal for each gift card item
@@ -1017,8 +1019,14 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
       setSelectedItem(giftCardItems[0]);
       setGiftCardCodes(new Array(giftCardItems[0].quantity).fill(null).map(() => ({ serialNumber: '', redeemCode: '' })));
       setShowCodeModal(true);
+    } else if (virtualCardItems && virtualCardItems.length > 0) {
+      // Show activation link entry modal for each virtual card item
+      setSelectedOrder(order);
+      setSelectedItem(virtualCardItems[0]);
+      setGiftCardCodes(new Array(virtualCardItems[0].quantity).fill(null).map(() => ({ activationLink: '' })));
+      setShowCodeModal(true);
     } else {
-      // No gift cards or all have codes, just fulfill
+      // No gift cards/virtual cards or all have codes/links, just fulfill
       setStatus(order.id, 'fulfilled');
     }
   };
@@ -1026,10 +1034,19 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   const saveCodes = async () => {
     if (!selectedOrder || !selectedItem) return;
     
-    // Validate all codes are filled
-    if (giftCardCodes.some(item => !item.serialNumber.trim() || !item.redeemCode.trim())) {
-      alert('Please fill in all serial numbers and redeem codes');
-      return;
+    const isVirtualCard = selectedItem.type === 'virtual-card';
+    
+    // Validate all codes/links are filled
+    if (isVirtualCard) {
+      if (giftCardCodes.some(item => !item.activationLink || !item.activationLink.trim())) {
+        alert('Please fill in all activation links');
+        return;
+      }
+    } else {
+      if (giftCardCodes.some(item => !item.serialNumber?.trim() || !item.redeemCode?.trim())) {
+        alert('Please fill in all serial numbers and redeem codes');
+        return;
+      }
     }
 
     const headers = { 'Content-Type': 'application/json', ...getAdminHeaders() };
@@ -1038,26 +1055,33 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
         method: 'PATCH',
         headers: headers as HeadersInit,
         body: JSON.stringify({ 
-          codes: giftCardCodes.map(c => ({ 
-            serialNumber: c.serialNumber.trim(), 
-            redeemCode: c.redeemCode.trim() 
-          }))
+          codes: isVirtualCard 
+            ? giftCardCodes.map(c => ({ activationLink: c.activationLink.trim() }))
+            : giftCardCodes.map(c => ({ 
+                serialNumber: c.serialNumber.trim(), 
+                redeemCode: c.redeemCode.trim() 
+              }))
         })
       });
 
-      // Check if there are more gift card items without codes
+      // Check if there are more items without codes/links
       const remainingItems = selectedOrder.items?.filter((item: any) => 
-        item.type === 'giftcard' && 
+        ((item.type === 'giftcard' || item.type === 'virtual-card') && 
         item.id !== selectedItem.id && 
-        !item.giftCardCodes
+        !item.giftCardCodes)
       );
 
       if (remainingItems && remainingItems.length > 0) {
         // Move to next item
         setSelectedItem(remainingItems[0]);
-        setGiftCardCodes(new Array(remainingItems[0].quantity).fill(null).map(() => ({ serialNumber: '', redeemCode: '' })));
+        const isNextVirtualCard = remainingItems[0].type === 'virtual-card';
+        setGiftCardCodes(new Array(remainingItems[0].quantity).fill(null).map(() => 
+          isNextVirtualCard 
+            ? { activationLink: '' }
+            : { serialNumber: '', redeemCode: '' }
+        ));
       } else {
-        // All codes entered, fulfill order
+        // All codes/links entered, fulfill order
         setShowCodeModal(false);
         setSelectedOrder(null);
         setSelectedItem(null);
@@ -1065,8 +1089,8 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
         await load();
       }
     } catch (error) {
-      console.error('Failed to save codes:', error);
-      alert('Failed to save codes');
+      console.error('Failed to save codes/links:', error);
+      alert('Failed to save codes/links');
     }
   };
 

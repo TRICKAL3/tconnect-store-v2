@@ -1350,7 +1350,7 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
             <div className="flex gap-2 mt-6">
               <button
                 onClick={saveCodes}
-                disabled={giftCardCodes.some(c => !c.serialNumber.trim() || !c.redeemCode.trim())}
+                disabled={giftCardCodes.some(c => !c.serialNumber || !c.serialNumber.trim() || !c.redeemCode || !c.redeemCode.trim())}
                 className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
               >
                 Save Codes

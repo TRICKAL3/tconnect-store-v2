@@ -80,7 +80,7 @@ router.get('/me', async (req: any, res) => {
       where: { userId: user.id }, 
       include: { 
         items: {
-          orderBy: { createdAt: 'asc' }
+          orderBy: { id: 'asc' } // OrderItem doesn't have createdAt, use id instead
         }, 
         payment: true 
       }, 

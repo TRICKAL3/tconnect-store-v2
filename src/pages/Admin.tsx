@@ -571,10 +571,31 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch(`${API_BASE}/products`);
-    const data = await res.json();
-    setProducts(data);
-    setLoading(false);
+    try {
+      console.log('📦 [Admin] Loading products from:', `${API_BASE}/products`);
+      const res = await fetch(`${API_BASE}/products`);
+      console.log('📥 [Admin] Products response status:', res.status);
+      
+      if (!res.ok) {
+        throw new Error(`Failed to fetch products: ${res.status} ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      console.log('✅ [Admin] Products loaded:', Array.isArray(data) ? data.length : 'not an array', data);
+      
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else {
+        console.error('❌ [Admin] Products data is not an array:', data);
+        setProducts([]);
+      }
+    } catch (error: any) {
+      console.error('❌ [Admin] Error loading products:', error);
+      setProducts([]);
+      alert(`Failed to load products: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
@@ -858,18 +879,40 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       </button>
       <div className="mt-6">
         <h3 className="text-white font-bold mb-3">Products ({products.length})</h3>
-        {loading ? <p className="text-gray-400">Loading...</p> : (
+        {loading ? (
+          <div className="text-center py-4">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-neon-blue mb-2"></div>
+            <p className="text-gray-400">Loading products...</p>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="card-dark p-6 text-center">
+            <p className="text-gray-400 mb-2">No products found</p>
+            <p className="text-gray-500 text-sm">Create your first product using the form above</p>
+          </div>
+        ) : (
           <div className="space-y-2">
             {products.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-3 border border-dark-border rounded-lg">
-                <div>
-                  <div className="text-white font-semibold">{p.name}</div>
-                  <div className="text-gray-400 text-sm">{p.type} • {p.category} • ${p.priceUsd}</div>
+              <div key={p.id} className="flex items-center justify-between p-3 border border-dark-border rounded-lg hover:border-neon-blue/50 transition-colors">
+                <div className="flex-1">
+                  <div className="text-white font-semibold">{p.name || 'Unnamed Product'}</div>
+                  <div className="text-gray-400 text-sm">
+                    {p.type || 'unknown'} • {p.category || 'uncategorized'} • ${p.priceUsd || 0}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => toggle(p, 'inStock')} className="cyber-border text-white px-3 py-1 rounded">{p.inStock ? 'Set Out' : 'Set In'} Stock</button>
-                  {p.type === 'giftcard' && <button onClick={() => toggle(p, 'featured')} className="cyber-border text-white px-3 py-1 rounded">{p.featured ? 'Unfeature' : 'Feature'}</button>}
-                  {p.type === 'giftcard' && <button onClick={() => toggle(p, 'popular')} className="cyber-border text-white px-3 py-1 rounded">{p.popular ? 'Unpopular' : 'Popular'}</button>}
+                  <button onClick={() => toggle(p, 'inStock')} className="cyber-border text-white px-3 py-1 rounded text-sm hover:neon-glow transition-all">
+                    {p.inStock ? 'Set Out' : 'Set In'} Stock
+                  </button>
+                  {p.type === 'giftcard' && (
+                    <>
+                      <button onClick={() => toggle(p, 'featured')} className="cyber-border text-white px-3 py-1 rounded text-sm hover:neon-glow transition-all">
+                        {p.featured ? 'Unfeature' : 'Feature'}
+                      </button>
+                      <button onClick={() => toggle(p, 'popular')} className="cyber-border text-white px-3 py-1 rounded text-sm hover:neon-glow transition-all">
+                        {p.popular ? 'Unpopular' : 'Popular'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

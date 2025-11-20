@@ -77,21 +77,45 @@ app.get('/', (_req, res) => res.json({
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Extract path from Vercel's catch-all route
-    // When /api/products is requested, Vercel passes it as req.query.path = ['products']
-    const path = Array.isArray(req.query.path) 
-      ? '/' + req.query.path.join('/')
-      : req.query.path 
-        ? '/' + req.query.path
-        : '/';
+    // When /api/products is requested, Vercel passes it as req.query.path
+    // The rewrite rule "/api/(.*)" -> "/api/[...path]" captures the path after /api/
     
-    // Remove /api prefix if present (Vercel rewrite already handles this)
-    const cleanPath = path.startsWith('/api') ? path.slice(4) : path;
+    let path = '/';
     
-    // Update the request URL to match what Express expects
-    req.url = cleanPath || '/';
-    req.path = cleanPath || '/';
+    // Check if path is in query params (catch-all route)
+    if (req.query.path) {
+      if (Array.isArray(req.query.path)) {
+        path = '/' + req.query.path.join('/');
+      } else {
+        path = '/' + req.query.path;
+      }
+    } else if (req.url) {
+      // Fallback: extract from URL if query param not available
+      // Remove /api prefix if present
+      path = req.url.startsWith('/api') ? req.url.slice(4) : req.url;
+      // Remove query string if present
+      const queryIndex = path.indexOf('?');
+      if (queryIndex > -1) {
+        path = path.substring(0, queryIndex);
+      }
+    }
     
-    console.log('🚀 API Handler called:', req.method, req.url, 'Original path:', path);
+    // Ensure path starts with /
+    if (!path.startsWith('/')) {
+      path = '/' + path;
+    }
+    
+    // Update the request URL and path to match what Express expects
+    req.url = path;
+    req.path = path;
+    
+    console.log('🚀 API Handler called:', {
+      method: req.method,
+      originalUrl: req.url,
+      query: req.query,
+      path: path,
+      queryPath: req.query.path
+    });
     
     return app(req, res);
   } catch (error: any) {

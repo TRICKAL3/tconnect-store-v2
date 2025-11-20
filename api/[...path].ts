@@ -105,21 +105,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       path = '/' + path;
     }
     
-    // Preserve query string if present in original URL
+    // Preserve query string if present
+    // Vercel already parses query params into req.query, so we need to preserve them
     let originalQuery = '';
-    if (req.url && typeof req.url === 'string' && req.url.includes('?')) {
-      originalQuery = req.url.split('?')[1];
-    } else if (req.query && Object.keys(req.query).length > 0) {
-      // Build query string from req.query (excluding path)
+    
+    // Check if there are query params (excluding 'path' which is the catch-all param)
+    const queryKeys = Object.keys(req.query || {}).filter(key => key !== 'path');
+    if (queryKeys.length > 0) {
+      // Build query string from existing query params
       const queryParts: string[] = [];
-      Object.keys(req.query).forEach(key => {
-        if (key !== 'path') {
-          const value = req.query[key];
-          if (Array.isArray(value)) {
-            value.forEach(v => queryParts.push(`${key}=${encodeURIComponent(String(v))}`));
-          } else if (value !== undefined && value !== null) {
-            queryParts.push(`${key}=${encodeURIComponent(String(value))}`);
-          }
+      queryKeys.forEach(key => {
+        const value = req.query[key];
+        if (Array.isArray(value)) {
+          value.forEach(v => queryParts.push(`${key}=${encodeURIComponent(String(v))}`));
+        } else if (value !== undefined && value !== null) {
+          queryParts.push(`${key}=${encodeURIComponent(String(value))}`);
         }
       });
       originalQuery = queryParts.join('&');
@@ -128,18 +128,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const fullPath = originalQuery ? `${path}?${originalQuery}` : path;
     
     // Update the request URL and path to match what Express expects
-    req.url = fullPath;
-    req.path = path;
-    
-    // Preserve query parameters in req.query (already handled by Vercel, but ensure they're there)
-    if (originalQuery) {
-      const queryParams = new URLSearchParams(originalQuery);
-      queryParams.forEach((value, key) => {
-        if (key !== 'path' && !req.query[key]) {
-          req.query[key] = value;
-        }
-      });
-    }
+    // Type assertion needed because Express Request expects string
+    (req as any).url = fullPath;
+    (req as any).path = path;
     
     console.log('🚀 API Handler called:', {
       method: req.method,

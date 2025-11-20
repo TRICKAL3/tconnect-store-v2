@@ -126,8 +126,8 @@ router.post('/:id/messages', async (req, res) => {
   }
 });
 
-// Admin: Get all chats
-router.get('/', basicAdminAuth, async (_req, res) => {
+// Admin: Get all chats (must be before /:id route)
+router.get('/all', basicAdminAuth, async (_req, res) => {
   try {
     const chats = await prisma.chat.findMany({
       include: {

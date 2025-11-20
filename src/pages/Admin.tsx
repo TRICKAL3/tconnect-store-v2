@@ -2222,7 +2222,7 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/chats`, { headers: getAdminHeaders() as HeadersInit });
+      const res = await fetch(`${API_BASE}/chats/all`, { headers: getAdminHeaders() as HeadersInit });
       const data = await res.json();
       setChats(Array.isArray(data) ? data : []);
     } catch (error) {

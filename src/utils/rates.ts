@@ -10,7 +10,7 @@ let ratesCache: Record<ProductRateType, number> = {
 };
 
 let ratesCacheTime = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 30 * 1000; // 30 seconds - refresh more frequently to see admin changes
 
 async function fetchRatesFromAPI(): Promise<void> {
   try {
@@ -48,17 +48,25 @@ async function fetchRatesFromAPI(): Promise<void> {
 }
 
 export function getMwkAmountFromUsd(usdAmount: number, type: ProductRateType): number {
-  // Refresh cache if it's old
+  // Refresh cache if it's old (async, non-blocking)
   if (Date.now() - ratesCacheTime > CACHE_DURATION) {
-    fetchRatesFromAPI();
+    fetchRatesFromAPI(); // This will update the cache in the background
   }
-  const rate = ratesCache[type];
+  const rate = ratesCache[type] || 1800; // Fallback to default if not loaded yet
   return Math.max(0, Math.round(usdAmount * rate));
+}
+
+// Export function to force refresh rates (can be called from admin after updating)
+export async function refreshRates(): Promise<void> {
+  ratesCacheTime = 0; // Reset cache time to force refresh
+  await fetchRatesFromAPI();
 }
 
 // Initialize rates on first load
 if (typeof window !== 'undefined') {
   fetchRatesFromAPI();
+  // Expose refresh function globally so admin can trigger it
+  (window as any).refreshRates = refreshRates;
 }
 
 

@@ -96,12 +96,12 @@ const SignUp: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4">
-      <div className="card-dark p-6 sm:p-8 w-full max-w-sm sm:max-w-md md:max-w-lg">
+      <div className="card-dark p-6 sm:p-8 w-full max-w-md">
         <div className="text-center mb-6">
           <img 
             src={logoImage} 
             alt="TConnect Logo" 
-            className="mx-auto mb-4 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl h-auto object-contain"
+            className="mx-auto mb-4 h-24 sm:h-32 md:h-40 w-auto object-contain"
             onError={(e) => {
               // Fallback if logo doesn't load
               const target = e.target as HTMLImageElement;

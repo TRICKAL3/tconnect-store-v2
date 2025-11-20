@@ -14,7 +14,7 @@ const sampleSlides = [
     title: 'Special Offer',
     subtitle: 'Limited Time',
     description: 'Get 10% off on all gift cards this week!',
-    image: '🎁',
+    image: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=600&fit=crop',
     cta: 'Shop Now',
     ctaLink: '/giftcards',
     active: true
@@ -24,7 +24,7 @@ const sampleSlides = [
     title: 'New Arrivals',
     subtitle: 'Fresh Stock',
     description: 'Check out our latest gift card collection',
-    image: '✨',
+    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&h=600&fit=crop',
     cta: 'Explore',
     ctaLink: '/giftcards',
     active: true
@@ -34,7 +34,7 @@ const sampleSlides = [
     title: 'Best Deals',
     subtitle: 'Hot Deals',
     description: 'Don\'t miss out on our exclusive offers',
-    image: '🔥',
+    image: 'https://images.unsplash.com/photo-1556740758-90de374c12ad?w=800&h=600&fit=crop',
     cta: 'View Deals',
     ctaLink: '/giftcards',
     active: true
@@ -50,7 +50,8 @@ const Home: React.FC = () => {
   useEffect(() => {
     const fetchSlides = async () => {
       try {
-        const res = await fetch((process.env.REACT_APP_API_BASE || 'http://localhost:4000') + '/slides');
+        const API_BASE = getApiBase();
+        const res = await fetch(`${API_BASE}/slides`);
         const data = await res.json();
         const backendSlides = Array.isArray(data) ? data.filter((s: any) => s.active) : [];
         // Use backend slides if available, otherwise use samples
@@ -62,6 +63,27 @@ const Home: React.FC = () => {
       }
     };
     fetchSlides();
+  }, []);
+
+  // Intersection Observer for scroll animations
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisibleElements((prev) => new Set(prev).add(entry.target.id));
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+    );
+
+    const elements = document.querySelectorAll('.fade-in-on-scroll');
+    elements.forEach((el) => observer.observe(el));
+
+    return () => {
+      elements.forEach((el) => observer.unobserve(el));
+    };
   }, []);
 
   const categories = [
@@ -306,10 +328,10 @@ const Home: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center md:justify-start">
                 <Link
                   to="/giftcards"
-                  className="btn-cyber text-white px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-xl font-bold text-base md:text-lg lg:text-xl active:scale-95 hover:scale-105 flex items-center justify-center neon-glow transition-all"
+                  className="btn-cyber text-white px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-xl font-bold text-sm sm:text-base md:text-lg lg:text-xl active:scale-95 hover:scale-105 flex items-center justify-center neon-glow transition-all w-auto mx-auto sm:mx-0"
                 >
                   Start Shopping
-                  <ArrowRight className="ml-2 w-5 h-5 md:w-6 md:h-6" />
+                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                 </Link>
               </div>
             </div>
@@ -326,10 +348,29 @@ const Home: React.FC = () => {
                           index === currentSlide ? 'opacity-100 relative' : 'opacity-0 absolute inset-0 pointer-events-none'
                         }`}
                       >
-                        <div className="bg-dark-surface/50 backdrop-blur-sm border border-neon-blue/30 rounded-2xl p-6 md:p-8 shadow-2xl">
+                        <div className="bg-dark-surface/50 backdrop-blur-sm border border-neon-blue/30 rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden">
                           <div className="text-center">
-                            <div className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl mb-4 transform hover:scale-110 transition-transform duration-500 neon-glow animate-float">
-                              {slide.image}
+                            <div className="mb-4 transform hover:scale-105 transition-transform duration-500 rounded-xl overflow-hidden">
+                              {slide.image && (slide.image.startsWith('http') || slide.image.startsWith('/') || slide.image.startsWith('data:')) ? (
+                                <img 
+                                  src={slide.image} 
+                                  alt={slide.title || 'Promotion'} 
+                                  className="w-full h-48 sm:h-56 md:h-64 lg:h-72 object-cover rounded-xl"
+                                  onError={(e) => {
+                                    // Fallback to emoji if image fails
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const fallback = document.createElement('div');
+                                    fallback.className = 'text-6xl sm:text-7xl md:text-8xl lg:text-9xl mb-4 neon-glow';
+                                    fallback.textContent = '🎁';
+                                    target.parentElement?.appendChild(fallback);
+                                  }}
+                                />
+                              ) : (
+                                <div className="text-6xl sm:text-7xl md:text-8xl lg:text-9xl mb-4 neon-glow">
+                                  {slide.image || '🎁'}
+                                </div>
+                              )}
                             </div>
                             {slide.title && (
                               <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2 holographic">
@@ -379,9 +420,11 @@ const Home: React.FC = () => {
                   </>
                 ) : (
                   <div className="bg-dark-surface/50 backdrop-blur-sm border border-neon-blue/30 rounded-2xl p-6 md:p-8 shadow-2xl text-center">
-                    <div className="text-6xl sm:text-7xl md:text-8xl mb-4 neon-glow">
-                      🎁
-                    </div>
+                    <img 
+                      src="https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&h=600&fit=crop" 
+                      alt="No promotions" 
+                      className="w-full h-48 sm:h-56 md:h-64 lg:h-72 object-cover rounded-xl mb-4"
+                    />
                     <p className="text-gray-400 text-sm">No promotions available</p>
                   </div>
                 )}
@@ -394,7 +437,7 @@ const Home: React.FC = () => {
       {/* Shop by Category Section */}
       <section className="py-12 md:py-20 bg-dark-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8 md:mb-16">
+          <div className={`text-center mb-8 md:mb-16 fade-in-on-scroll ${visibleElements.has('category-header') ? 'visible' : ''}`} id="category-header">
             <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 md:mb-4 holographic">
               Shop by Category
             </h2>
@@ -407,12 +450,13 @@ const Home: React.FC = () => {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-8">
             {categories.map((category, index) => (
               <Link
                 key={category.name}
                 to={category.link}
-                className="group card-dark p-4 md:p-8 rounded-xl md:rounded-2xl hover:border-neon-blue/50 transition-all duration-300 transform active:scale-95 md:hover:-translate-y-2"
+                id={`category-${index}`}
+                className={`group card-dark p-4 md:p-8 rounded-xl md:rounded-2xl hover:border-neon-blue/50 transition-all duration-300 transform active:scale-95 md:hover:-translate-y-2 fade-in-on-scroll ${visibleElements.has(`category-${index}`) ? 'visible' : ''}`}
               >
                 <div className="text-center">
                   <div className="text-4xl md:text-6xl mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">

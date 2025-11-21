@@ -100,13 +100,13 @@ const Footer: React.FC = () => {
             <div className="pt-4">
               <h4 className="text-sm font-semibold mb-3">Follow Us</h4>
               <div className="flex space-x-4">
-                <a href="https://instagram.com" target="_blank" rel="noreferrer" className="text-gray-400 hover:text-pink-500 transition-colors">
+                <a href="https://www.instagram.com/tconnect.mw?utm_source=qr&igsh=am80OWR6OWZ0MGlp" target="_blank" rel="noreferrer" className="text-gray-400 hover:text-pink-500 transition-colors" aria-label="Follow us on Instagram">
                   <Instagram className="w-5 h-5" />
                 </a>
-                <a href="https://facebook.com" target="_blank" rel="noreferrer" className="text-gray-400 hover:text-blue-500 transition-colors">
+                <a href="https://www.facebook.com/profile.php?id=61568004368033" target="_blank" rel="noreferrer" className="text-gray-400 hover:text-blue-500 transition-colors" aria-label="Follow us on Facebook">
                   <Facebook className="w-5 h-5" />
                 </a>
-                <a href="https://tiktok.com" target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors">
+                <a href="https://vm.tiktok.com/ZMHvxsmx4Lnqc-teJro/" target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors" aria-label="Follow us on TikTok">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 000 15.38a6.34 6.34 0 006.33 6.34 6.33 6.33 0 005.85-3.93v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
                   </svg>

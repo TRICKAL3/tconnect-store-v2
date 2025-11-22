@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Coins, Shield, CheckCircle, Building2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, Shield, CheckCircle, Building2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getMwkAmountFromUsd } from '../utils/rates';
@@ -10,14 +10,10 @@ import { supabase } from '../lib/supabaseClient';
 const Checkout: React.FC = () => {
   const { state, dispatch } = useCart();
   const { user } = useAuth();
-  const [paymentMethod, setPaymentMethod] = useState<'bank' | 'crypto'>('bank');
+  const [paymentMethod, setPaymentMethod] = useState<'bank' | 'card'>('bank');
   
-  // Prevent switching to crypto (coming soon)
-  const handlePaymentMethodChange = (method: 'bank' | 'crypto') => {
-    if (method === 'crypto') {
-      // Don't allow switching to crypto - it's coming soon
-      return;
-    }
+  // Handle payment method change
+  const handlePaymentMethodChange = (method: 'bank' | 'card') => {
     setPaymentMethod(method);
   };
   const [isProcessing, setIsProcessing] = useState(false);
@@ -26,8 +22,9 @@ const Checkout: React.FC = () => {
   const [transactionId, setTransactionId] = useState('');
   const [popFile, setPopFile] = useState<File | null>(null);
 
-  const itemMwk = (type: 'giftcard' | 'crypto' | 'wallet', usd: number) => {
-    const rateType = type === 'wallet' ? 'wallet' : type === 'crypto' ? 'crypto' : 'giftcard';
+  const itemMwk = (type: 'giftcard' | 'crypto' | 'wallet' | 'virtual-card', usd: number) => {
+    // Digital wallets & cards (wallet and virtual-card) use wallet rate
+    const rateType = (type === 'wallet' || type === 'virtual-card') ? 'wallet' : type === 'crypto' ? 'crypto' : 'giftcard';
     return getMwkAmountFromUsd(usd, rateType);
   };
 
@@ -285,24 +282,24 @@ const Checkout: React.FC = () => {
 
                 <div
                   className={`p-3 md:p-4 rounded-lg border-2 transition-all duration-300 relative ${
-                    paymentMethod === 'crypto'
-                      ? 'border-yellow-400/50 bg-yellow-400/5'
+                    paymentMethod === 'card'
+                      ? 'border-purple-400/50 bg-purple-400/5'
                       : 'border-dark-border opacity-60'
                   }`}
                   style={{ cursor: 'not-allowed' }}
                 >
                   <div className="flex items-center space-x-3 md:space-x-4">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-yellow-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Coins className="w-5 h-5 md:w-6 md:h-6 text-yellow-400" />
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-400/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="w-5 h-5 md:w-6 md:h-6 text-purple-400" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base md:text-lg font-semibold text-white">Crypto Payment</h3>
-                        <span className="px-2 py-0.5 bg-yellow-400/20 border border-yellow-400/50 rounded text-xs font-semibold text-yellow-400">
+                        <h3 className="text-base md:text-lg font-semibold text-white">Bank Card</h3>
+                        <span className="px-2 py-0.5 bg-purple-400/20 border border-purple-400/50 rounded text-xs font-semibold text-purple-400">
                           Coming Soon
                         </span>
                       </div>
-                      <p className="text-xs md:text-sm text-gray-400">Pay with Bitcoin, Ethereum, or other crypto</p>
+                      <p className="text-xs md:text-sm text-gray-400">Pay with Visa, Mastercard, or other bank cards</p>
                     </div>
                   </div>
                 </div>
@@ -403,14 +400,14 @@ const Checkout: React.FC = () => {
                   </div>
                 )}
 
-                {paymentMethod === 'crypto' && (
-                  <div className="bg-yellow-400/10 border border-yellow-400/30 rounded-lg p-4">
+                {paymentMethod === 'card' && (
+                  <div className="bg-purple-400/10 border border-purple-400/30 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <Coins className="w-5 h-5 text-yellow-400" />
-                      <h3 className="text-lg font-semibold text-yellow-400">Crypto Payment Coming Soon</h3>
+                      <CreditCard className="w-5 h-5 text-purple-400" />
+                      <h3 className="text-lg font-semibold text-purple-400">Bank Card Payment Coming Soon</h3>
                     </div>
                     <p className="text-gray-300 text-sm">
-                      We're working on adding cryptocurrency payment options. For now, please use bank transfer to complete your order.
+                      We're working on adding bank card payment options. For now, please use bank transfer to complete your order.
                     </p>
                   </div>
                 )}

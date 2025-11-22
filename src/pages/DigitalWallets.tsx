@@ -289,7 +289,7 @@ const DigitalWallets: React.FC = () => {
                       />
                       {amountByWallet[wallet.id] > 0 && (
                         <div className="text-sm text-gray-300 mt-2">
-                          MWK ≈ {getMwkAmountFromUsd(amountByWallet[wallet.id], 'giftcard').toLocaleString()}
+                          MWK ≈ {getMwkAmountFromUsd(amountByWallet[wallet.id], 'wallet').toLocaleString()}
                         </div>
                       )}
                     </div>

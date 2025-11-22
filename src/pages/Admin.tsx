@@ -1412,10 +1412,39 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
     items: [{ name: '', description: '', quantity: 1, priceUsd: 0 }],
     totalUsd: 0, 
     totalMwk: 0,
-    notes: ''
+    notes: '',
+    // Payment transfer specific fields
+    currency: 'USD',
+    rate: 0
   });
   const [loading, setLoading] = useState(false);
   const [previewInvoice, setPreviewInvoice] = useState<any>(null);
+  
+  // All major currencies
+  const currencies = [
+    { code: 'USD', name: 'US Dollar' },
+    { code: 'EUR', name: 'Euro' },
+    { code: 'GBP', name: 'British Pound' },
+    { code: 'JPY', name: 'Japanese Yen' },
+    { code: 'AUD', name: 'Australian Dollar' },
+    { code: 'CAD', name: 'Canadian Dollar' },
+    { code: 'CHF', name: 'Swiss Franc' },
+    { code: 'CNY', name: 'Chinese Yuan' },
+    { code: 'INR', name: 'Indian Rupee' },
+    { code: 'ZAR', name: 'South African Rand' },
+    { code: 'NGN', name: 'Nigerian Naira' },
+    { code: 'KES', name: 'Kenyan Shilling' },
+    { code: 'GHS', name: 'Ghanaian Cedi' },
+    { code: 'TZS', name: 'Tanzanian Shilling' },
+    { code: 'UGX', name: 'Ugandan Shilling' },
+    { code: 'RWF', name: 'Rwandan Franc' },
+    { code: 'ETB', name: 'Ethiopian Birr' },
+    { code: 'AED', name: 'UAE Dirham' },
+    { code: 'SAR', name: 'Saudi Riyal' },
+    { code: 'BWP', name: 'Botswana Pula' },
+    { code: 'ZMW', name: 'Zambian Kwacha' },
+    { code: 'MZN', name: 'Mozambican Metical' }
+  ];
   
   const load = async () => {
     setLoading(true);
@@ -1455,17 +1484,38 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...form.items];
     newItems[index] = { ...newItems[index], [field]: value };
-    setForm({ ...form, items: newItems });
     
     // Recalculate totals
-    const totalUsd = newItems.reduce((sum, item) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
-    let rateType: 'crypto' | 'giftcard' | 'wallet' = 'giftcard';
-    if (form.serviceType === 'crypto') rateType = 'crypto';
-    else if (form.serviceType === 'wallet' || form.serviceType === 'virtual-card') rateType = 'wallet';
-    else if (form.serviceType === 'giftcard') rateType = 'giftcard';
-    else if (form.serviceType === 'tt-order' || form.serviceType === 'payment-transfer') rateType = 'giftcard'; // Default to giftcard rate for TT orders
-    const totalMwk = totalUsd > 0 ? getMwkAmountFromUsd(totalUsd, rateType) : 0;
-    setForm({ ...form, items: newItems, totalUsd, totalMwk });
+    if (form.serviceType === 'payment-transfer') {
+      // For payment transfer: Total MWK = currency amount × rate
+      const currencyAmount = newItems.reduce((sum, item) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
+      const totalMwk = currencyAmount > 0 && form.rate > 0 ? Math.round(currencyAmount * form.rate) : 0;
+      const totalUsd = currencyAmount; // Store currency amount in totalUsd for payment-transfer
+      setForm({ ...form, items: newItems, totalUsd, totalMwk });
+    } else {
+      // For other services: use existing rate calculation
+      const totalUsd = newItems.reduce((sum, item) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
+      let rateType: 'crypto' | 'giftcard' | 'wallet' = 'giftcard';
+      if (form.serviceType === 'crypto') rateType = 'crypto';
+      else if (form.serviceType === 'wallet' || form.serviceType === 'virtual-card') rateType = 'wallet';
+      else if (form.serviceType === 'giftcard') rateType = 'giftcard';
+      const totalMwk = totalUsd > 0 ? getMwkAmountFromUsd(totalUsd, rateType) : 0;
+      setForm({ ...form, items: newItems, totalUsd, totalMwk });
+    }
+  };
+  
+  // Update currency or rate for payment-transfer
+  const updatePaymentTransferFields = (field: string, value: any) => {
+    const newForm = { ...form, [field]: value };
+    if (field === 'rate' || field === 'currency') {
+      // Recalculate total MWK when rate or currency changes
+      if (newForm.serviceType === 'payment-transfer') {
+        const currencyAmount = newForm.items.reduce((sum: number, item: any) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
+        const totalMwk = currencyAmount > 0 && newForm.rate > 0 ? Math.round(currencyAmount * newForm.rate) : 0;
+        newForm.totalMwk = totalMwk;
+      }
+    }
+    setForm(newForm);
   };
   
   
@@ -1482,23 +1532,52 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
       return;
     }
     
-    const totalUsd = form.items.reduce((sum: number, item: any) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
-    let rateType: 'crypto' | 'giftcard' | 'wallet' = 'giftcard';
-    if (form.serviceType === 'crypto') rateType = 'crypto';
-    else if (form.serviceType === 'wallet' || form.serviceType === 'virtual-card') rateType = 'wallet';
-    else if (form.serviceType === 'giftcard') rateType = 'giftcard';
-    else if (form.serviceType === 'tt-order' || form.serviceType === 'payment-transfer') rateType = 'giftcard';
-    const totalMwk = totalUsd > 0 ? getMwkAmountFromUsd(totalUsd, rateType) : form.totalMwk;
+    // Validate payment-transfer specific fields
+    if (form.serviceType === 'payment-transfer') {
+      if (!form.currency) {
+        alert('Please select a currency');
+        return;
+      }
+      if (!form.rate || form.rate <= 0) {
+        alert('Please enter a valid exchange rate (rate must be greater than 0)');
+        return;
+      }
+    }
+    
+    let totalUsd = form.items.reduce((sum: number, item: any) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
+    let totalMwk = form.totalMwk;
+    
+    if (form.serviceType === 'payment-transfer') {
+      // For payment transfer: Total MWK = currency amount × rate
+      totalMwk = totalUsd > 0 && form.rate > 0 ? Math.round(totalUsd * form.rate) : 0;
+    } else {
+      // For other services: use existing rate calculation
+      let rateType: 'crypto' | 'giftcard' | 'wallet' = 'giftcard';
+      if (form.serviceType === 'crypto') rateType = 'crypto';
+      else if (form.serviceType === 'wallet' || form.serviceType === 'virtual-card') rateType = 'wallet';
+      else if (form.serviceType === 'giftcard') rateType = 'giftcard';
+      totalMwk = totalUsd > 0 ? getMwkAmountFromUsd(totalUsd, rateType) : 0;
+    }
     
     try {
+      // Store currency and rate in items metadata for payment-transfer
+      const itemsToStore = form.serviceType === 'payment-transfer' 
+        ? form.items.map((item: any) => ({ ...item, currency: form.currency, rate: form.rate }))
+        : form.items;
+      
       const invoiceData = {
         customer: form.customer,
         email: form.email,
         serviceType: form.serviceType,
-        items: JSON.stringify(form.items),
+        items: JSON.stringify(itemsToStore),
         totalUsd,
         totalMwk,
-        notes: form.notes || null
+        notes: form.notes || null,
+        // Store currency and rate for payment-transfer
+        ...(form.serviceType === 'payment-transfer' && {
+          currency: form.currency,
+          rate: form.rate
+        })
       };
       
       console.log('Creating invoice with data:', invoiceData);
@@ -1524,7 +1603,9 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
         items: [{ name: '', description: '', quantity: 1, priceUsd: 0 }],
         totalUsd: 0, 
         totalMwk: 0,
-        notes: ''
+        notes: '',
+        currency: 'USD',
+        rate: 0
       });
       
       await load();
@@ -1546,12 +1627,29 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
     
     const items = typeof invoice.items === 'string' ? JSON.parse(invoice.items) : invoice.items || [];
     const totalUsd = items.reduce((sum: number, item: any) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
-    let rateType: 'crypto' | 'giftcard' | 'wallet' = 'giftcard';
-    if (invoice.serviceType === 'crypto') rateType = 'crypto';
-    else if (invoice.serviceType === 'wallet' || invoice.serviceType === 'virtual-card') rateType = 'wallet';
-    else if (invoice.serviceType === 'giftcard') rateType = 'giftcard';
-    else if (invoice.serviceType === 'tt-order' || invoice.serviceType === 'payment-transfer') rateType = 'giftcard';
-    const totalMwk = invoice.totalMwk || getMwkAmountFromUsd(totalUsd, rateType);
+    let totalMwk = invoice.totalMwk;
+    let currency = 'USD';
+    let rate = 0;
+    
+    // Handle payment-transfer invoices
+    if (invoice.serviceType === 'payment-transfer') {
+      // Get currency and rate from invoice metadata or first item
+      if (invoice.currency && invoice.rate) {
+        currency = invoice.currency;
+        rate = invoice.rate;
+      } else if (items.length > 0 && items[0].currency && items[0].rate) {
+        currency = items[0].currency;
+        rate = items[0].rate;
+      }
+      totalMwk = invoice.totalMwk || (totalUsd > 0 && rate > 0 ? Math.round(totalUsd * rate) : 0);
+    } else {
+      // For other services: use existing rate calculation
+      let rateType: 'crypto' | 'giftcard' | 'wallet' = 'giftcard';
+      if (invoice.serviceType === 'crypto') rateType = 'crypto';
+      else if (invoice.serviceType === 'wallet' || invoice.serviceType === 'virtual-card') rateType = 'wallet';
+      else if (invoice.serviceType === 'giftcard') rateType = 'giftcard';
+      totalMwk = invoice.totalMwk || getMwkAmountFromUsd(totalUsd, rateType);
+    }
     
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -1604,6 +1702,10 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
             
             <div style="margin-bottom: 20px;">
               <strong>Service Type:</strong> ${invoice.serviceType?.charAt(0).toUpperCase() + invoice.serviceType?.slice(1).replace('-', ' ') || 'Gift Card'}
+              ${invoice.serviceType === 'payment-transfer' && currency && rate > 0 ? `
+                <br/><strong>Currency:</strong> ${currency}
+                <br/><strong>Exchange Rate:</strong> 1 ${currency} = ${rate.toLocaleString()} MWK
+              ` : ''}
             </div>
           </div>
           
@@ -1613,8 +1715,8 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
                 <th>Item</th>
                 <th>Description</th>
                 <th>Qty</th>
-                <th>Unit Price (USD)</th>
-                <th>Total (USD)</th>
+                <th>Unit Price ${invoice.serviceType === 'payment-transfer' && currency ? `(${currency})` : '(USD)'}</th>
+                <th>Total ${invoice.serviceType === 'payment-transfer' && currency ? `(${currency})` : '(USD)'}</th>
               </tr>
             </thead>
             <tbody>
@@ -1623,14 +1725,20 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
                   <td>${item.name || '-'}</td>
                   <td>${item.description || '-'}</td>
                   <td>${item.quantity || 1}</td>
-                  <td>$${Number(item.priceUsd || 0).toFixed(2)}</td>
-                  <td>$${Number((item.priceUsd || 0) * (item.quantity || 1)).toFixed(2)}</td>
+                  <td>${invoice.serviceType === 'payment-transfer' && currency ? `${currency} ` : '$'}${Number(item.priceUsd || 0).toFixed(2)}</td>
+                  <td>${invoice.serviceType === 'payment-transfer' && currency ? `${currency} ` : '$'}${Number((item.priceUsd || 0) * (item.quantity || 1)).toFixed(2)}</td>
                 </tr>
               `).join('')}
               <tr class="total-row">
-                <td colspan="4" style="text-align: right;">Subtotal (USD):</td>
-                <td>$${totalUsd.toFixed(2)}</td>
+                <td colspan="4" style="text-align: right;">Subtotal ${invoice.serviceType === 'payment-transfer' && currency ? `(${currency})` : '(USD)'}:</td>
+                <td>${invoice.serviceType === 'payment-transfer' && currency ? `${currency} ` : '$'}${totalUsd.toFixed(2)}</td>
               </tr>
+              ${invoice.serviceType === 'payment-transfer' && currency && rate > 0 ? `
+                <tr class="total-row" style="background-color: #e8f4f8;">
+                  <td colspan="4" style="text-align: right;">Exchange Rate (1 ${currency} = ${rate.toLocaleString()} MWK):</td>
+                  <td></td>
+                </tr>
+              ` : ''}
               <tr class="total-row">
                 <td colspan="4" style="text-align: right;">Total (MWK):</td>
                 <td>MWK ${totalMwk.toLocaleString()}</td>
@@ -1691,21 +1799,73 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
             <label className="block text-white text-sm mb-2">Service Type *</label>
             <select 
               value={form.serviceType} 
-              onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
+              onChange={(e) => {
+                const newServiceType = e.target.value;
+                setForm({ 
+                  ...form, 
+                  serviceType: newServiceType,
+                  // Reset currency and rate when switching away from payment-transfer
+                  ...(newServiceType !== 'payment-transfer' && { currency: 'USD', rate: 0 })
+                });
+                // Recalculate totals when service type changes
+                if (newServiceType !== 'payment-transfer') {
+                  const totalUsd = form.items.reduce((sum: number, item: any) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
+                  let rateType: 'crypto' | 'giftcard' | 'wallet' = 'giftcard';
+                  if (newServiceType === 'crypto') rateType = 'crypto';
+                  else if (newServiceType === 'wallet' || newServiceType === 'virtual-card') rateType = 'wallet';
+                  else if (newServiceType === 'giftcard') rateType = 'giftcard';
+                  const totalMwk = totalUsd > 0 ? getMwkAmountFromUsd(totalUsd, rateType) : 0;
+                  setForm((prev: any) => ({ ...prev, totalUsd, totalMwk }));
+                }
+              }}
               className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
             >
               <option value="giftcard">Gift Card</option>
               <option value="crypto">Cryptocurrency</option>
               <option value="wallet">Digital Wallet</option>
               <option value="virtual-card">Virtual Card</option>
-              <option value="tt-order">TT Order / Currency Exchange</option>
               <option value="payment-transfer">Payment Transfer</option>
-              <option value="other">Other Service</option>
             </select>
           </div>
           
+          {/* Currency and Rate fields for Payment Transfer */}
+          {form.serviceType === 'payment-transfer' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-white text-sm mb-2">Currency *</label>
+                <select 
+                  value={form.currency} 
+                  onChange={(e) => updatePaymentTransferFields('currency', e.target.value)}
+                  className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+                >
+                  {currencies.map((curr) => (
+                    <option key={curr.code} value={curr.code}>
+                      {curr.code} - {curr.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-white text-sm mb-2">Exchange Rate (1 {form.currency} = ? MWK) *</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={form.rate} 
+                  onChange={(e) => updatePaymentTransferFields('rate', parseFloat(e.target.value || '0'))} 
+                  placeholder="Enter rate (e.g., 1750.50)" 
+                  className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white" 
+                />
+              </div>
+            </div>
+          )}
+          
           <div>
-            <label className="block text-white text-sm mb-2">Items / Products *</label>
+            <label className="block text-white text-sm mb-2">
+              Items / Products * 
+              {form.serviceType === 'payment-transfer' && (
+                <span className="text-gray-400 text-xs ml-2">(Amount in {form.currency})</span>
+              )}
+            </label>
             {form.items.map((item: any, index: number) => (
               <div key={index} className="grid grid-cols-12 gap-2 mb-2">
                 <input 
@@ -1732,7 +1892,7 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
                   step="0.01"
                   value={item.priceUsd} 
                   onChange={(e) => updateItem(index, 'priceUsd', parseFloat(e.target.value || '0'))} 
-                  placeholder="Price USD" 
+                  placeholder={form.serviceType === 'payment-transfer' ? `Amount ${form.currency}` : 'Price USD'} 
                   className="col-span-2 px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm" 
                 />
                 <button 
@@ -1754,7 +1914,9 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-white text-sm mb-2">Total USD</label>
+              <label className="block text-white text-sm mb-2">
+                {form.serviceType === 'payment-transfer' ? `Total ${form.currency}` : 'Total USD'}
+              </label>
               <input 
                 type="number" 
                 step="0.01"
@@ -1771,6 +1933,11 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
                 readOnly
                 className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white font-bold" 
               />
+              {form.serviceType === 'payment-transfer' && form.rate > 0 && (
+                <p className="text-gray-400 text-xs mt-1">
+                  Rate: 1 {form.currency} = {form.rate.toLocaleString()} MWK
+                </p>
+              )}
             </div>
           </div>
           
@@ -1804,6 +1971,13 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
             {invoices.map((i) => {
               const items = typeof i.items === 'string' ? JSON.parse(i.items) : i.items || [];
               const totalUsd = items.reduce((sum: number, item: any) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
+              // Get currency for payment-transfer invoices
+              const currency = i.serviceType === 'payment-transfer' 
+                ? (i.currency || (items.length > 0 && items[0].currency) || 'USD')
+                : null;
+              const rate = i.serviceType === 'payment-transfer'
+                ? (i.rate || (items.length > 0 && items[0].rate) || 0)
+                : 0;
               return (
                 <div key={i.id} className="p-4 border border-dark-border rounded-lg bg-dark-surface">
                   <div className="flex justify-between items-start">
@@ -1811,9 +1985,10 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
                       <div className="text-white font-semibold">Invoice #{i.id}</div>
                       <div className="text-gray-400 text-sm">
                         {i.customer} • {i.email} • {i.serviceType || 'giftcard'}
+                        {currency && rate > 0 && ` • ${currency} @ ${rate.toLocaleString()} MWK`}
                       </div>
                       <div className="text-gray-400 text-sm">
-                        ${totalUsd.toFixed(2)} USD • MWK {i.totalMwk?.toLocaleString() || '0'}
+                        {currency ? `${currency} ${totalUsd.toFixed(2)}` : `$${totalUsd.toFixed(2)} USD`} • MWK {i.totalMwk?.toLocaleString() || '0'}
                       </div>
                       <div className="text-gray-500 text-xs mt-1">
                         {new Date(i.createdAt).toLocaleDateString()}

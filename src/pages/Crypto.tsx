@@ -161,7 +161,7 @@ const Crypto: React.FC = () => {
   const renderStep1 = () => (
     <div className="card-dark p-8 rounded-2xl">
       <div className="text-center mb-8">
-        <div className="text-8xl mb-6">🪙</div>
+        <div className="text-8xl mb-6 font-bold" style={{ color: '#f7931a' }}>₿</div>
         <h2 className="text-3xl font-bold text-white mb-4">Buy Crypto</h2>
         <p className="text-gray-300 mb-6">Select coin, exchange and amount (USD). Stable coins supported.</p>
         

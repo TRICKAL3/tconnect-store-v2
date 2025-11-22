@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Coins, Mail, Phone, MapPin, Shield, Lock, Building2, Instagram, Facebook } from 'lucide-react';
+import { CreditCard, Mail, Phone, MapPin, Shield, Lock, Building2, Instagram, Facebook } from 'lucide-react';
 import tconnectLogo from '../assets/tconnect_logo.png';
 
 const Footer: React.FC = () => {
@@ -121,8 +121,8 @@ const Footer: React.FC = () => {
                   <span>Bank Transfer</span>
                 </li>
                 <li className="flex items-center space-x-2 text-gray-300 text-sm">
-                  <Coins className="w-4 h-4 text-neon-green" />
-                  <span>Crypto Payment</span>
+                  <CreditCard className="w-4 h-4 text-purple-400" />
+                  <span>Bank Card</span>
                 </li>
               </ul>
             </div>

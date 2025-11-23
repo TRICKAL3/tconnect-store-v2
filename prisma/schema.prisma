@@ -182,7 +182,7 @@ model PointsReceipt {
   email       String
   points      Int      // Points amount (650 or 1300)
   usdValue    Float    // USD value (5 or 10)
-  orderId     String?  // Order ID if used in an order
+  orderId     String?  @unique // Order ID if used in an order (unique for one-to-one relation)
   order       Order?   @relation(fields: [orderId], references: [id])
   verified    Boolean  @default(false) // Admin verification status
   createdAt   DateTime @default(now())

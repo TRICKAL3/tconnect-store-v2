@@ -385,7 +385,7 @@ const Admin: React.FC = () => {
               { id: 'ttorders', label: 'TT Orders' },
               { id: 'users', label: 'Users' },
               { id: 'points', label: 'Points Portal' },
-              { id: 'receipts', label: 'Points Receipts' },
+              { id: 'receipts', label: 'Points Receipts' }, // Receipt tracking tab
               { id: 'slides', label: 'Slideshows' },
               { id: 'chats', label: 'Chats' },
             ].map((t) => (

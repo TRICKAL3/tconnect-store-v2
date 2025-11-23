@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Menu, X, User, Settings, LogOut, Package, LogIn } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Settings, LogOut, Package, LogIn, Gift } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { getApiBase } from '../lib/getApiBase';
 import tconnectLogo from '../assets/tconnect_logo.png';
 
 const Header: React.FC = () => {
@@ -12,6 +13,31 @@ const Header: React.FC = () => {
   const { state } = useCart();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const [pointsBalance, setPointsBalance] = useState(0);
+
+  // Fetch user points balance
+  useEffect(() => {
+    const fetchPoints = async () => {
+      if (user?.email) {
+        try {
+          const API_BASE = getApiBase();
+          const res = await fetch(`${API_BASE}/users/profile?email=${encodeURIComponent(user.email)}`);
+          if (res.ok) {
+            const profile = await res.json();
+            setPointsBalance(profile.pointsBalance || 0);
+          }
+        } catch (error) {
+          console.error('Failed to fetch points:', error);
+        }
+      } else {
+        setPointsBalance(0);
+      }
+    };
+    fetchPoints();
+    // Refresh points every 30 seconds
+    const interval = setInterval(fetchPoints, 30000);
+    return () => clearInterval(interval);
+  }, [user?.email]);
 
   const navigation = [
     { name: 'Home', href: '/' },
@@ -111,6 +137,19 @@ const Header: React.FC = () => {
                       <div className="px-4 py-2 border-b border-dark-border">
                         <p className="text-white font-semibold text-sm">{user.name || 'User'}</p>
                         <p className="text-gray-400 text-xs truncate">{user.email}</p>
+                      </div>
+                      {/* Points Balance */}
+                      <div className="px-4 py-3 border-b border-dark-border bg-neon-blue/5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Gift className="w-4 h-4 text-neon-blue" />
+                            <span className="text-gray-300 text-sm">TConnect Points</span>
+                          </div>
+                          <span className="text-neon-blue font-bold text-lg">{pointsBalance.toLocaleString()}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          ≈ ${((pointsBalance / 1300) * 10).toFixed(2)} value
+                        </div>
                       </div>
                       <Link
                         to="/orders"

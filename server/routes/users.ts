@@ -106,5 +106,63 @@ router.delete('/:id', basicAdminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Admin: Adjust user points (add or remove)
+router.post('/:id/points', basicAdminAuth, async (req, res) => {
+  try {
+    const { points, reason } = req.body;
+    const userId = req.params.id;
+
+    if (!points || points === 0) {
+      return res.status(400).json({ error: 'Points amount is required and cannot be zero' });
+    }
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'Reason is required for points adjustment' });
+    }
+
+    // Get current user to check balance
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if removing points and user has enough
+    if (points < 0 && (user.pointsBalance || 0) < Math.abs(points)) {
+      return res.status(400).json({ error: 'User does not have enough points to remove' });
+    }
+
+    // Update user points
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        pointsBalance: {
+          increment: points
+        }
+      }
+    });
+
+    // Create points transaction record
+    await prisma.pointsTransaction.create({
+      data: {
+        userId: userId,
+        type: points > 0 ? 'earned' : 'redeemed',
+        points: points,
+        orderId: null,
+        description: `Admin adjustment: ${reason} (${points > 0 ? '+' : ''}${points} points)`
+      }
+    });
+
+    res.json({
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      pointsBalance: updatedUser.pointsBalance
+    });
+  } catch (error: any) {
+    console.error('Error adjusting points:', error);
+    res.status(500).json({ error: error.message || 'Failed to adjust points' });
+  }
+});
+
 export default router;
 

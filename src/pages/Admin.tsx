@@ -2942,6 +2942,10 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [pointsToAdd, setPointsToAdd] = useState('');
+  const [pointsReason, setPointsReason] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -2983,6 +2987,46 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
 
   const totalPoints = users.reduce((sum, user) => sum + (user.pointsBalance || 0), 0);
   const totalUsersWithPoints = users.filter(user => (user.pointsBalance || 0) > 0).length;
+
+  const updateUserPoints = async (userId: string, points: number, reason: string) => {
+    if (!points || points === 0) {
+      alert('Please enter a valid number of points');
+      return;
+    }
+    if (!reason.trim()) {
+      alert('Please enter a reason for this points adjustment');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const res = await fetch(`${API_BASE}/users/${userId}/points`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+        body: JSON.stringify({
+          points: parseInt(points.toString()),
+          reason: reason.trim()
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to update points');
+      }
+
+      // Reload users list
+      await load();
+      setEditingUser(null);
+      setPointsToAdd('');
+      setPointsReason('');
+      alert('Points updated successfully!');
+    } catch (error: any) {
+      console.error('Failed to update points:', error);
+      alert(`Failed to update points: ${error.message || 'Unknown error'}`);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -3033,6 +3077,7 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                 <th className="text-right p-4 text-white font-semibold">Points Balance</th>
                 <th className="text-right p-4 text-white font-semibold">USD Value</th>
                 <th className="text-left p-4 text-white font-semibold">Member Since</th>
+                <th className="text-center p-4 text-white font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -3071,6 +3116,59 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                     </td>
                     <td className="p-4 text-gray-400 text-sm">
                       {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="p-4">
+                      {editingUser === user.id ? (
+                        <div className="space-y-2 min-w-[200px]">
+                          <input
+                            type="number"
+                            value={pointsToAdd}
+                            onChange={(e) => setPointsToAdd(e.target.value)}
+                            placeholder="Points to add/remove"
+                            className="w-full px-2 py-1 bg-dark-surface border border-dark-border rounded text-white text-sm"
+                          />
+                          <input
+                            type="text"
+                            value={pointsReason}
+                            onChange={(e) => setPointsReason(e.target.value)}
+                            placeholder="Reason (required)"
+                            className="w-full px-2 py-1 bg-dark-surface border border-dark-border rounded text-white text-sm"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => updateUserPoints(user.id, parseInt(pointsToAdd) || 0, pointsReason)}
+                              disabled={updating || !pointsToAdd || !pointsReason.trim()}
+                              className="px-3 py-1 bg-neon-blue text-white rounded text-xs font-semibold hover:bg-neon-blue/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {updating ? 'Saving...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingUser(null);
+                                setPointsToAdd('');
+                                setPointsReason('');
+                              }}
+                              className="px-3 py-1 bg-dark-surface border border-dark-border text-white rounded text-xs font-semibold hover:bg-dark-card"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Use negative number to remove points (e.g., -100)
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditingUser(user.id);
+                            setPointsToAdd('');
+                            setPointsReason('');
+                          }}
+                          className="px-3 py-1 bg-neon-blue/20 border border-neon-blue/50 text-neon-blue rounded text-xs font-semibold hover:bg-neon-blue/30"
+                        >
+                          Adjust Points
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

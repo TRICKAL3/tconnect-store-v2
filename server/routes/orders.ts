@@ -8,7 +8,7 @@ const router = Router();
 // Create order with items and optional payment submission (auth optional for now)
 router.post('/', async (req: any, res) => {
   try {
-    const { items, totalUsd, totalMwk, payment, userId, userEmail, pointsUsed, paymentMethod, pointsReceiptUrl } = req.body;
+    const { items, totalUsd, totalMwk, payment, userId, userEmail, pointsUsed, paymentMethod, pointsReceiptUrl, pointsReceiptId } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'No items' });
     }
@@ -77,10 +77,28 @@ router.post('/', async (req: any, res) => {
             metadata: i.metadata ? JSON.stringify(i.metadata) : null
           }))
         },
-        payment: paymentData
+        payment: paymentData,
+        // Link points receipt to order if provided
+        pointsReceipt: pointsReceiptId ? {
+          connect: { receiptId: pointsReceiptId }
+        } : undefined
       },
-      include: { items: true, payment: true }
+      include: { items: true, payment: true, pointsReceipt: true }
     });
+    
+    // Update receipt with order ID if linked
+    if (pointsReceiptId && order.id) {
+      try {
+        await prisma.pointsReceipt.update({
+          where: { receiptId: pointsReceiptId },
+          data: { orderId: order.id }
+        });
+        console.log(`✅ Linked receipt ${pointsReceiptId} to order ${order.id}`);
+      } catch (error: any) {
+        console.error(`⚠️ Failed to link receipt to order:`, error);
+        // Don't fail order creation if receipt linking fails
+      }
+    }
     
     console.log('Order created:', order.id, 'Status:', order.status, 'Payment Method:', paymentMethod);
     res.json(order);

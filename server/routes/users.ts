@@ -106,6 +106,80 @@ router.delete('/:id', basicAdminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Create points redemption receipt (called when user generates receipt)
+router.post('/receipts', async (req, res) => {
+  try {
+    const { receiptId, userId, customerName, email, points, usdValue } = req.body;
+    
+    if (!receiptId || !userId || !customerName || !email || !points || !usdValue) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if receipt ID already exists (prevent duplicates)
+    const existing = await prisma.pointsReceipt.findUnique({
+      where: { receiptId }
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: 'Receipt ID already exists' });
+    }
+
+    // Create receipt record
+    const receipt = await prisma.pointsReceipt.create({
+      data: {
+        receiptId,
+        userId,
+        customerName,
+        email,
+        points,
+        usdValue,
+        verified: false
+      }
+    });
+
+    res.json(receipt);
+  } catch (error: any) {
+    console.error('Error creating receipt:', error);
+    res.status(500).json({ error: error.message || 'Failed to create receipt' });
+  }
+});
+
+// Admin: Get all points receipts
+router.get('/receipts', basicAdminAuth, async (req, res) => {
+  try {
+    const receipts = await prisma.pointsReceipt.findMany({
+      include: {
+        user: {
+          select: { id: true, email: true, name: true }
+        },
+        order: {
+          select: { id: true, status: true, totalUsd: true, createdAt: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(receipts);
+  } catch (error: any) {
+    console.error('Error fetching receipts:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch receipts' });
+  }
+});
+
+// Admin: Verify a receipt
+router.patch('/receipts/:id/verify', basicAdminAuth, async (req, res) => {
+  try {
+    const { verified } = req.body;
+    const receipt = await prisma.pointsReceipt.update({
+      where: { id: req.params.id },
+      data: { verified: verified === true }
+    });
+    res.json(receipt);
+  } catch (error: any) {
+    console.error('Error verifying receipt:', error);
+    res.status(500).json({ error: error.message || 'Failed to verify receipt' });
+  }
+});
+
 // Admin: Adjust user points (add or remove)
 router.post('/:id/points', basicAdminAuth, async (req, res) => {
   try {

@@ -13,6 +13,7 @@ const Checkout: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'bank' | 'card' | 'points'>('bank');
   const [selectedPointsPackage, setSelectedPointsPackage] = useState<650 | 1300 | null>(null);
   const [pointsReceiptFile, setPointsReceiptFile] = useState<File | null>(null);
+  const [pointsReceiptId, setPointsReceiptId] = useState<string | null>(null);
   
   // Handle payment method change
   const handlePaymentMethodChange = (method: 'bank' | 'card' | 'points') => {
@@ -88,10 +89,48 @@ const Checkout: React.FC = () => {
   }, [paymentMethod, selectedPointsPackage, state.items, state.total, totalMwk]);
 
   // Generate points redemption receipt
-  const generatePointsReceipt = () => {
+  const generatePointsReceipt = async () => {
     if (!selectedPointsPackage || !user) return;
     
     const packageUsd = selectedPointsPackage === 650 ? 5 : 10;
+    const receiptId = `PTS-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    
+    // Record receipt in database
+    try {
+      const API_BASE = getApiBase();
+      const userResponse = await fetch(`${API_BASE}/users/profile?email=${encodeURIComponent(user.email)}`);
+      if (!userResponse.ok) {
+        throw new Error('Failed to fetch user info');
+      }
+      const userData = await userResponse.json();
+      
+      const receiptResponse = await fetch(`${API_BASE}/users/receipts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiptId,
+          userId: userData.id,
+          customerName: user.name || user.email,
+          email: user.email,
+          points: selectedPointsPackage,
+          usdValue: packageUsd
+        })
+      });
+      
+      if (!receiptResponse.ok) {
+        const error = await receiptResponse.json();
+        throw new Error(error.error || 'Failed to record receipt');
+      }
+      
+      // Store receipt ID for order submission
+      setPointsReceiptId(receiptId);
+      console.log('✅ Receipt recorded:', receiptId);
+    } catch (error: any) {
+      console.error('Error recording receipt:', error);
+      alert(`Failed to record receipt: ${error.message}\n\nPlease try again.`);
+      return;
+    }
+    
     const receiptWindow = window.open('', '_blank');
     if (!receiptWindow) return;
 
@@ -135,7 +174,7 @@ const Checkout: React.FC = () => {
             </div>
             <div class="info-row">
               <span class="info-label">Receipt ID:</span>
-              <span>PTS-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}</span>
+              <span>${receiptId}</span>
             </div>
           </div>
 
@@ -277,6 +316,7 @@ const Checkout: React.FC = () => {
       if (paymentMethod === 'points' && selectedPointsPackage) {
         requestBody.pointsUsed = selectedPointsPackage;
         requestBody.pointsReceiptUrl = receiptUrl;
+        requestBody.pointsReceiptId = pointsReceiptId; // Include receipt ID for verification
         
         // If there's a remainder, include bank payment info
         if (finalTotalUsd > 0 && senderName) {

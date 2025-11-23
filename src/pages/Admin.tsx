@@ -301,7 +301,7 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
 }
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'rates' | 'invoices' | 'users' | 'slides' | 'sales' | 'ttorders' | 'chats' | 'points'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'rates' | 'invoices' | 'users' | 'slides' | 'sales' | 'ttorders' | 'chats' | 'points' | 'receipts'>('orders');
   const [adminPass, setAdminPass] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
@@ -385,6 +385,7 @@ const Admin: React.FC = () => {
               { id: 'ttorders', label: 'TT Orders' },
               { id: 'users', label: 'Users' },
               { id: 'points', label: 'Points Portal' },
+              { id: 'receipts', label: 'Points Receipts' },
               { id: 'slides', label: 'Slideshows' },
               { id: 'chats', label: 'Chats' },
             ].map((t) => (
@@ -464,11 +465,167 @@ const Admin: React.FC = () => {
               <PointsManager getAdminHeaders={getAdminHeaders} />
             </div>
           )}
+          {activeTab === 'receipts' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">Points Redemption Receipts</h2>
+              <ReceiptsManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
-};
+}
+
+function ReceiptsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const loadReceipts = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_BASE}/users/receipts`, { headers: getAdminHeaders() as HeadersInit });
+        if (!res.ok) throw new Error('Failed to fetch receipts');
+        const data = await res.json();
+        setReceipts(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load receipts');
+        console.error('Error loading receipts:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadReceipts();
+  }, [getAdminHeaders]);
+
+  const filteredReceipts = useMemo(() => {
+    if (!searchTerm) return receipts;
+    const term = searchTerm.toLowerCase();
+    return receipts.filter((r: any) =>
+      r.receiptId?.toLowerCase().includes(term) ||
+      r.customerName?.toLowerCase().includes(term) ||
+      r.email?.toLowerCase().includes(term) ||
+      r.user?.email?.toLowerCase().includes(term) ||
+      r.user?.name?.toLowerCase().includes(term)
+    );
+  }, [receipts, searchTerm]);
+
+  const handleVerify = async (receiptId: string, verified: boolean) => {
+    try {
+      const res = await fetch(`${API_BASE}/users/receipts/${receiptId}/verify`, {
+        method: 'PATCH',
+        headers: { ...getAdminHeaders(), 'Content-Type': 'application/json' } as HeadersInit,
+        body: JSON.stringify({ verified })
+      });
+      if (!res.ok) throw new Error('Failed to update receipt');
+      const updated = await res.json();
+      setReceipts((prev) => prev.map((r) => (r.id === receiptId ? updated : r)));
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8 text-gray-400">Loading receipts...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-8 text-red-400">Error: {error}</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <input
+          type="text"
+          placeholder="Search by receipt ID, name, or email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-neon-blue focus:border-neon-blue"
+        />
+        <div className="text-sm text-gray-400">
+          Total Receipts: <span className="text-white font-bold">{receipts.length}</span>
+        </div>
+      </div>
+
+      {filteredReceipts.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">No receipts found</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-dark-surface border-b border-dark-border">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Receipt ID</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Customer</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Email</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Points</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">USD Value</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Order</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Created</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredReceipts.map((receipt: any) => (
+                <tr key={receipt.id} className="border-b border-dark-border hover:bg-dark-surface/50">
+                  <td className="px-4 py-3 text-sm text-gray-300 font-mono">{receipt.receiptId}</td>
+                  <td className="px-4 py-3 text-sm text-white">{receipt.customerName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-300">{receipt.email}</td>
+                  <td className="px-4 py-3 text-sm text-neon-green font-bold">{receipt.points.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-sm text-white">${receipt.usdValue.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {receipt.order ? (
+                      <span className="text-neon-blue">#{receipt.order.id.substring(0, 8)}</span>
+                    ) : (
+                      <span className="text-gray-500">Not used</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                      receipt.verified
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/50'
+                        : receipt.order
+                        ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/50'
+                        : 'bg-gray-500/20 text-gray-400 border border-gray-500/50'
+                    }`}>
+                      {receipt.verified ? 'Verified' : receipt.order ? 'In Order' : 'Pending'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-400">
+                    {new Date(receipt.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {!receipt.verified && (
+                      <button
+                        onClick={() => handleVerify(receipt.id, true)}
+                        className="px-3 py-1 bg-neon-green/20 text-neon-green border border-neon-green/50 rounded hover:bg-neon-green/30 text-xs font-semibold"
+                      >
+                        Verify
+                      </button>
+                    )}
+                    {receipt.verified && (
+                      <button
+                        onClick={() => handleVerify(receipt.id, false)}
+                        className="px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/50 rounded hover:bg-red-500/30 text-xs font-semibold"
+                      >
+                        Unverify
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Admin;
 

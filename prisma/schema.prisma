@@ -18,6 +18,7 @@ model User {
   pointsBalance Int                @default(0) // TConnect Points balance
   orders       Order[]
   pointsTransactions PointsTransaction[]
+  pointsReceipts PointsReceipt[]
   createdAt    DateTime            @default(now())
 }
 
@@ -90,6 +91,7 @@ model Order {
   totalMwk     Int
   payment      PaymentSubmission?
   items        OrderItem[]
+  pointsReceipt PointsReceipt?
   createdAt    DateTime      @default(now())
 }
 
@@ -164,10 +166,26 @@ model PointsTransaction {
   id          String   @id @default(cuid())
   userId      String
   user        User     @relation(fields: [userId], references: [id])
-  type        String   // earned | redeemed
+  type        String   // earned | redeemed | adjusted
   points      Int      // Positive for earned, negative for redeemed
   orderId     String?  // Order ID if related to an order
   description String?  // Description of transaction
   createdAt   DateTime @default(now())
 }
+
+model PointsReceipt {
+  id          String   @id @default(cuid())
+  receiptId   String   @unique // The receipt ID shown on the receipt (e.g., PTS-1763911694797-E6PJW)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  customerName String
+  email       String
+  points      Int      // Points amount (650 or 1300)
+  usdValue    Float    // USD value (5 or 10)
+  orderId     String?  // Order ID if used in an order
+  order       Order?   @relation(fields: [orderId], references: [id])
+  verified    Boolean  @default(false) // Admin verification status
+  createdAt   DateTime @default(now())
+}
+
 

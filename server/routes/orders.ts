@@ -168,34 +168,60 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
       data: { status } 
     });
     
-    // Award points when order is approved (2 points per $10 = 0.2 points per $1)
-    if (status === 'approved' && currentOrder.status !== 'approved' && currentOrder.userId) {
+    // Award points when order is approved or fulfilled (2 points per $10 = 0.2 points per $1)
+    // Only award if order wasn't already approved/fulfilled (to prevent duplicate awards)
+    const wasAlreadyCompleted = currentOrder.status === 'approved' || currentOrder.status === 'fulfilled';
+    const isNowCompleted = status === 'approved' || status === 'fulfilled';
+    
+    if (isNowCompleted && !wasAlreadyCompleted && currentOrder.userId) {
       const pointsToAward = Math.floor(currentOrder.totalUsd * 0.2); // 2 points per $10
       
       if (pointsToAward > 0) {
-        // Update user's points balance
-        await prisma.user.update({
-          where: { id: currentOrder.userId },
-          data: {
-            pointsBalance: {
-              increment: pointsToAward
+        try {
+          // Check if points were already awarded for this order
+          const existingTransaction = await prisma.pointsTransaction.findFirst({
+            where: {
+              orderId: orderId,
+              type: 'earned',
+              points: pointsToAward
             }
+          });
+
+          if (existingTransaction) {
+            console.log(`⚠️ Points already awarded for order ${orderId}, skipping...`);
+          } else {
+            // Update user's points balance
+            await prisma.user.update({
+              where: { id: currentOrder.userId },
+              data: {
+                pointsBalance: {
+                  increment: pointsToAward
+                }
+              }
+            });
+            
+            // Create points transaction record
+            await prisma.pointsTransaction.create({
+              data: {
+                userId: currentOrder.userId,
+                type: 'earned',
+                points: pointsToAward,
+                orderId: orderId,
+                description: `Earned ${pointsToAward} points from order #${orderId} ($${currentOrder.totalUsd.toFixed(2)})`
+              }
+            });
+            
+            console.log(`✅ Awarded ${pointsToAward} points to user ${currentOrder.userId} for order ${orderId} ($${currentOrder.totalUsd})`);
           }
-        });
-        
-        // Create points transaction record
-        await prisma.pointsTransaction.create({
-          data: {
-            userId: currentOrder.userId,
-            type: 'earned',
-            points: pointsToAward,
-            orderId: orderId,
-            description: `Earned ${pointsToAward} points from order #${orderId} ($${currentOrder.totalUsd.toFixed(2)})`
-          }
-        });
-        
-        console.log(`✅ Awarded ${pointsToAward} points to user ${currentOrder.userId} for order ${orderId}`);
+        } catch (error: any) {
+          console.error(`❌ Error awarding points for order ${orderId}:`, error);
+          // Don't fail the status update if points awarding fails
+        }
+      } else {
+        console.log(`⚠️ Order ${orderId} total is $${currentOrder.totalUsd}, no points to award (minimum $10 for 2 points)`);
       }
+    } else if (isNowCompleted && wasAlreadyCompleted) {
+      console.log(`⚠️ Order ${orderId} was already ${currentOrder.status}, points already awarded`);
     }
     
     res.json(order);

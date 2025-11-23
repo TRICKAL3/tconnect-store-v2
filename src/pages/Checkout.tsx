@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, CreditCard, Shield, CheckCircle, Building2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';

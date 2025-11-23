@@ -41,6 +41,18 @@ BEGIN
     END IF;
 END $$;
 
+-- Add unique constraint on orderId (for one-to-one relation)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'PointsReceipt_orderId_key'
+    ) THEN
+        ALTER TABLE "PointsReceipt" 
+        ADD CONSTRAINT "PointsReceipt_orderId_key" UNIQUE ("orderId");
+    END IF;
+END $$;
+
 -- Add foreign key constraint to Order
 DO $$ 
 BEGIN

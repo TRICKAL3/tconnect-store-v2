@@ -301,7 +301,7 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
 }
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'rates' | 'invoices' | 'users' | 'slides' | 'sales' | 'ttorders' | 'chats'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'rates' | 'invoices' | 'users' | 'slides' | 'sales' | 'ttorders' | 'chats' | 'points'>('orders');
   const [adminPass, setAdminPass] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
@@ -384,6 +384,7 @@ const Admin: React.FC = () => {
               { id: 'invoices', label: 'Invoices' },
               { id: 'ttorders', label: 'TT Orders' },
               { id: 'users', label: 'Users' },
+              { id: 'points', label: 'Points Portal' },
               { id: 'slides', label: 'Slideshows' },
               { id: 'chats', label: 'Chats' },
             ].map((t) => (
@@ -455,6 +456,12 @@ const Admin: React.FC = () => {
             <div>
               <h2 className="text-xl font-bold text-white mb-4">Live Chats</h2>
               <ChatManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
+          {activeTab === 'points' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">TConnect Points Portal</h2>
+              <PointsManager getAdminHeaders={getAdminHeaders} />
             </div>
           )}
         </div>
@@ -2926,6 +2933,174 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/users`, { headers: getAdminHeaders() as HeadersInit });
+      if (!res.ok) {
+        throw new Error(`Failed to load users: ${res.status}`);
+      }
+      const data = await res.json();
+      // Sort by points balance (highest first)
+      const sorted = Array.isArray(data) 
+        ? data.sort((a: any, b: any) => (b.pointsBalance || 0) - (a.pointsBalance || 0))
+        : [];
+      setUsers(sorted);
+    } catch (error: any) {
+      console.error('Failed to load users:', error);
+      setError(error.message || 'Failed to load users');
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredUsers = users.filter(user => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      user.name?.toLowerCase().includes(term) ||
+      user.email?.toLowerCase().includes(term) ||
+      user.id?.toLowerCase().includes(term)
+    );
+  });
+
+  const totalPoints = users.reduce((sum, user) => sum + (user.pointsBalance || 0), 0);
+  const totalUsersWithPoints = users.filter(user => (user.pointsBalance || 0) > 0).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="card-dark p-4 border border-neon-blue/30">
+          <div className="text-gray-400 text-sm mb-1">Total Points Issued</div>
+          <div className="text-2xl font-bold text-neon-blue">{totalPoints.toLocaleString()}</div>
+        </div>
+        <div className="card-dark p-4 border border-neon-green/30">
+          <div className="text-gray-400 text-sm mb-1">Users with Points</div>
+          <div className="text-2xl font-bold text-neon-green">{totalUsersWithPoints}</div>
+        </div>
+        <div className="card-dark p-4 border border-purple-400/30">
+          <div className="text-gray-400 text-sm mb-1">Points Value (USD)</div>
+          <div className="text-2xl font-bold text-purple-400">
+            ${((totalPoints / 1300) * 10).toFixed(2)}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">1300 points = $10</div>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search by name, email, or user ID..."
+          className="w-full px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-white placeholder-gray-400"
+        />
+      </div>
+
+      {/* Users Table */}
+      {loading ? (
+        <div className="text-center py-8 text-gray-400">Loading users...</div>
+      ) : error ? (
+        <div className="text-center py-8 text-red-400">{error}</div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">No users found</div>
+      ) : (
+        <div className="card-dark overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-dark-border">
+                <th className="text-left p-4 text-white font-semibold">User</th>
+                <th className="text-left p-4 text-white font-semibold">Email</th>
+                <th className="text-right p-4 text-white font-semibold">Points Balance</th>
+                <th className="text-right p-4 text-white font-semibold">USD Value</th>
+                <th className="text-left p-4 text-white font-semibold">Member Since</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((user) => {
+                const pointsValue = ((user.pointsBalance || 0) / 1300) * 10;
+                return (
+                  <tr key={user.id} className="border-b border-dark-border hover:bg-dark-surface/50">
+                    <td className="p-4">
+                      <div className="flex items-center space-x-3">
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt={user.name} className="w-10 h-10 rounded-full" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-neon-blue/20 flex items-center justify-center">
+                            <span className="text-neon-blue font-bold">
+                              {user.name?.charAt(0).toUpperCase() || 'U'}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-white font-medium">{user.name || 'Unknown'}</div>
+                          <div className="text-gray-400 text-xs">{user.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-gray-300">{user.email}</td>
+                    <td className="p-4 text-right">
+                      <span className="text-neon-blue font-bold text-lg">
+                        {(user.pointsBalance || 0).toLocaleString()}
+                      </span>
+                      <span className="text-gray-400 text-sm ml-1">pts</span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <span className="text-neon-green font-semibold">
+                        ${pointsValue.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="p-4 text-gray-400 text-sm">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Points System Info */}
+      <div className="card-dark p-6 border border-neon-blue/30">
+        <h3 className="text-white font-bold mb-4 flex items-center">
+          <span className="text-2xl mr-2">🎁</span>
+          TConnect Points System
+        </h3>
+        <div className="space-y-2 text-gray-300 text-sm">
+          <div className="flex items-center space-x-2">
+            <span className="text-neon-green">✓</span>
+            <span><strong>Earning:</strong> Users earn 2 points for every $10 spent on approved orders</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-neon-blue">✓</span>
+            <span><strong>Redemption:</strong> 1300 points = $10 USD value</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-purple-400">✓</span>
+            <span><strong>Usage:</strong> Points can be used at checkout to purchase items</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

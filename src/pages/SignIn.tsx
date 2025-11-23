@@ -98,6 +98,30 @@ const SignIn: React.FC = () => {
     <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4">
       <div className="card-dark p-6 sm:p-8 w-full max-w-sm sm:max-w-md md:max-w-lg">
         <div className="text-center mb-6">
+          {/* Cartoon Character */}
+          <div className="mb-4 flex justify-center">
+            <div className="relative">
+              <div 
+                className="text-6xl sm:text-7xl md:text-8xl animate-bounce"
+                style={{
+                  animation: 'wave 1s ease-in-out infinite',
+                  transformOrigin: '70% 70%'
+                }}
+              >
+                👋
+              </div>
+              <style>{`
+                @keyframes wave {
+                  0%, 100% { transform: rotate(0deg); }
+                  25% { transform: rotate(20deg); }
+                  75% { transform: rotate(-20deg); }
+                }
+              `}</style>
+              <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 text-xs sm:text-sm text-gray-400 whitespace-nowrap">
+                <span className="font-bold text-neon-blue">TConnect</span> Store
+              </div>
+            </div>
+          </div>
           <img 
             src={logoImage} 
             alt="TConnect Logo" 

@@ -8,7 +8,7 @@ const router = Router();
 // Create order with items and optional payment submission (auth optional for now)
 router.post('/', async (req: any, res) => {
   try {
-    const { items, totalUsd, totalMwk, payment, userId, userEmail } = req.body;
+    const { items, totalUsd, totalMwk, payment, userId, userEmail, pointsUsed } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'No items' });
     }
@@ -16,6 +16,37 @@ router.post('/', async (req: any, res) => {
     if (!finalUserId && userEmail) {
       const existing = await prisma.user.findUnique({ where: { email: userEmail } });
       if (existing) finalUserId = existing.id;
+    }
+    
+    // Deduct points if used
+    if (pointsUsed && pointsUsed > 0 && finalUserId) {
+      const user = await prisma.user.findUnique({ where: { id: finalUserId } });
+      if (user && (user.pointsBalance || 0) >= pointsUsed) {
+        // Deduct points
+        await prisma.user.update({
+          where: { id: finalUserId },
+          data: {
+            pointsBalance: {
+              decrement: pointsUsed
+            }
+          }
+        });
+        
+        // Create points transaction record
+        await prisma.pointsTransaction.create({
+          data: {
+            userId: finalUserId,
+            type: 'redeemed',
+            points: -pointsUsed,
+            orderId: null, // Will be set after order creation
+            description: `Redeemed ${pointsUsed} points for order`
+          }
+        });
+        
+        console.log(`✅ Deducted ${pointsUsed} points from user ${finalUserId}`);
+      } else {
+        return res.status(400).json({ error: 'Insufficient points balance' });
+      }
     }
     
     const order = await prisma.order.create({
@@ -50,6 +81,21 @@ router.post('/', async (req: any, res) => {
       },
       include: { items: true, payment: true }
     });
+    
+    // Update points transaction with order ID if points were used
+    if (pointsUsed && pointsUsed > 0 && finalUserId) {
+      await prisma.pointsTransaction.updateMany({
+        where: {
+          userId: finalUserId,
+          orderId: null,
+          type: 'redeemed',
+          points: -pointsUsed
+        },
+        data: {
+          orderId: order.id
+        }
+      });
+    }
     
     console.log('Order created:', order.id, 'Status:', order.status);
     res.json(order);
@@ -102,8 +148,61 @@ router.get('/', basicAdminAuth, async (_req: any, res) => {
 });
 
 router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
-  const order = await prisma.order.update({ where: { id: req.params.id }, data: { status: req.body.status } });
-  res.json(order);
+  try {
+    const { status } = req.body;
+    const orderId = req.params.id;
+    
+    // Get the order first to check current status and calculate points
+    const currentOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { user: true }
+    });
+    
+    if (!currentOrder) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    // Update order status
+    const order = await prisma.order.update({ 
+      where: { id: orderId }, 
+      data: { status } 
+    });
+    
+    // Award points when order is approved (2 points per $10 = 0.2 points per $1)
+    if (status === 'approved' && currentOrder.status !== 'approved' && currentOrder.userId) {
+      const pointsToAward = Math.floor(currentOrder.totalUsd * 0.2); // 2 points per $10
+      
+      if (pointsToAward > 0) {
+        // Update user's points balance
+        await prisma.user.update({
+          where: { id: currentOrder.userId },
+          data: {
+            pointsBalance: {
+              increment: pointsToAward
+            }
+          }
+        });
+        
+        // Create points transaction record
+        await prisma.pointsTransaction.create({
+          data: {
+            userId: currentOrder.userId,
+            type: 'earned',
+            points: pointsToAward,
+            orderId: orderId,
+            description: `Earned ${pointsToAward} points from order #${orderId} ($${currentOrder.totalUsd.toFixed(2)})`
+          }
+        });
+        
+        console.log(`✅ Awarded ${pointsToAward} points to user ${currentOrder.userId} for order ${orderId}`);
+      }
+    }
+    
+    res.json(order);
+  } catch (error: any) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ error: error.message || 'Failed to update order status' });
+  }
 });
 
 // Admin: Add gift card codes to order items

@@ -8,15 +8,17 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String?  // Optional for Firebase OAuth users
-  name      String
-  phone     String?
-  avatarUrl String?
-  role      String   @default("user") // user, admin, staff
-  orders    Order[]
-  createdAt DateTime @default(now())
+  id           String              @id @default(cuid())
+  email        String              @unique
+  password     String?             // Optional for Firebase OAuth users
+  name         String
+  phone        String?
+  avatarUrl    String?
+  role         String              @default("user") // user, admin, staff
+  pointsBalance Int                @default(0) // TConnect Points balance
+  orders       Order[]
+  pointsTransactions PointsTransaction[]
+  createdAt    DateTime            @default(now())
 }
 
 model Product {
@@ -155,6 +157,17 @@ model ChatMessage {
   senderName  String?  // Display name
   content     String
   imageUrl    String?  // URL to uploaded image if message contains image
+  createdAt   DateTime @default(now())
+}
+
+model PointsTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String   // earned | redeemed
+  points      Int      // Positive for earned, negative for redeemed
+  orderId     String?  // Order ID if related to an order
+  description String?  // Description of transaction
   createdAt   DateTime @default(now())
 }
 

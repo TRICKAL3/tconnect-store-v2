@@ -5,16 +5,36 @@ import { basicAdminAuth } from '../lib/adminAuth';
 const router = Router();
 
 router.get('/', basicAdminAuth, async (_req, res) => {
-  const users = await prisma.user.findMany({ orderBy: { createdAt: 'desc' }, select: { id: true, email: true, name: true, role: true } });
+  const users = await prisma.user.findMany({ 
+    orderBy: { createdAt: 'desc' }, 
+    select: { 
+      id: true, 
+      email: true, 
+      name: true, 
+      role: true, 
+      pointsBalance: true,
+      avatarUrl: true,
+      createdAt: true
+    } 
+  });
   res.json(users);
 });
 
 router.get('/profile', async (req, res) => {
   const email = req.query.email as string;
   if (!email) return res.status(400).json({ error: 'email required' });
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, name: true, avatarUrl: true } });
+  const user = await prisma.user.findUnique({ 
+    where: { email }, 
+    select: { id: true, email: true, name: true, avatarUrl: true, pointsBalance: true } 
+  });
   if (!user) return res.status(404).json({ error: 'user not found' });
-  res.json({ id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl });
+  res.json({ 
+    id: user.id, 
+    email: user.email, 
+    name: user.name, 
+    avatarUrl: user.avatarUrl,
+    pointsBalance: user.pointsBalance || 0
+  });
 });
 
 router.patch('/:id', basicAdminAuth, async (req, res) => {

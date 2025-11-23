@@ -21,6 +21,9 @@ const Checkout: React.FC = () => {
   const [senderName, setSenderName] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [popFile, setPopFile] = useState<File | null>(null);
+  const [pointsBalance, setPointsBalance] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
+  const [pointsToUse, setPointsToUse] = useState(0);
 
   const itemMwk = (type: 'giftcard' | 'crypto' | 'wallet' | 'virtual-card', usd: number) => {
     // Digital wallets & cards (wallet and virtual-card) use wallet rate
@@ -31,6 +34,46 @@ const Checkout: React.FC = () => {
   const totalMwk = useMemo(() => {
     return state.items.reduce((sum, item) => sum + itemMwk(item.type as any, item.price) * item.quantity, 0);
   }, [state.items]);
+
+  // Fetch user points balance
+  useEffect(() => {
+    const fetchPoints = async () => {
+      if (user?.email) {
+        try {
+          const API_BASE = getApiBase();
+          const res = await fetch(`${API_BASE}/users/profile?email=${encodeURIComponent(user.email)}`);
+          if (res.ok) {
+            const data = await res.json();
+            setPointsBalance(data.pointsBalance || 0);
+          }
+        } catch (error) {
+          console.error('Failed to fetch points:', error);
+        }
+      }
+    };
+    fetchPoints();
+  }, [user]);
+
+  // Calculate points discount (1300 points = $10)
+  const pointsDiscountUsd = useMemo(() => {
+    if (!usePoints || pointsToUse <= 0) return 0;
+    // 1300 points = $10, so 130 points = $1
+    return Math.min((pointsToUse / 130) * 1, state.total); // Can't discount more than total
+  }, [usePoints, pointsToUse, state.total]);
+
+  const finalTotalUsd = useMemo(() => {
+    return Math.max(0, state.total - pointsDiscountUsd);
+  }, [state.total, pointsDiscountUsd]);
+
+  const finalTotalMwk = useMemo(() => {
+    // Recalculate MWK based on final USD after points discount
+    return state.items.reduce((sum, item) => {
+      const itemUsd = item.price * item.quantity;
+      const itemDiscount = (itemUsd / state.total) * pointsDiscountUsd; // Proportional discount
+      const finalItemUsd = Math.max(0, itemUsd - itemDiscount);
+      return sum + itemMwk(item.type as any, finalItemUsd / item.quantity) * item.quantity;
+    }, 0);
+  }, [state.items, pointsDiscountUsd, state.total]);
 
   const handleCheckout = async () => {
     // Validate required fields
@@ -69,7 +112,7 @@ const Checkout: React.FC = () => {
           popUrl = null;
         }
       }
-      const totalMwkInt = Math.round(totalMwk);
+      const totalMwkInt = Math.round(finalTotalMwk);
       const API_BASE = getApiBase();
       const url = `${API_BASE}/orders`;
       
@@ -86,9 +129,10 @@ const Checkout: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: state.items,
-          totalUsd: state.total,
-          totalMwk: totalMwkInt,
+          totalUsd: finalTotalUsd, // Use final total after points discount
+          totalMwk: Math.round(finalTotalMwk),
           userEmail: user?.email,
+          pointsUsed: usePoints && pointsToUse > 0 ? pointsToUse : 0,
           payment: {
             bankName: 'National Bank of Malawi',
             accountName: 'TrickalHoldings',
@@ -241,14 +285,73 @@ const Checkout: React.FC = () => {
                 ))}
               </div>
 
+              {/* Points Redemption */}
+              {user && pointsBalance > 0 && (
+                <div className="border-t border-dark-border pt-4 mb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="text-sm text-gray-400">Your TConnect Points</div>
+                      <div className="text-lg font-bold text-neon-blue">{pointsBalance.toLocaleString()} pts</div>
+                      <div className="text-xs text-gray-500">1300 points = $10</div>
+                    </div>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={usePoints}
+                        onChange={(e) => {
+                          setUsePoints(e.target.checked);
+                          if (e.target.checked) {
+                            // Auto-calculate max usable points (can't use more than total)
+                            const maxPointsValue = state.total * 130; // $1 = 130 points
+                            setPointsToUse(Math.min(pointsBalance, maxPointsValue));
+                          } else {
+                            setPointsToUse(0);
+                          }
+                        }}
+                        className="w-5 h-5 rounded border-dark-border bg-dark-surface text-neon-blue focus:ring-neon-blue"
+                      />
+                      <span className="text-white text-sm">Use Points</span>
+                    </label>
+                  </div>
+                  {usePoints && (
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max={pointsBalance}
+                        value={pointsToUse}
+                        onChange={(e) => {
+                          const value = Math.min(Math.max(0, parseInt(e.target.value) || 0), pointsBalance);
+                          const maxPointsValue = state.total * 130;
+                          setPointsToUse(Math.min(value, maxPointsValue));
+                        }}
+                        className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white text-sm"
+                        placeholder="Points to use"
+                      />
+                      {pointsToUse > 0 && (
+                        <div className="text-sm text-neon-green">
+                          Discount: ${pointsDiscountUsd.toFixed(2)} USD
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="border-t border-dark-border pt-4 space-y-1">
                 <div className="flex justify-between text-sm font-medium">
                   <span className="text-gray-400">Subtotal (USD)</span>
                   <span className="text-gray-300">${state.total.toFixed(2)}</span>
                 </div>
+                {pointsDiscountUsd > 0 && (
+                  <div className="flex justify-between text-sm font-medium text-neon-green">
+                    <span>Points Discount</span>
+                    <span>-${pointsDiscountUsd.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-semibold">
                   <span className="text-white">Total (MWK)</span>
-                  <span className="text-neon-blue">MWK {totalMwk.toLocaleString()}</span>
+                  <span className="text-neon-blue">MWK {Math.round(finalTotalMwk).toLocaleString()}</span>
                 </div>
               </div>
             </div>

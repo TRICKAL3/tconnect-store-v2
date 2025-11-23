@@ -8,7 +8,7 @@ const router = Router();
 // Create order with items and optional payment submission (auth optional for now)
 router.post('/', async (req: any, res) => {
   try {
-    const { items, totalUsd, totalMwk, payment, userId, userEmail, pointsUsed } = req.body;
+    const { items, totalUsd, totalMwk, payment, userId, userEmail, pointsUsed, paymentMethod, pointsReceiptUrl } = req.body;
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'No items' });
     }
@@ -18,35 +18,46 @@ router.post('/', async (req: any, res) => {
       if (existing) finalUserId = existing.id;
     }
     
-    // Deduct points if used
-    if (pointsUsed && pointsUsed > 0 && finalUserId) {
+    // For points payment: validate points balance but DON'T deduct yet (wait for approval)
+    if (paymentMethod === 'points' && pointsUsed && pointsUsed > 0 && finalUserId) {
       const user = await prisma.user.findUnique({ where: { id: finalUserId } });
-      if (user && (user.pointsBalance || 0) >= pointsUsed) {
-        // Deduct points
-        await prisma.user.update({
-          where: { id: finalUserId },
-          data: {
-            pointsBalance: {
-              decrement: pointsUsed
-            }
-          }
-        });
-        
-        // Create points transaction record
-        await prisma.pointsTransaction.create({
-          data: {
-            userId: finalUserId,
-            type: 'redeemed',
-            points: -pointsUsed,
-            orderId: null, // Will be set after order creation
-            description: `Redeemed ${pointsUsed} points for order`
-          }
-        });
-        
-        console.log(`✅ Deducted ${pointsUsed} points from user ${finalUserId}`);
-      } else {
+      if (!user || (user.pointsBalance || 0) < pointsUsed) {
         return res.status(400).json({ error: 'Insufficient points balance' });
       }
+      console.log(`✅ Points payment validated: ${pointsUsed} points available for user ${finalUserId}`);
+    }
+    
+    // Create payment submission based on payment method
+    let paymentData: any = undefined;
+    if (paymentMethod === 'points' && pointsUsed && pointsReceiptUrl) {
+      // For points payment, store points info in payment submission
+      // If there's also bank payment (remainder), combine them
+      const combinedPopUrl = payment?.popUrl ? `${pointsReceiptUrl}|${payment.popUrl}` : pointsReceiptUrl;
+      const combinedTransactionId = payment?.transactionId ? `PTS-${pointsUsed}|BANK-${payment.transactionId}` : `PTS-${pointsUsed}`;
+      
+      paymentData = {
+        create: {
+          method: 'points', // Primary method is points
+          bankName: payment?.bankName || 'TConnect Points',
+          accountName: payment?.accountName || 'Points Redemption',
+          accountNumber: payment?.accountNumber || null,
+          transactionId: combinedTransactionId, // Store points amount and bank transaction if any
+          popUrl: combinedPopUrl, // Store both receipts if applicable
+          senderName: payment?.senderName || userEmail || 'Points User'
+        }
+      };
+    } else if (paymentMethod === 'bank' && payment) {
+      paymentData = {
+        create: {
+          method: 'bank',
+          bankName: payment.bankName || 'National Bank of Malawi',
+          accountName: payment.accountName,
+          accountNumber: payment.accountNumber || null,
+          transactionId: payment.transactionId || null,
+          popUrl: payment.popUrl || null,
+          senderName: payment.senderName
+        }
+      };
     }
     
     const order = await prisma.order.create({
@@ -66,38 +77,12 @@ router.post('/', async (req: any, res) => {
             metadata: i.metadata ? JSON.stringify(i.metadata) : null
           }))
         },
-        payment: payment
-          ? {
-              create: {
-                bankName: payment.bankName || 'National Bank of Malawi',
-                accountName: payment.accountName,
-                accountNumber: payment.accountNumber || null,
-                transactionId: payment.transactionId || null,
-                popUrl: payment.popUrl || null,
-                senderName: payment.senderName
-              }
-            }
-          : undefined
+        payment: paymentData
       },
       include: { items: true, payment: true }
     });
     
-    // Update points transaction with order ID if points were used
-    if (pointsUsed && pointsUsed > 0 && finalUserId) {
-      await prisma.pointsTransaction.updateMany({
-        where: {
-          userId: finalUserId,
-          orderId: null,
-          type: 'redeemed',
-          points: -pointsUsed
-        },
-        data: {
-          orderId: order.id
-        }
-      });
-    }
-    
-    console.log('Order created:', order.id, 'Status:', order.status);
+    console.log('Order created:', order.id, 'Status:', order.status, 'Payment Method:', paymentMethod);
     res.json(order);
   } catch (error: any) {
     console.error('Error creating order:', error);
@@ -168,60 +153,123 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
       data: { status } 
     });
     
-    // Award points when order is approved or fulfilled (2 points per $10 = 0.2 points per $1)
-    // Only award if order wasn't already approved/fulfilled (to prevent duplicate awards)
+    // Handle points: deduct if paid with points, award if paid with bank/card
     const wasAlreadyCompleted = currentOrder.status === 'approved' || currentOrder.status === 'fulfilled';
     const isNowCompleted = status === 'approved' || status === 'fulfilled';
     
+    // Get payment method from payment submission
+    const paymentSubmission = await prisma.paymentSubmission.findUnique({
+      where: { orderId: orderId }
+    });
+    
+    const isPointsPayment = paymentSubmission?.method === 'points';
+    
     if (isNowCompleted && !wasAlreadyCompleted && currentOrder.userId) {
-      const pointsToAward = Math.floor(currentOrder.totalUsd * 0.2); // 2 points per $10
-      
-      if (pointsToAward > 0) {
-        try {
-          // Check if points were already awarded for this order
-          const existingTransaction = await prisma.pointsTransaction.findFirst({
-            where: {
-              orderId: orderId,
-              type: 'earned',
-              points: pointsToAward
-            }
-          });
-
-          if (existingTransaction) {
-            console.log(`⚠️ Points already awarded for order ${orderId}, skipping...`);
-          } else {
-            // Update user's points balance
-            await prisma.user.update({
-              where: { id: currentOrder.userId },
-              data: {
-                pointsBalance: {
-                  increment: pointsToAward
-                }
-              }
-            });
-            
-            // Create points transaction record
-            await prisma.pointsTransaction.create({
-              data: {
-                userId: currentOrder.userId,
-                type: 'earned',
-                points: pointsToAward,
+      if (isPointsPayment) {
+        // Deduct points when order is approved (points were validated but not deducted at creation)
+        const pointsToDeduct = paymentSubmission?.transactionId ? parseInt(paymentSubmission.transactionId.replace('PTS-', '')) : 0;
+        
+        if (pointsToDeduct > 0) {
+          try {
+            // Check if points were already deducted for this order
+            const existingTransaction = await prisma.pointsTransaction.findFirst({
+              where: {
                 orderId: orderId,
-                description: `Earned ${pointsToAward} points from order #${orderId} ($${currentOrder.totalUsd.toFixed(2)})`
+                type: 'redeemed',
+                points: -pointsToDeduct
               }
             });
-            
-            console.log(`✅ Awarded ${pointsToAward} points to user ${currentOrder.userId} for order ${orderId} ($${currentOrder.totalUsd})`);
+
+            if (existingTransaction) {
+              console.log(`⚠️ Points already deducted for order ${orderId}, skipping...`);
+            } else {
+              const user = await prisma.user.findUnique({ where: { id: currentOrder.userId } });
+              if (user && (user.pointsBalance || 0) >= pointsToDeduct) {
+                // Deduct points
+                await prisma.user.update({
+                  where: { id: currentOrder.userId },
+                  data: {
+                    pointsBalance: {
+                      decrement: pointsToDeduct
+                    }
+                  }
+                });
+                
+                // Create points transaction record
+                await prisma.pointsTransaction.create({
+                  data: {
+                    userId: currentOrder.userId,
+                    type: 'redeemed',
+                    points: -pointsToDeduct,
+                    orderId: orderId,
+                    description: `Redeemed ${pointsToDeduct} points for order #${orderId} ($${currentOrder.totalUsd.toFixed(2)})`
+                  }
+                });
+                
+                console.log(`✅ Deducted ${pointsToDeduct} points from user ${currentOrder.userId} for order ${orderId}`);
+              } else {
+                console.error(`❌ Insufficient points balance for order ${orderId}`);
+              }
+            }
+          } catch (error: any) {
+            console.error(`❌ Error deducting points for order ${orderId}:`, error);
+            // Don't fail the status update if points deduction fails
           }
-        } catch (error: any) {
-          console.error(`❌ Error awarding points for order ${orderId}:`, error);
-          // Don't fail the status update if points awarding fails
         }
+        // NO points earned for points-paid orders
+        console.log(`ℹ️ Order ${orderId} was paid with points - no points earned`);
       } else {
-        console.log(`⚠️ Order ${orderId} total is $${currentOrder.totalUsd}, no points to award (minimum $10 for 2 points)`);
+        // Award points when order is approved or fulfilled (2 points per $10 = 0.2 points per $1)
+        // Only for non-points payments
+        const pointsToAward = Math.floor(currentOrder.totalUsd * 0.2); // 2 points per $10
+        
+        if (pointsToAward > 0) {
+          try {
+            // Check if points were already awarded for this order
+            const existingTransaction = await prisma.pointsTransaction.findFirst({
+              where: {
+                orderId: orderId,
+                type: 'earned',
+                points: pointsToAward
+              }
+            });
+
+            if (existingTransaction) {
+              console.log(`⚠️ Points already awarded for order ${orderId}, skipping...`);
+            } else {
+              // Update user's points balance
+              await prisma.user.update({
+                where: { id: currentOrder.userId },
+                data: {
+                  pointsBalance: {
+                    increment: pointsToAward
+                  }
+                }
+              });
+              
+              // Create points transaction record
+              await prisma.pointsTransaction.create({
+                data: {
+                  userId: currentOrder.userId,
+                  type: 'earned',
+                  points: pointsToAward,
+                  orderId: orderId,
+                  description: `Earned ${pointsToAward} points from order #${orderId} ($${currentOrder.totalUsd.toFixed(2)})`
+                }
+              });
+              
+              console.log(`✅ Awarded ${pointsToAward} points to user ${currentOrder.userId} for order ${orderId} ($${currentOrder.totalUsd})`);
+            }
+          } catch (error: any) {
+            console.error(`❌ Error awarding points for order ${orderId}:`, error);
+            // Don't fail the status update if points awarding fails
+          }
+        } else {
+          console.log(`⚠️ Order ${orderId} total is $${currentOrder.totalUsd}, no points to award (minimum $10 for 2 points)`);
+        }
       }
     } else if (isNowCompleted && wasAlreadyCompleted) {
-      console.log(`⚠️ Order ${orderId} was already ${currentOrder.status}, points already awarded`);
+      console.log(`⚠️ Order ${orderId} was already ${currentOrder.status}, points already processed`);
     }
     
     res.json(order);

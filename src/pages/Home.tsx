@@ -6,6 +6,9 @@ import paypalLogo from '../assets/paypal.jpg';
 import skrillLogo from '../assets/skrill.jpg';
 import netellerLogo from '../assets/neteller.jpg';
 import perfectMoneyLogo from '../assets/perfect-money.jpg';
+import s1Image from '../s1.jpg';
+import s2Image from '../s2.jpg';
+import s3Image from '../s3.jpg';
 
 // Sample promotions (will be replaced by admin slides)
 const sampleSlides = [
@@ -14,7 +17,7 @@ const sampleSlides = [
     title: 'Gaming Gift Cards',
     subtitle: 'Level Up Your Gaming',
     description: 'Get instant access to Steam, PlayStation, Xbox, and more gaming platforms!',
-    image: 'https://images.unsplash.com/photo-1552820728-8b83bb6b773f?w=800&h=600&fit=crop&q=80',
+    image: s1Image,
     cta: 'Shop Gaming',
     ctaLink: '/giftcards',
     active: true
@@ -24,7 +27,7 @@ const sampleSlides = [
     title: 'Entertainment',
     subtitle: 'Netflix & Spotify',
     description: 'Stream your favorite shows and music with premium entertainment gift cards!',
-    image: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&h=600&fit=crop&q=80',
+    image: s2Image,
     cta: 'Explore Entertainment',
     ctaLink: '/giftcards',
     active: true
@@ -34,19 +37,9 @@ const sampleSlides = [
     title: 'Cryptocurrency',
     subtitle: 'Trade Digital Assets',
     description: 'Buy and sell Bitcoin, Ethereum, USDT, and other cryptocurrencies securely!',
-    image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=800&h=600&fit=crop&q=80',
+    image: s3Image,
     cta: 'Explore Crypto',
     ctaLink: '/crypto',
-    active: true
-  },
-  {
-    id: 'sample-4',
-    title: 'Digital Wallets',
-    subtitle: 'PayPal & Virtual Cards',
-    description: 'Get PayPal, Skrill, Neteller, and virtual prepaid cards for online payments!',
-    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=600&fit=crop&q=80',
-    cta: 'View Wallets',
-    ctaLink: '/wallets',
     active: true
   }
 ];
@@ -57,30 +50,10 @@ const Home: React.FC = () => {
   const navigate = useNavigate();
   const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
 
-  // Fetch slides from backend
+  // Use sample slides with s1, s2, s3 images
   useEffect(() => {
-    const fetchSlides = async () => {
-      try {
-        const API_BASE = getApiBase();
-        const res = await fetch(`${API_BASE}/slides`);
-        const data = await res.json();
-        const backendSlides = Array.isArray(data) ? data.filter((s: any) => s.active && s.image) : [];
-        // Use backend slides if available and have images, otherwise use samples
-        if (backendSlides.length > 0) {
-          console.log('📸 Using backend slides:', backendSlides.length);
-          setSlides(backendSlides);
-        } else {
-          console.log('📸 Using sample slides:', sampleSlides.length);
-          setSlides(sampleSlides);
-        }
-      } catch (error) {
-        console.error('Failed to load slides:', error);
-        // Use sample slides if backend fails
-        console.log('📸 Using sample slides (fallback):', sampleSlides.length);
-        setSlides(sampleSlides);
-      }
-    };
-    fetchSlides();
+    console.log('📸 Using sample slides with s1, s2, s3:', sampleSlides.length);
+    setSlides(sampleSlides);
   }, []);
 
   // Intersection Observer for scroll animations

@@ -6,9 +6,6 @@ import paypalLogo from '../assets/paypal.jpg';
 import skrillLogo from '../assets/skrill.jpg';
 import netellerLogo from '../assets/neteller.jpg';
 import perfectMoneyLogo from '../assets/perfect-money.jpg';
-import s1Image from '../s1.jpg';
-import s2Image from '../s2.jpg';
-import s3Image from '../s3.jpg';
 
 // Sample promotions (will be replaced by admin slides)
 const sampleSlides = [
@@ -17,7 +14,7 @@ const sampleSlides = [
     title: 'Gaming Gift Cards',
     subtitle: 'Level Up Your Gaming',
     description: 'Get instant access to Steam, PlayStation, Xbox, and more gaming platforms!',
-    image: s1Image,
+    image: '/s1.jpg',
     cta: 'Shop Gaming',
     ctaLink: '/giftcards',
     active: true
@@ -27,7 +24,7 @@ const sampleSlides = [
     title: 'Entertainment',
     subtitle: 'Netflix & Spotify',
     description: 'Stream your favorite shows and music with premium entertainment gift cards!',
-    image: s2Image,
+    image: '/s2.jpg',
     cta: 'Explore Entertainment',
     ctaLink: '/giftcards',
     active: true
@@ -37,7 +34,7 @@ const sampleSlides = [
     title: 'Cryptocurrency',
     subtitle: 'Trade Digital Assets',
     description: 'Buy and sell Bitcoin, Ethereum, USDT, and other cryptocurrencies securely!',
-    image: s3Image,
+    image: '/s3.jpg',
     cta: 'Explore Crypto',
     ctaLink: '/crypto',
     active: true
@@ -340,7 +337,7 @@ const Home: React.FC = () => {
                         }`}
                       >
                         <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-                          {slide.image && (slide.image.startsWith('http') || slide.image.startsWith('/') || slide.image.startsWith('data:')) ? (
+                          {slide.image ? (
                             <>
                               <img 
                                 src={slide.image} 
@@ -383,7 +380,7 @@ const Home: React.FC = () => {
                             </>
                           ) : (
                             <div className="w-full h-64 sm:h-72 md:h-80 lg:h-96 bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow rounded-2xl">
-                              {slide.image || '🎁'}
+                              🎁
                             </div>
                           )}
                         </div>

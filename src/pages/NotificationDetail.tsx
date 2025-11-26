@@ -100,7 +100,7 @@ const NotificationDetail: React.FC = () => {
                   <span>{formattedDate}</span>
                 </div>
                 <span className="px-2 py-1 bg-dark-surface rounded text-xs">
-                  {notification.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  {notification.type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                 </span>
               </div>
             </div>

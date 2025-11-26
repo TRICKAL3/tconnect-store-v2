@@ -133,10 +133,12 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
         const data = await res.json();
         setNotifications(data);
         setUnreadCount(data.filter((n: Notification) => !n.read).length);
+        return data;
       }
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }
+    return null;
   }, [API_BASE, getAdminHeaders]);
 
   const fetchUnreadCount = useCallback(async () => {
@@ -190,7 +192,7 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
 
   useEffect(() => {
     fetchNotifications().then(data => {
-      if (data) {
+      if (data && Array.isArray(data)) {
         prevNotificationsRef.current = data;
       }
     });
@@ -213,9 +215,9 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
     const interval = setInterval(async () => {
       const prevNotifications = prevNotificationsRef.current;
       const newNotifications = await fetchNotifications();
-      const newCount = await fetchUnreadCount();
+      await fetchUnreadCount();
       
-      if (newNotifications && prevNotifications.length > 0) {
+      if (newNotifications && Array.isArray(newNotifications) && prevNotifications.length > 0) {
         // Find truly new notifications (not in previous list)
         const newOnes = newNotifications.filter(
           (n: Notification) => !prevNotifications.some((pn: Notification) => pn.id === n.id) && !n.read
@@ -227,7 +229,7 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
         });
       }
       
-      if (newNotifications) {
+      if (newNotifications && Array.isArray(newNotifications)) {
         prevNotificationsRef.current = newNotifications;
       }
     }, 10000);

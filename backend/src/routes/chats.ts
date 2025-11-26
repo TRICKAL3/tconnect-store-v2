@@ -114,6 +114,36 @@ router.post('/:id/messages', async (req, res) => {
       });
     }
 
+    // Create notifications
+    try {
+      if (senderType === 'user') {
+        // Notify admin about new user message
+        await prisma.notification.create({
+          data: {
+            userId: null, // Admin notification
+            type: 'message_received',
+            title: 'New Message Received',
+            message: `${senderName || 'User'} sent a message${content && content.length > 50 ? ': ' + content.substring(0, 50) + '...' : ''}`,
+            link: `/admin?tab=chats&chatId=${id}`
+          }
+        });
+      } else if (senderType === 'agent' && chat.userId) {
+        // Notify user about admin reply
+        await prisma.notification.create({
+          data: {
+            userId: chat.userId,
+            type: 'message_received',
+            title: 'New Reply from Support',
+            message: `${senderName || 'Support'} replied to your message`,
+            link: `/`
+          }
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError);
+      // Don't fail message sending if notification fails
+    }
+
     const updatedChat = await prisma.chat.findUnique({
       where: { id },
       include: { messages: { orderBy: { createdAt: 'asc' } } }
@@ -229,6 +259,24 @@ router.post('/:id/agent-message', basicAdminAuth, async (req, res) => {
         imageUrl: imageUrl || null
       }
     });
+
+    // Notify user about admin reply
+    try {
+      if (chat.userId) {
+        await prisma.notification.create({
+          data: {
+            userId: chat.userId,
+            type: 'message_received',
+            title: 'New Reply from Support',
+            message: `${agentName || 'Support'} replied to your message`,
+            link: `/`
+          }
+        });
+      }
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError);
+      // Don't fail message sending if notification fails
+    }
 
     const updatedChat = await prisma.chat.findUnique({
       where: { id },

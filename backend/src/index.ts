@@ -11,6 +11,7 @@ import usersRouter from './routes/users';
 import slidesRouter from './routes/slides';
 import ttOrdersRouter from './routes/ttorders';
 import chatsRouter from './routes/chats';
+import notificationsRouter from './routes/notifications';
 
 dotenv.config();
 
@@ -49,7 +50,8 @@ app.get('/', (_req, res) => res.json({
     users: '/users',
     slides: '/slides',
     ttorders: '/ttorders',
-    chats: '/chats'
+    chats: '/chats',
+    notifications: '/notifications'
   }
 }));
 
@@ -64,6 +66,7 @@ app.use('/users', usersRouter);
 app.use('/slides', slidesRouter);
 app.use('/ttorders', ttOrdersRouter);
 app.use('/chats', chatsRouter);
+app.use('/notifications', notificationsRouter);
 
 // Export for Vercel serverless functions
 // Vercel needs the app exported as default

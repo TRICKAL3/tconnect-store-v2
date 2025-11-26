@@ -4,6 +4,7 @@ import { ShoppingCart, Menu, X, User, Settings, LogOut, Package, LogIn, Gift } f
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getApiBase } from '../lib/getApiBase';
+import NotificationBell from './NotificationBell';
 import tconnectLogo from '../assets/tconnect_logo.png';
 
 const Header: React.FC = () => {
@@ -182,6 +183,10 @@ const Header: React.FC = () => {
                 </div>
               )}
             </div>
+            
+            {/* Notification Bell - Only show if user is logged in */}
+            {user && <NotificationBell />}
+            
             {/* Cart Button */}
             <Link
               to="/cart"

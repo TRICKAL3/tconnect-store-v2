@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getMwkAmountFromUsd } from '../utils/rates';
-
+import AdminNotificationBell from '../components/AdminNotificationBell';
 import { getApiBase } from '../lib/getApiBase';
 
 const API_BASE = getApiBase();
@@ -369,9 +369,12 @@ const Admin: React.FC = () => {
   return (
     <div className="min-h-screen bg-dark-bg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-5xl font-bold text-white holographic">Admin Dashboard</h1>
-          <p className="text-gray-300 mt-2">Manage orders, products, rates, and payments.</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl md:text-5xl font-bold text-white holographic">Admin Dashboard</h1>
+            <p className="text-gray-300 mt-2">Manage orders, products, rates, and payments.</p>
+          </div>
+          <AdminNotificationBell getAdminHeaders={getAdminHeaders} />
         </div>
 
         <div className="card-dark p-2 mb-6">

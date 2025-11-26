@@ -16,6 +16,7 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import Admin from './pages/Admin';
@@ -227,9 +228,11 @@ function App() {
   return (
     <CartProvider>
       <AuthProvider>
-        <Router>
-          <AppContent />
-        </Router>
+        <NotificationProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </NotificationProvider>
       </AuthProvider>
     </CartProvider>
   );

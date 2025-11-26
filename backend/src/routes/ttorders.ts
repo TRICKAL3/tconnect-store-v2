@@ -26,6 +26,22 @@ router.post('/', async (req: any, res) => {
       }
     });
     
+    // Create notification for admin
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: null, // Admin notification
+          type: 'tt_order_created',
+          title: 'New TT Order Received',
+          message: `New ${orderType} order from ${customerName}${amount ? ` - ${currency || 'USD'} ${amount}` : ''}`,
+          link: `/admin?tab=ttorders&orderId=${ttOrder.id}`
+        }
+      });
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError);
+      // Don't fail order creation if notification fails
+    }
+    
     res.json(ttOrder);
   } catch (error: any) {
     console.error('Error creating TT order:', error);

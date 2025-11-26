@@ -51,6 +51,22 @@ router.post('/', async (req: any, res) => {
       include: { items: true, payment: true }
     });
     
+    // Create notification for admin
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: null, // null = admin notification
+          type: 'order_created',
+          title: 'New Order Received',
+          message: `New order #${order.id.substring(0, 8)} for $${order.totalUsd.toFixed(2)} (${order.items.length} item${order.items.length > 1 ? 's' : ''})`,
+          link: `/admin?tab=orders&orderId=${order.id}`
+        }
+      });
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError);
+      // Don't fail order creation if notification fails
+    }
+    
     console.log('Order created:', order.id, 'Status:', order.status);
     res.json(order);
   } catch (error: any) {
@@ -75,8 +91,38 @@ router.get('/', basicAdminAuth, async (_req: any, res) => {
 });
 
 router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
-  const order = await prisma.order.update({ where: { id: req.params.id }, data: { status: req.body.status } });
-  res.json(order);
+  try {
+    const order = await prisma.order.update({ 
+      where: { id: req.params.id }, 
+      data: { status: req.body.status },
+      include: { user: true }
+    });
+    
+    // Create notification for user if order is confirmed or rejected
+    if (order.status === 'approved' || order.status === 'rejected') {
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: order.userId,
+            type: order.status === 'approved' ? 'order_confirmed' : 'order_rejected',
+            title: order.status === 'approved' ? 'Order Confirmed!' : 'Order Rejected',
+            message: order.status === 'approved' 
+              ? `Your order #${order.id.substring(0, 8)} has been confirmed and is being processed.`
+              : `Your order #${order.id.substring(0, 8)} has been rejected. Please contact support for details.`,
+            link: `/orders`
+          }
+        });
+      } catch (notifError) {
+        console.error('Failed to create notification:', notifError);
+        // Don't fail status update if notification fails
+      }
+    }
+    
+    res.json(order);
+  } catch (error: any) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ error: error.message || 'Failed to update order status' });
+  }
 });
 
 // Admin: Add gift card codes to order items

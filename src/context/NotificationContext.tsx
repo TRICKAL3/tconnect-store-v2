@@ -170,20 +170,47 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, []);
 
-  // Show browser notification
-  const showBrowserNotification = useCallback((notification: Notification) => {
+  // Show browser notification - using Service Worker if available
+  const showBrowserNotification = useCallback(async (notification: Notification) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         const baseUrl = window.location.origin;
         const notificationUrl = `${baseUrl}/notifications/${notification.id}`;
         
+        // Try to use Service Worker for background notifications
+        if ('serviceWorker' in navigator) {
+          try {
+            const registration = await navigator.serviceWorker.ready;
+            await registration.showNotification(notification.title, {
+              body: notification.message,
+              icon: '/tconnect_logo-removebg-preview.png',
+              badge: '/tconnect_logo-removebg-preview.png',
+              tag: notification.id,
+              requireInteraction: false,
+              silent: false, // Enable system sound
+              vibrate: [200, 100, 200], // Vibration for mobile
+              data: {
+                url: notificationUrl,
+                id: notification.id
+              }
+            });
+            
+            // Play custom sound
+            playNotificationSound();
+            return;
+          } catch (swError) {
+            console.log('Service Worker notification failed, using regular notification:', swError);
+          }
+        }
+        
+        // Fallback to regular notification
         const browserNotification = new Notification(notification.title, {
           body: notification.message,
           icon: '/tconnect_logo-removebg-preview.png',
           badge: '/tconnect_logo-removebg-preview.png',
           tag: notification.id,
           requireInteraction: false,
-          silent: false, // Enable system sound
+          silent: false,
           data: {
             url: notificationUrl,
             id: notification.id
@@ -197,12 +224,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         browserNotification.onclick = (event) => {
           event.preventDefault();
           window.focus();
-          // Open in current tab
           window.location.href = notificationUrl;
           browserNotification.close();
         };
 
-        // Auto-close after 8 seconds (longer for mobile)
+        // Auto-close after 8 seconds
         setTimeout(() => {
           browserNotification.close();
         }, 8000);

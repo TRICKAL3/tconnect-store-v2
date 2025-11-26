@@ -28,6 +28,7 @@ import TermsOfService from './pages/TermsOfService';
 import RefundPolicy from './pages/RefundPolicy';
 import AMLPolicy from './pages/AMLPolicy';
 import ChatWidget from './components/ChatWidget';
+import EnableNotifications from './components/EnableNotifications';
 
 function AppContent() {
   const location = useLocation();
@@ -222,6 +223,7 @@ function AppContent() {
       </main>
       {!isAdmin && <Footer />}
       {!isAdmin && <ChatWidget />}
+      {!isAdmin && <EnableNotifications />}
     </div>
   );
 }

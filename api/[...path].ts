@@ -11,6 +11,7 @@ import usersRouter from '../server/routes/users';
 import slidesRouter from '../server/routes/slides';
 import ttOrdersRouter from '../server/routes/ttorders';
 import chatsRouter from '../server/routes/chats';
+import notificationsRouter from '../server/routes/notifications';
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/users', usersRouter);
 app.use('/slides', slidesRouter);
 app.use('/ttorders', ttOrdersRouter);
 app.use('/chats', chatsRouter);
+app.use('/notifications', notificationsRouter);
 
 // Root route
 app.get('/', (_req, res) => res.json({ 
@@ -68,7 +70,8 @@ app.get('/', (_req, res) => res.json({
     users: '/users',
     slides: '/slides',
     ttorders: '/ttorders',
-    chats: '/chats'
+    chats: '/chats',
+    notifications: '/notifications'
   }
 }));
 

@@ -301,7 +301,7 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
 }
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'rates' | 'invoices' | 'users' | 'slides' | 'sales' | 'ttorders' | 'chats' | 'points' | 'receipts'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'rates' | 'invoices' | 'users' | 'slides' | 'sales' | 'ttorders' | 'chats' | 'points' | 'receipts' | 'notifications'>('orders');
   const [adminPass, setAdminPass] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
@@ -391,6 +391,7 @@ const Admin: React.FC = () => {
               { id: 'receipts', label: 'Points Receipts' }, // Receipt tracking tab
               { id: 'slides', label: 'Slideshows' },
               { id: 'chats', label: 'Chats' },
+              { id: 'notifications', label: 'Send Notifications' },
             ].map((t) => (
               <button
                 key={t.id}
@@ -474,6 +475,283 @@ const Admin: React.FC = () => {
               <ReceiptsManager getAdminHeaders={getAdminHeaders} />
             </div>
           )}
+          {activeTab === 'notifications' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">Send Notifications</h2>
+              <NotificationManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NotificationManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [form, setForm] = useState({
+    userEmail: '',
+    userId: '',
+    sendToAll: false,
+    type: 'admin_message',
+    title: '',
+    message: '',
+    link: ''
+  });
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/users`, { headers: getAdminHeaders() as HeadersInit });
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Failed to load users:', error);
+      }
+    };
+    loadUsers();
+  }, [getAdminHeaders]);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.sendToAll && !form.userEmail && !form.userId) {
+      alert('Please select a user or choose "Send to All Users"');
+      return;
+    }
+    if (!form.title || !form.message) {
+      alert('Title and message are required');
+      return;
+    }
+
+    setSending(true);
+    try {
+      const payload: any = {
+        type: form.type,
+        title: form.title,
+        message: form.message,
+        link: form.link || null
+      };
+
+      if (form.sendToAll) {
+        payload.sendToAll = true;
+      } else if (form.userId) {
+        payload.userId = form.userId;
+      } else if (form.userEmail) {
+        payload.userEmail = form.userEmail;
+      }
+
+      const res = await fetch(`${API_BASE}/notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAdminHeaders()
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        alert(form.sendToAll 
+          ? `Notification sent to ${result.count || 'all'} users!`
+          : 'Notification sent successfully!'
+        );
+        setForm({
+          userEmail: '',
+          userId: '',
+          sendToAll: false,
+          type: 'admin_message',
+          title: '',
+          message: '',
+          link: ''
+        });
+      } else {
+        const error = await res.json();
+        alert(`Failed to send notification: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      console.error('Failed to send notification:', error);
+      alert(`Failed to send notification: ${error.message || 'Unknown error'}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="card-dark p-6">
+        <h3 className="text-lg font-bold text-white mb-4">Send Notification</h3>
+        <form onSubmit={handleSend} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Send To</label>
+            <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  checked={form.sendToAll}
+                  onChange={(e) => setForm({ ...form, sendToAll: e.target.checked, userEmail: '', userId: '' })}
+                  className="mr-2"
+                />
+                <span className="text-gray-300">All Users</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  checked={!form.sendToAll}
+                  onChange={(e) => setForm({ ...form, sendToAll: !e.target.checked })}
+                  className="mr-2"
+                />
+                <span className="text-gray-300">Specific User</span>
+              </label>
+            </div>
+          </div>
+
+          {!form.sendToAll && (
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">User Email</label>
+              <input
+                type="email"
+                value={form.userEmail}
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setForm({ ...form, userEmail: email, userId: '' });
+                  // Auto-select user if email matches
+                  const user = users.find(u => u.email === email);
+                  if (user) {
+                    setForm(prev => ({ ...prev, userId: user.id }));
+                  }
+                }}
+                placeholder="user@example.com"
+                className="w-full px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+                list="user-emails"
+              />
+              <datalist id="user-emails">
+                {users.map(user => (
+                  <option key={user.id} value={user.email} />
+                ))}
+              </datalist>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Type</label>
+            <select
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              className="w-full px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+            >
+              <option value="admin_message">Admin Message</option>
+              <option value="stock_update">Stock Update</option>
+              <option value="promotion">Promotion</option>
+              <option value="system_announcement">System Announcement</option>
+              <option value="order_update">Order Update</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Title *</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="e.g., New Stock Available!"
+              required
+              className="w-full px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Message *</label>
+            <textarea
+              value={form.message}
+              onChange={(e) => setForm({ ...form, message: e.target.value })}
+              placeholder="Enter notification message..."
+              required
+              rows={4}
+              className="w-full px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">Link (Optional)</label>
+            <input
+              type="text"
+              value={form.link}
+              onChange={(e) => setForm({ ...form, link: e.target.value })}
+              placeholder="e.g., /giftcards, /crypto"
+              className="w-full px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+            />
+            <p className="text-xs text-gray-500 mt-1">Users will be redirected to this link when they click the notification</p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={sending}
+            className="w-full btn-cyber text-white py-3 rounded-lg font-bold disabled:opacity-50"
+          >
+            {sending ? 'Sending...' : form.sendToAll ? 'Send to All Users' : 'Send Notification'}
+          </button>
+        </form>
+      </div>
+
+      <div className="card-dark p-6">
+        <h3 className="text-lg font-bold text-white mb-4">Quick Templates</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            onClick={() => setForm({
+              ...form,
+              type: 'stock_update',
+              title: 'New Stock Available!',
+              message: 'We have new products in stock! Check out our latest collection.',
+              link: '/giftcards'
+            })}
+            className="p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-neon-blue transition-colors"
+          >
+            <div className="font-bold text-white mb-1">Stock Update</div>
+            <div className="text-sm text-gray-400">Notify about new products</div>
+          </button>
+          <button
+            onClick={() => setForm({
+              ...form,
+              type: 'promotion',
+              title: 'Special Promotion!',
+              message: 'Limited time offer! Get amazing discounts on selected items.',
+              link: '/'
+            })}
+            className="p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-neon-blue transition-colors"
+          >
+            <div className="font-bold text-white mb-1">Promotion</div>
+            <div className="text-sm text-gray-400">Announce special offers</div>
+          </button>
+          <button
+            onClick={() => setForm({
+              ...form,
+              type: 'system_announcement',
+              title: 'System Maintenance',
+              message: 'We will be performing scheduled maintenance. Service may be temporarily unavailable.',
+              link: '/'
+            })}
+            className="p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-neon-blue transition-colors"
+          >
+            <div className="font-bold text-white mb-1">System Announcement</div>
+            <div className="text-sm text-gray-400">Important system updates</div>
+          </button>
+          <button
+            onClick={() => setForm({
+              ...form,
+              type: 'admin_message',
+              title: 'Custom Message',
+              message: '',
+              link: ''
+            })}
+            className="p-4 bg-dark-surface border border-dark-border rounded-lg text-left hover:border-neon-blue transition-colors"
+          >
+            <div className="font-bold text-white mb-1">Custom Message</div>
+            <div className="text-sm text-gray-400">Create your own message</div>
+          </button>
         </div>
       </div>
     </div>

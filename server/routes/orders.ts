@@ -100,6 +100,23 @@ router.post('/', async (req: any, res) => {
       }
     }
     
+    // Create notification for admin
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: null, // null = admin notification
+          type: 'order_created',
+          title: 'New Order Received',
+          message: `New order #${order.id.substring(0, 8)} for $${order.totalUsd.toFixed(2)} (${order.items.length} item${order.items.length > 1 ? 's' : ''})`,
+          link: `/admin?tab=orders&orderId=${order.id}`
+        }
+      });
+      console.log('✅ Notification created for admin');
+    } catch (notifError: any) {
+      console.error('❌ Failed to create notification:', notifError?.message || notifError);
+      // Don't fail order creation if notification fails
+    }
+    
     console.log('Order created:', order.id, 'Status:', order.status, 'Payment Method:', paymentMethod);
     res.json(order);
   } catch (error: any) {
@@ -168,8 +185,30 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
     // Update order status
     const order = await prisma.order.update({ 
       where: { id: orderId }, 
-      data: { status } 
+      data: { status },
+      include: { user: true }
     });
+    
+    // Create notification for user if order is confirmed or rejected
+    if ((status === 'approved' || status === 'rejected') && currentOrder.userId) {
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: currentOrder.userId,
+            type: status === 'approved' ? 'order_confirmed' : 'order_rejected',
+            title: status === 'approved' ? 'Order Confirmed!' : 'Order Rejected',
+            message: status === 'approved' 
+              ? `Your order #${orderId.substring(0, 8)} has been confirmed and is being processed.`
+              : `Your order #${orderId.substring(0, 8)} has been rejected. Please contact support for details.`,
+            link: `/orders`
+          }
+        });
+        console.log('✅ Notification created for user (order status change)');
+      } catch (notifError: any) {
+        console.error('❌ Failed to create notification:', notifError?.message || notifError);
+        // Don't fail status update if notification fails
+      }
+    }
     
     // Handle points: deduct if paid with points, award if paid with bank/card
     const wasAlreadyCompleted = currentOrder.status === 'approved' || currentOrder.status === 'fulfilled';

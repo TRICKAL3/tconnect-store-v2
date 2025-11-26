@@ -22,6 +22,7 @@ import SignUp from './pages/SignUp';
 import Admin from './pages/Admin';
 import Settings from './pages/Settings';
 import OrderHistory from './pages/OrderHistory';
+import NotificationDetail from './pages/NotificationDetail';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import RefundPolicy from './pages/RefundPolicy';
@@ -210,6 +211,7 @@ function AppContent() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/orders" element={<OrderHistory />} />
+          <Route path="/notifications/:id" element={<NotificationDetail />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />

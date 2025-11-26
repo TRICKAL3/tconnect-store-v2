@@ -22,10 +22,9 @@ const NotificationBell: React.FC = () => {
 
   const handleNotificationClick = (notification: any) => {
     markAsRead(notification.id);
-    if (notification.link) {
-      navigate(notification.link);
-      setIsOpen(false);
-    }
+    // Navigate to notification detail page
+    navigate(`/notifications/${notification.id}`);
+    setIsOpen(false);
   };
 
   const unreadNotifications = notifications.filter(n => !n.read);
@@ -90,6 +89,16 @@ const NotificationBell: React.FC = () => {
                         <p className="text-sm text-gray-300 line-clamp-2">
                           {notification.message}
                         </p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/notifications/${notification.id}`);
+                            setIsOpen(false);
+                          }}
+                          className="text-xs text-neon-blue hover:text-neon-blue/80 mt-1"
+                        >
+                          Read more →
+                        </button>
                         <p className="text-xs text-gray-500 mt-1">
                           {(() => {
                             const date = new Date(notification.createdAt);

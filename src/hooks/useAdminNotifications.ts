@@ -17,7 +17,7 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const API_BASE = getApiBase();
-  const prevNotificationsRef = React.useRef<Notification[]>([]);
+  const prevNotificationsRef = useRef<Notification[]>([]);
 
   // Play notification sound
   const playNotificationSound = useCallback(() => {

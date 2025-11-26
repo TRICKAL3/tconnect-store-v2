@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getApiBase } from '../lib/getApiBase';
 
 interface Notification {
@@ -17,6 +17,111 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const API_BASE = getApiBase();
+  const prevNotificationsRef = React.useRef<Notification[]>([]);
+
+  // Play notification sound
+  const playNotificationSound = useCallback(() => {
+    try {
+      // Method 1: Try Web Audio API
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        // Create a pleasant notification sound (two-tone beep)
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } catch (audioError) {
+        // Method 2: Fallback to HTML5 Audio with data URI
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OSfTQ8MT6fj8LZjHAY4kdfyzHksBSR3x/DdkEAKFF606euoVRQKRp/g8r5sIQUrgc7y2Yk2CBtpvfDkn00PDE+n4/C2YxwGOJHX8sx5LAUkd8fw3ZBAC');
+        audio.volume = 0.5;
+        audio.play().catch(() => {
+          console.log('Audio playback not available');
+        });
+      }
+    } catch (error) {
+      console.error('Failed to play notification sound:', error);
+    }
+  }, []);
+
+  // Show browser notification for admin
+  const showBrowserNotification = useCallback(async (notification: Notification) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        const baseUrl = window.location.origin;
+        const notificationUrl = notification.link 
+          ? `${baseUrl}${notification.link.startsWith('/') ? notification.link : '/' + notification.link}`
+          : `${baseUrl}/admin`;
+        
+        // Try to use Service Worker for background notifications
+        if ('serviceWorker' in navigator) {
+          try {
+            const registration = await navigator.serviceWorker.ready;
+            await registration.showNotification(notification.title, {
+              body: notification.message,
+              icon: '/tconnect_logo-removebg-preview.png',
+              badge: '/tconnect_logo-removebg-preview.png',
+              tag: notification.id,
+              requireInteraction: false,
+              silent: false,
+              vibrate: [200, 100, 200],
+              data: {
+                url: notificationUrl,
+                id: notification.id
+              }
+            });
+            
+            // Play custom sound
+            playNotificationSound();
+            return;
+          } catch (swError) {
+            console.log('Service Worker notification failed, using regular notification:', swError);
+          }
+        }
+        
+        // Fallback to regular notification
+        const browserNotification = new Notification(notification.title, {
+          body: notification.message,
+          icon: '/tconnect_logo-removebg-preview.png',
+          badge: '/tconnect_logo-removebg-preview.png',
+          tag: notification.id,
+          requireInteraction: false,
+          silent: false,
+          data: {
+            url: notificationUrl,
+            id: notification.id
+          }
+        });
+
+        // Play custom sound
+        playNotificationSound();
+
+        // Handle click on notification
+        browserNotification.onclick = (event) => {
+          event.preventDefault();
+          window.focus();
+          window.location.href = notificationUrl;
+          browserNotification.close();
+        };
+
+        // Auto-close after 8 seconds
+        setTimeout(() => {
+          browserNotification.close();
+        }, 8000);
+      } catch (error) {
+        console.error('Failed to show browser notification:', error);
+      }
+    }
+  }, [playNotificationSound]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -84,17 +189,51 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
   }, [API_BASE, getAdminHeaders]);
 
   useEffect(() => {
-    fetchNotifications();
+    fetchNotifications().then(data => {
+      if (data) {
+        prevNotificationsRef.current = data;
+      }
+    });
   }, [fetchNotifications]);
+
+  // Request notification permission for admin
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      // Request permission after a short delay
+      setTimeout(() => {
+        Notification.requestPermission().then(permission => {
+          console.log('🔔 Admin notification permission:', permission);
+        });
+      }, 2000);
+    }
+  }, []);
 
   // Poll for new notifications every 10 seconds
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchUnreadCount();
+    const interval = setInterval(async () => {
+      const prevNotifications = prevNotificationsRef.current;
+      const newNotifications = await fetchNotifications();
+      const newCount = await fetchUnreadCount();
+      
+      if (newNotifications && prevNotifications.length > 0) {
+        // Find truly new notifications (not in previous list)
+        const newOnes = newNotifications.filter(
+          (n: Notification) => !prevNotifications.some((pn: Notification) => pn.id === n.id) && !n.read
+        );
+        
+        // Show browser notification and play sound for each new notification
+        newOnes.forEach((notification: Notification) => {
+          showBrowserNotification(notification);
+        });
+      }
+      
+      if (newNotifications) {
+        prevNotificationsRef.current = newNotifications;
+      }
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+  }, [fetchNotifications, fetchUnreadCount, showBrowserNotification]);
 
   return {
     notifications,

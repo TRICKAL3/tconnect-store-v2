@@ -99,7 +99,7 @@ const EnableNotifications: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 left-4 md:left-auto md:max-w-md z-50 animate-slide-up">
+    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-[calc(100%-2rem)] max-w-md md:left-auto md:transform-none md:right-4 z-50 animate-slide-up">
       <div className="bg-dark-surface border-2 border-neon-blue/50 rounded-xl p-6 shadow-2xl neon-glow">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0">

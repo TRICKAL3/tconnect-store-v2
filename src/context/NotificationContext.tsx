@@ -135,25 +135,36 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [user?.email, API_BASE]);
 
-  // Play notification sound
+  // Play notification sound - using multiple methods for better compatibility
   const playNotificationSound = useCallback(() => {
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      // Method 1: Try Web Audio API (works on most browsers)
+      try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-      // Create a pleasant notification sound (two-tone beep)
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        // Create a pleasant notification sound (two-tone beep)
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
 
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } catch (audioError) {
+        // Method 2: Fallback to HTML5 Audio with data URI
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OSfTQ8MT6fj8LZjHAY4kdfyzHksBSR3x/DdkEAKFF606euoVRQKRp/g8r5sIQUrgc7y2Yk2CBtpvfDkn00PDE+n4/C2YxwGOJHX8sx5LAUkd8fw3ZBAC');
+        audio.volume = 0.5;
+        audio.play().catch(() => {
+          // If audio play fails, try creating a simple beep
+          console.log('Audio playback not available');
+        });
+      }
     } catch (error) {
       console.error('Failed to play notification sound:', error);
     }
@@ -163,43 +174,82 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const showBrowserNotification = useCallback((notification: Notification) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
+        const baseUrl = window.location.origin;
+        const notificationUrl = `${baseUrl}/notifications/${notification.id}`;
+        
         const browserNotification = new Notification(notification.title, {
           body: notification.message,
-          icon: '/tconnect-logo.png',
-          badge: '/tconnect-logo.png',
+          icon: '/tconnect_logo-removebg-preview.png',
+          badge: '/tconnect_logo-removebg-preview.png',
           tag: notification.id,
           requireInteraction: false,
-          silent: false
+          silent: false, // Enable system sound
+          data: {
+            url: notificationUrl,
+            id: notification.id
+          }
         });
 
         // Play custom sound
         playNotificationSound();
 
-        // Handle click on notification
-        browserNotification.onclick = () => {
+        // Handle click on notification - open website
+        browserNotification.onclick = (event) => {
+          event.preventDefault();
           window.focus();
-          window.location.href = `/notifications/${notification.id}`;
+          // Open in current tab
+          window.location.href = notificationUrl;
           browserNotification.close();
         };
 
-        // Auto-close after 5 seconds
+        // Auto-close after 8 seconds (longer for mobile)
         setTimeout(() => {
           browserNotification.close();
-        }, 5000);
+        }, 8000);
       } catch (error) {
         console.error('Failed to show browser notification:', error);
       }
+    } else {
+      console.log('Notification permission not granted. Current permission:', Notification.permission);
     }
   }, [playNotificationSound]);
 
-  // Request notification permission on mount
+  // Request notification permission - better approach with user interaction
   useEffect(() => {
     if (!hasRequestedPermission.current && 'Notification' in window) {
-      hasRequestedPermission.current = true;
+      // Only request if permission is default (not yet asked)
       if (Notification.permission === 'default') {
-        Notification.requestPermission().then(permission => {
-          console.log('Notification permission:', permission);
-        });
+        // Request permission after a short delay or on user interaction
+        const requestPermission = () => {
+          hasRequestedPermission.current = true;
+          Notification.requestPermission().then(permission => {
+            console.log('🔔 Notification permission:', permission);
+            if (permission === 'granted') {
+              console.log('✅ Notifications enabled! You will receive alerts for new messages.');
+            } else if (permission === 'denied') {
+              console.log('❌ Notifications blocked. Please enable in browser settings.');
+            }
+          });
+        };
+
+        // Request on first user interaction (click, touch, etc.)
+        const handleUserInteraction = () => {
+          requestPermission();
+          document.removeEventListener('click', handleUserInteraction);
+          document.removeEventListener('touchstart', handleUserInteraction);
+        };
+
+        // Try to request immediately (works on some browsers)
+        // Otherwise wait for user interaction
+        setTimeout(() => {
+          if (!hasRequestedPermission.current) {
+            document.addEventListener('click', handleUserInteraction, { once: true });
+            document.addEventListener('touchstart', handleUserInteraction, { once: true });
+          }
+        }, 2000);
+      } else if (Notification.permission === 'granted') {
+        console.log('✅ Notifications already enabled');
+        hasRequestedPermission.current = true;
       }
     }
   }, []);

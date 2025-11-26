@@ -27,13 +27,27 @@ const NotificationBell: React.FC = () => {
     setIsOpen(false);
   };
 
+  // Request notification permission when user clicks bell
+  const handleBellClick = () => {
+    setIsOpen(!isOpen);
+    
+    // Request notification permission if not granted
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          console.log('✅ Notifications enabled!');
+        }
+      });
+    }
+  };
+
   const unreadNotifications = notifications.filter(n => !n.read);
   const recentNotifications = notifications.slice(0, 10); // Show 10 most recent
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleBellClick}
         className="relative w-9 h-9 md:w-10 md:h-10 rounded-full bg-neon-blue/20 flex items-center justify-center border-2 border-neon-blue/30 hover:border-neon-blue transition-all active:scale-95"
       >
         <Bell className="w-4 h-4 md:w-5 md:h-5 text-neon-blue" />

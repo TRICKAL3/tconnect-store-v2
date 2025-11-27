@@ -61,12 +61,20 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
   }, []);
 
   const showBrowserNotification = useCallback(async (notification: Notification) => {
-    // CRITICAL: Check if notification exists before using it
+    // Check if notification exists
     if (!notification || typeof notification !== 'object') {
-      console.error('Invalid notification object provided');
       return;
     }
     
+    // For iOS: Skip browser notifications entirely - just play sound
+    const isIOSDevice = isIOS();
+    if (isIOSDevice) {
+      // Only play sound for iOS - notifications will show in the bell dropdown
+      playNotificationSound();
+      return;
+    }
+    
+    // For non-iOS devices: Show browser notifications
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         const baseUrl = window.location.origin;
@@ -79,10 +87,8 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
           ? `${baseUrl}${notificationLink.startsWith('/') ? notificationLink : '/' + notificationLink}`
           : `${baseUrl}/admin`;
         
-        const isIOSDevice = isIOS();
-        
-        // For iOS: Skip Service Worker entirely
-        if (!isIOSDevice && 'serviceWorker' in navigator) {
+        // Try Service Worker for non-iOS devices
+        if ('serviceWorker' in navigator) {
           try {
             const registration = await navigator.serviceWorker.ready;
             await registration.showNotification(notificationTitle, {
@@ -106,97 +112,50 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
           }
         }
         
-        // Create notification with minimal options for iOS
-        const notificationOptions: any = {
+        // Fallback to regular browser notification
+        const finalUrl = notificationUrl;
+        const browserNotification = new Notification(notificationTitle, {
           body: notificationMessage,
           icon: '/tconnect_logo-removebg-preview.png',
           badge: '/tconnect_logo-removebg-preview.png',
           tag: notificationId,
           requireInteraction: false,
-          silent: false
-        };
-        
-        // Only add data property if not iOS
-        if (!isIOSDevice) {
-          notificationOptions.data = {
+          silent: false,
+          data: {
             url: notificationUrl,
             id: notificationId
-          };
-        }
-        
-        const browserNotification = new Notification(notificationTitle, notificationOptions);
+          }
+        });
 
         playNotificationSound();
 
-        // For iOS: Use global map to avoid closure issues
-        if (isIOSDevice) {
-          if (!(window as any).__adminNotificationUrls) {
-            (window as any).__adminNotificationUrls = new Map();
+        browserNotification.onclick = function(event: Event) {
+          try {
+            if (event) {
+              event.preventDefault();
+            }
+            window.focus();
+            if (finalUrl) {
+              window.location.href = finalUrl;
+            }
+            try {
+              if (browserNotification && typeof browserNotification.close === 'function') {
+                browserNotification.close();
+              }
+            } catch (e) {
+              // Ignore
+            }
+          } catch (error) {
+            console.error('Error in click handler:', error);
+            try {
+              if (browserNotification && typeof browserNotification.close === 'function') {
+                browserNotification.close();
+              }
+            } catch (e) {
+              // Ignore
+            }
           }
-          (window as any).__adminNotificationUrls.set(notificationId, notificationUrl);
-          
-          browserNotification.onclick = function(event: Event) {
-            try {
-              if (event) {
-                event.preventDefault();
-              }
-              window.focus();
-              const urlMap = (window as any).__adminNotificationUrls;
-              const targetUrl = urlMap ? urlMap.get(notificationId) : notificationUrl;
-              if (targetUrl) {
-                window.location.href = targetUrl;
-              }
-              if (urlMap) {
-                urlMap.delete(notificationId);
-              }
-              try {
-                if (browserNotification && typeof browserNotification.close === 'function') {
-                  browserNotification.close();
-                }
-              } catch (e) {
-                // Ignore
-              }
-            } catch (error) {
-              console.error('Error in click handler:', error);
-              try {
-                if (browserNotification && typeof browserNotification.close === 'function') {
-                  browserNotification.close();
-                }
-              } catch (e) {
-                // Ignore
-              }
-            }
-          };
-        } else {
-          const finalUrl = notificationUrl;
-          browserNotification.onclick = function(event: Event) {
-            try {
-              if (event) {
-                event.preventDefault();
-              }
-              window.focus();
-              if (finalUrl) {
-                window.location.href = finalUrl;
-              }
-              try {
-                if (browserNotification && typeof browserNotification.close === 'function') {
-                  browserNotification.close();
-                }
-              } catch (e) {
-                // Ignore
-              }
-            } catch (error) {
-              console.error('Error in click handler:', error);
-              try {
-                if (browserNotification && typeof browserNotification.close === 'function') {
-                  browserNotification.close();
-                }
-              } catch (e) {
-                // Ignore
-              }
-            }
-          };
-        }
+        };
 
         // Auto-close after 8 seconds
         setTimeout(() => {

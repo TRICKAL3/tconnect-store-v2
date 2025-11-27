@@ -64,8 +64,11 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Register Service Worker for background notifications (completely non-blocking)
-// Do this after React has rendered to avoid blocking
-if ('serviceWorker' in navigator) {
+// SKIP Service Worker on iOS to avoid all notification issues
+const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+if (!isIOSDevice && 'serviceWorker' in navigator) {
   // Unregister old service workers first to force update
   navigator.serviceWorker.getRegistrations().then((registrations) => {
     registrations.forEach((registration) => {
@@ -110,6 +113,20 @@ if ('serviceWorker' in navigator) {
       }, 1000);
     });
   }
+} else if (isIOSDevice) {
+  // On iOS: Unregister any existing service workers to prevent errors
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => {
+        registration.unregister().catch(() => {
+          // Ignore errors
+        });
+      });
+    }).catch(() => {
+      // Ignore errors
+    });
+  }
+  console.log('ℹ️ Service Worker disabled on iOS - using in-app notifications only');
 }
 
 const root = ReactDOM.createRoot(

@@ -1,6 +1,6 @@
 // Service Worker for background notifications
-// Version 2 - Fixed iOS notification variable error
-const CACHE_NAME = 'tconnect-notifications-v2';
+// Version 3 - Fixed iOS notification variable error (more defensive)
+const CACHE_NAME = 'tconnect-notifications-v3';
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
@@ -77,34 +77,61 @@ self.addEventListener('push', (event) => {
 
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {
-  console.log('Notification clicked:', event);
+  // Don't log event directly as it might contain notification reference
+  console.log('Notification clicked');
   
-  // iOS Safari compatibility - check if notification exists
-  let notification = null;
+  // iOS Safari compatibility - NEVER reference notification without checking first
   let urlToOpen = '/';
   
   try {
-    // Try to access notification from event (iOS Safari may not have this)
-    if (event && typeof event.notification !== 'undefined' && event.notification !== null) {
-      notification = event.notification;
-      // Only close if notification exists and has close method
-      if (notification && typeof notification.close === 'function') {
-        notification.close();
+    // Safely check if event exists
+    if (!event) {
+      console.log('No event object');
+      urlToOpen = '/';
+    } else {
+      // Try to get notification object safely
+      let notificationObj = null;
+      try {
+        if (event.hasOwnProperty('notification')) {
+          notificationObj = event.notification;
+        }
+      } catch (e) {
+        // event.notification doesn't exist or can't be accessed
+        console.log('Cannot access event.notification');
       }
-      // Get URL from notification data
-      if (notification && notification.data && notification.data.url) {
-        urlToOpen = notification.data.url;
+      
+      // If we got notification object, try to close it and get URL
+      if (notificationObj) {
+        try {
+          if (typeof notificationObj.close === 'function') {
+            notificationObj.close();
+          }
+        } catch (e) {
+          console.log('Cannot close notification');
+        }
+        
+        try {
+          if (notificationObj.data && notificationObj.data.url) {
+            urlToOpen = notificationObj.data.url;
+          }
+        } catch (e) {
+          console.log('Cannot access notification data');
+        }
       }
-    }
-    
-    // Fallback: try to get data from event directly (iOS Safari)
-    if (urlToOpen === '/' && event && event.data) {
-      if (event.data.url) {
-        urlToOpen = event.data.url;
+      
+      // Fallback: try to get data from event directly (iOS Safari)
+      if (urlToOpen === '/') {
+        try {
+          if (event.data && event.data.url) {
+            urlToOpen = event.data.url;
+          }
+        } catch (e) {
+          console.log('Cannot access event.data');
+        }
       }
     }
   } catch (error) {
-    console.error('Error accessing notification:', error);
+    console.error('Error in notification click handler:', error);
     // Continue with default URL
     urlToOpen = '/';
   }

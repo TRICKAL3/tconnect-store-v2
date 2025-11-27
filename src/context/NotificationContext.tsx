@@ -223,16 +223,28 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Add click handler for iOS Safari (which doesn't always use Service Worker)
         browserNotification.onclick = (event) => {
           try {
-            event.preventDefault();
+            if (event) {
+              event.preventDefault();
+            }
             window.focus();
             // Use window.location for better iOS compatibility
-            const urlToOpen = notification.link || notificationUrl;
-            window.location.href = urlToOpen;
-            browserNotification.close();
+            const urlToOpen = (notification && notification.link) ? notification.link : notificationUrl;
+            if (urlToOpen) {
+              window.location.href = urlToOpen;
+            }
+            if (browserNotification && typeof browserNotification.close === 'function') {
+              browserNotification.close();
+            }
           } catch (error) {
             console.error('Error handling notification click:', error);
-            // Fallback: just close the notification
-            browserNotification.close();
+            // Fallback: just close the notification if possible
+            try {
+              if (browserNotification && typeof browserNotification.close === 'function') {
+                browserNotification.close();
+              }
+            } catch (closeError) {
+              console.error('Error closing notification:', closeError);
+            }
           }
         };
 

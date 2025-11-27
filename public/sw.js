@@ -83,18 +83,29 @@ self.addEventListener('notificationclick', (event) => {
   let urlToOpen = '/';
   
   try {
-    // Try to access notification from event
-    if (event.notification) {
+    // Try to access notification from event (iOS Safari may not have this)
+    if (event && typeof event.notification !== 'undefined' && event.notification !== null) {
       notification = event.notification;
-      notification.close();
-      urlToOpen = notification.data?.url || '/';
-    } else if (event.data) {
-      // Fallback: try to get data from event directly (iOS Safari)
-      urlToOpen = event.data?.url || '/';
+      // Only close if notification exists and has close method
+      if (notification && typeof notification.close === 'function') {
+        notification.close();
+      }
+      // Get URL from notification data
+      if (notification && notification.data && notification.data.url) {
+        urlToOpen = notification.data.url;
+      }
+    }
+    
+    // Fallback: try to get data from event directly (iOS Safari)
+    if (urlToOpen === '/' && event && event.data) {
+      if (event.data.url) {
+        urlToOpen = event.data.url;
+      }
     }
   } catch (error) {
     console.error('Error accessing notification:', error);
     // Continue with default URL
+    urlToOpen = '/';
   }
   
   event.waitUntil(

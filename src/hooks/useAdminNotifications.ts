@@ -106,11 +106,31 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
         playNotificationSound();
 
         // Handle click on notification
+        // Store notificationUrl in closure to avoid scope issues on iOS
+        const finalNotificationUrl = notificationUrl;
         browserNotification.onclick = (event) => {
-          event.preventDefault();
-          window.focus();
-          window.location.href = notificationUrl;
-          browserNotification.close();
+          try {
+            if (event) {
+              event.preventDefault();
+            }
+            window.focus();
+            if (finalNotificationUrl) {
+              window.location.href = finalNotificationUrl;
+            }
+            if (browserNotification && typeof browserNotification.close === 'function') {
+              browserNotification.close();
+            }
+          } catch (error) {
+            console.error('Error handling notification click:', error);
+            // Fallback: just close the notification if possible
+            try {
+              if (browserNotification && typeof browserNotification.close === 'function') {
+                browserNotification.close();
+              }
+            } catch (closeError) {
+              console.error('Error closing notification:', closeError);
+            }
+          }
         };
 
         // Auto-close after 8 seconds

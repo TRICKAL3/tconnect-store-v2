@@ -42,7 +42,7 @@ function AppContent() {
       try {
         // Wait for service worker to be ready before adding listener
         navigator.serviceWorker.ready.then((registration) => {
-          registration.addEventListener('message', (event) => {
+          registration.addEventListener('message', (event: MessageEvent) => {
             try {
               if (event.data && event.data.type === 'navigate') {
                 const url = event.data.url;

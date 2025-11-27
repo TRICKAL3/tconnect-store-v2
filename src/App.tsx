@@ -39,19 +39,34 @@ function AppContent() {
   // Listen for Service Worker messages (for iOS notification navigation)
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data && event.data.type === 'navigate') {
-          const url = event.data.url;
-          if (url) {
-            // Use window.location for better iOS compatibility
-            if (url.startsWith('http')) {
-              window.location.href = url;
-            } else {
-              navigate(url);
+      try {
+        // Wait for service worker to be ready before adding listener
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.addEventListener('message', (event) => {
+            try {
+              if (event.data && event.data.type === 'navigate') {
+                const url = event.data.url;
+                if (url) {
+                  // Use window.location for better iOS compatibility
+                  if (url.startsWith('http')) {
+                    window.location.href = url;
+                  } else {
+                    navigate(url);
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error handling service worker message:', error);
             }
-          }
-        }
-      });
+          });
+        }).catch((error) => {
+          console.log('Service Worker not ready:', error);
+          // Don't block app if service worker fails
+        });
+      } catch (error) {
+        console.error('Error setting up service worker listener:', error);
+        // Don't block app if service worker fails
+      }
     }
   }, [navigate]);
 

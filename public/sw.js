@@ -77,9 +77,25 @@ self.addEventListener('push', (event) => {
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {
   console.log('Notification clicked:', event);
-  event.notification.close();
-
-  const urlToOpen = event.notification.data?.url || '/';
+  
+  // iOS Safari compatibility - check if notification exists
+  let notification = null;
+  let urlToOpen = '/';
+  
+  try {
+    // Try to access notification from event
+    if (event.notification) {
+      notification = event.notification;
+      notification.close();
+      urlToOpen = notification.data?.url || '/';
+    } else if (event.data) {
+      // Fallback: try to get data from event directly (iOS Safari)
+      urlToOpen = event.data?.url || '/';
+    }
+  } catch (error) {
+    console.error('Error accessing notification:', error);
+    // Continue with default URL
+  }
   
   event.waitUntil(
     clients.matchAll({
@@ -94,10 +110,14 @@ self.addEventListener('notificationclick', (event) => {
           client.focus();
           // For iOS Safari, we need to send a message to navigate
           if ('postMessage' in client) {
-            client.postMessage({
-              type: 'navigate',
-              url: urlToOpen
-            });
+            try {
+              client.postMessage({
+                type: 'navigate',
+                url: urlToOpen
+              });
+            } catch (error) {
+              console.error('Error posting message:', error);
+            }
           }
           return;
         }

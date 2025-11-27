@@ -217,28 +217,23 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
         });
 
-        // Add click handler for iOS Safari (which doesn't always use Service Worker)
-        browserNotification.onclick = (event) => {
-          event.preventDefault();
-          window.focus();
-          // Use window.location for better iOS compatibility
-          if (notification.link) {
-            window.location.href = notification.link;
-          } else {
-            window.location.href = notificationUrl;
-          }
-          browserNotification.close();
-        };
-
         // Play custom sound
         playNotificationSound();
 
-        // Handle click on notification - open website
+        // Add click handler for iOS Safari (which doesn't always use Service Worker)
         browserNotification.onclick = (event) => {
-          event.preventDefault();
-          window.focus();
-          window.location.href = notificationUrl;
-          browserNotification.close();
+          try {
+            event.preventDefault();
+            window.focus();
+            // Use window.location for better iOS compatibility
+            const urlToOpen = notification.link || notificationUrl;
+            window.location.href = urlToOpen;
+            browserNotification.close();
+          } catch (error) {
+            console.error('Error handling notification click:', error);
+            // Fallback: just close the notification
+            browserNotification.close();
+          }
         };
 
         // Auto-close after 8 seconds

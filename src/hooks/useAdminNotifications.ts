@@ -107,13 +107,16 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
 
         // Handle click on notification
         // Store notificationUrl in closure to avoid scope issues on iOS
-        const finalNotificationUrl = notificationUrl;
+        // NEVER reference 'notification' parameter inside onclick handler
+        const finalNotificationUrl = notificationUrl || '/';
+        
         browserNotification.onclick = (event) => {
           try {
             if (event) {
               event.preventDefault();
             }
             window.focus();
+            // Use stored URL - never reference 'notification' here
             if (finalNotificationUrl) {
               window.location.href = finalNotificationUrl;
             }
@@ -121,14 +124,16 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
               browserNotification.close();
             }
           } catch (error) {
-            console.error('Error handling notification click:', error);
+            // Don't log error with 'notification' in message
+            console.error('Error handling click:', error);
             // Fallback: just close the notification if possible
             try {
               if (browserNotification && typeof browserNotification.close === 'function') {
                 browserNotification.close();
               }
             } catch (closeError) {
-              console.error('Error closing notification:', closeError);
+              // Don't log error with 'notification' in message
+              console.error('Error closing:', closeError);
             }
           }
         };

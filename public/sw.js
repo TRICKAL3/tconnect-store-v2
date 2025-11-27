@@ -1,6 +1,6 @@
 // Service Worker for background notifications
-// Version 3 - Fixed iOS notification variable error (more defensive)
-const CACHE_NAME = 'tconnect-notifications-v3';
+// Version 4 - Fixed iOS notification variable error (completely defensive)
+const CACHE_NAME = 'tconnect-notifications-v4';
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {

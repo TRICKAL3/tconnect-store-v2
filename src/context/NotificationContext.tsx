@@ -221,32 +221,44 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         playNotificationSound();
 
         // Add click handler for iOS Safari (which doesn't always use Service Worker)
-        // Store notificationUrl in closure to avoid scope issues
-        const finalNotificationUrl = notificationUrl;
-        const notificationLink = notification?.link;
+        // Store ALL values we need BEFORE the onclick handler to avoid iOS closure issues
+        // NEVER reference the 'notification' parameter inside onclick handler
+        const finalNotificationUrl = notificationUrl || '/';
+        let finalNotificationLink = '/';
+        try {
+          // Safely get link if it exists
+          if (notification && typeof notification === 'object' && 'link' in notification) {
+            finalNotificationLink = notification.link || '/';
+          }
+        } catch (e) {
+          // Ignore - use default
+        }
+        const urlToOpenFinal = finalNotificationLink !== '/' ? finalNotificationLink : finalNotificationUrl;
+        
         browserNotification.onclick = (event) => {
           try {
             if (event) {
               event.preventDefault();
             }
             window.focus();
-            // Use window.location for better iOS compatibility
-            const urlToOpen = notificationLink || finalNotificationUrl || '/';
-            if (urlToOpen) {
-              window.location.href = urlToOpen;
+            // Use stored URL - never reference 'notification' here
+            if (urlToOpenFinal) {
+              window.location.href = urlToOpenFinal;
             }
             if (browserNotification && typeof browserNotification.close === 'function') {
               browserNotification.close();
             }
           } catch (error) {
-            console.error('Error handling notification click:', error);
+            // Don't log error with 'notification' in message
+            console.error('Error handling click:', error);
             // Fallback: just close the notification if possible
             try {
               if (browserNotification && typeof browserNotification.close === 'function') {
                 browserNotification.close();
               }
             } catch (closeError) {
-              console.error('Error closing notification:', closeError);
+              // Don't log error with 'notification' in message
+              console.error('Error closing:', closeError);
             }
           }
         };

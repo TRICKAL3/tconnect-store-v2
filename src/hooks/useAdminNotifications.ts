@@ -55,11 +55,23 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
 
   // Show browser notification for admin
   const showBrowserNotification = useCallback(async (notification: Notification) => {
+    // CRITICAL: Check if notification exists before using it
+    if (!notification || typeof notification !== 'object') {
+      console.error('Invalid notification object provided');
+      return;
+    }
+    
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         const baseUrl = window.location.origin;
-        const notificationUrl = notification.link 
-          ? `${baseUrl}${notification.link.startsWith('/') ? notification.link : '/' + notification.link}`
+        // Store notification properties in local variables immediately
+        // NEVER reference 'notification' parameter after this point
+        const notificationId = notification.id || '';
+        const notificationTitle = notification.title || 'Notification';
+        const notificationMessage = notification.message || '';
+        const notificationLink = notification.link || null;
+        const notificationUrl = notificationLink 
+          ? `${baseUrl}${notificationLink.startsWith('/') ? notificationLink : '/' + notificationLink}`
           : `${baseUrl}/admin`;
         
         // Try to use Service Worker for background notifications

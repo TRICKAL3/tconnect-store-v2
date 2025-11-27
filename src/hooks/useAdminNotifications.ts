@@ -54,6 +54,12 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
   }, []);
 
   // Show browser notification for admin
+  // Detect iOS Safari
+  const isIOS = useCallback(() => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }, []);
+
   const showBrowserNotification = useCallback(async (notification: Notification) => {
     // CRITICAL: Check if notification exists before using it
     if (!notification || typeof notification !== 'object') {
@@ -65,7 +71,6 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
       try {
         const baseUrl = window.location.origin;
         // Store notification properties in local variables immediately
-        // NEVER reference 'notification' parameter after this point
         const notificationId = notification.id || '';
         const notificationTitle = notification.title || 'Notification';
         const notificationMessage = notification.message || '';
@@ -74,8 +79,10 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
           ? `${baseUrl}${notificationLink.startsWith('/') ? notificationLink : '/' + notificationLink}`
           : `${baseUrl}/admin`;
         
-        // Try to use Service Worker for background notifications
-        if ('serviceWorker' in navigator) {
+        const isIOSDevice = isIOS();
+        
+        // For iOS: Skip Service Worker entirely
+        if (!isIOSDevice && 'serviceWorker' in navigator) {
           try {
             const registration = await navigator.serviceWorker.ready;
             await registration.showNotification(notificationTitle, {
@@ -92,7 +99,6 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
               }
             });
             
-            // Play custom sound
             playNotificationSound();
             return;
           } catch (swError) {
@@ -100,56 +106,97 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
           }
         }
         
-        // Fallback to regular notification
-        // Use stored variables - NEVER reference 'notification' parameter here
-        const browserNotification = new Notification(notificationTitle, {
+        // Create notification with minimal options for iOS
+        const notificationOptions: any = {
           body: notificationMessage,
           icon: '/tconnect_logo-removebg-preview.png',
           badge: '/tconnect_logo-removebg-preview.png',
           tag: notificationId,
           requireInteraction: false,
-          silent: false,
-          data: {
+          silent: false
+        };
+        
+        // Only add data property if not iOS
+        if (!isIOSDevice) {
+          notificationOptions.data = {
             url: notificationUrl,
             id: notificationId
-          }
-        });
+          };
+        }
+        
+        const browserNotification = new Notification(notificationTitle, notificationOptions);
 
-        // Play custom sound
         playNotificationSound();
 
-        // Handle click on notification
-        // Store notificationUrl in closure to avoid scope issues on iOS
-        // NEVER reference 'notification' parameter inside onclick handler
-        const finalNotificationUrl = notificationUrl || '/';
-        
-        browserNotification.onclick = (event) => {
-          try {
-            if (event) {
-              event.preventDefault();
-            }
-            window.focus();
-            // Use stored URL - never reference 'notification' here
-            if (finalNotificationUrl) {
-              window.location.href = finalNotificationUrl;
-            }
-            if (browserNotification && typeof browserNotification.close === 'function') {
-              browserNotification.close();
-            }
-          } catch (error) {
-            // Don't log error with 'notification' in message
-            console.error('Error handling click:', error);
-            // Fallback: just close the notification if possible
-            try {
-              if (browserNotification && typeof browserNotification.close === 'function') {
-                browserNotification.close();
-              }
-            } catch (closeError) {
-              // Don't log error with 'notification' in message
-              console.error('Error closing:', closeError);
-            }
+        // For iOS: Use global map to avoid closure issues
+        if (isIOSDevice) {
+          if (!(window as any).__adminNotificationUrls) {
+            (window as any).__adminNotificationUrls = new Map();
           }
-        };
+          (window as any).__adminNotificationUrls.set(notificationId, notificationUrl);
+          
+          browserNotification.onclick = function(event: Event) {
+            try {
+              if (event) {
+                event.preventDefault();
+              }
+              window.focus();
+              const urlMap = (window as any).__adminNotificationUrls;
+              const targetUrl = urlMap ? urlMap.get(notificationId) : notificationUrl;
+              if (targetUrl) {
+                window.location.href = targetUrl;
+              }
+              if (urlMap) {
+                urlMap.delete(notificationId);
+              }
+              try {
+                if (browserNotification && typeof browserNotification.close === 'function') {
+                  browserNotification.close();
+                }
+              } catch (e) {
+                // Ignore
+              }
+            } catch (error) {
+              console.error('Error in click handler:', error);
+              try {
+                if (browserNotification && typeof browserNotification.close === 'function') {
+                  browserNotification.close();
+                }
+              } catch (e) {
+                // Ignore
+              }
+            }
+          };
+        } else {
+          const finalUrl = notificationUrl;
+          browserNotification.onclick = function(event: Event) {
+            try {
+              if (event) {
+                event.preventDefault();
+              }
+              window.focus();
+              if (finalUrl) {
+                window.location.href = finalUrl;
+              }
+              try {
+                if (browserNotification && typeof browserNotification.close === 'function') {
+                  browserNotification.close();
+                }
+              } catch (e) {
+                // Ignore
+              }
+            } catch (error) {
+              console.error('Error in click handler:', error);
+              try {
+                if (browserNotification && typeof browserNotification.close === 'function') {
+                  browserNotification.close();
+                }
+              } catch (e) {
+                // Ignore
+              }
+            }
+          };
+        }
 
         // Auto-close after 8 seconds
         setTimeout(() => {
@@ -159,7 +206,7 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
         console.error('Failed to show browser notification:', error);
       }
     }
-  }, [playNotificationSound]);
+  }, [playNotificationSound, isIOS]);
 
   const fetchNotifications = useCallback(async () => {
     try {

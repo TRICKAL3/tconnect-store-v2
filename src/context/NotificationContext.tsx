@@ -223,17 +223,22 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Add click handler for iOS Safari (which doesn't always use Service Worker)
         // Store ALL values we need BEFORE the onclick handler to avoid iOS closure issues
         // NEVER reference the 'notification' parameter inside onclick handler
-        const finalNotificationUrl = notificationUrl || '/';
-        let finalNotificationLink = '/';
-        try {
-          // Safely get link if it exists
-          if (notification && typeof notification === 'object' && 'link' in notification) {
-            finalNotificationLink = notification.link || '/';
+        // Get link BEFORE creating onclick handler to avoid closure issues on iOS
+        const notificationLinkValue = (() => {
+          try {
+            // Access notification.link BEFORE the onclick handler
+            if (notification && typeof notification === 'object' && notification !== null) {
+              return notification.link || null;
+            }
+          } catch (e) {
+            // Ignore any errors
           }
-        } catch (e) {
-          // Ignore - use default
-        }
-        const urlToOpenFinal = finalNotificationLink !== '/' ? finalNotificationLink : finalNotificationUrl;
+          return null;
+        })();
+        
+        const finalNotificationUrl = notificationUrl || '/';
+        const finalNotificationLink = notificationLinkValue || '/';
+        const urlToOpenFinal = (finalNotificationLink !== '/' && finalNotificationLink) ? finalNotificationLink : finalNotificationUrl;
         
         browserNotification.onclick = (event) => {
           try {

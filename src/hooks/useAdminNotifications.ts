@@ -66,17 +66,17 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
         if ('serviceWorker' in navigator) {
           try {
             const registration = await navigator.serviceWorker.ready;
-            await registration.showNotification(notification.title, {
-              body: notification.message,
+            await registration.showNotification(notificationTitle, {
+              body: notificationMessage,
               icon: '/tconnect_logo-removebg-preview.png',
               badge: '/tconnect_logo-removebg-preview.png',
-              tag: notification.id,
+              tag: notificationId,
               requireInteraction: false,
               silent: false,
               vibrate: [200, 100, 200],
               data: {
                 url: notificationUrl,
-                id: notification.id
+                id: notificationId
               }
             });
             
@@ -89,16 +89,17 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
         }
         
         // Fallback to regular notification
-        const browserNotification = new Notification(notification.title, {
-          body: notification.message,
+        // Use stored variables - NEVER reference 'notification' parameter here
+        const browserNotification = new Notification(notificationTitle, {
+          body: notificationMessage,
           icon: '/tconnect_logo-removebg-preview.png',
           badge: '/tconnect_logo-removebg-preview.png',
-          tag: notification.id,
+          tag: notificationId,
           requireInteraction: false,
           silent: false,
           data: {
             url: notificationUrl,
-            id: notification.id
+            id: notificationId
           }
         });
 

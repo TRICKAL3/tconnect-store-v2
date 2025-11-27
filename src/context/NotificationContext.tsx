@@ -172,26 +172,36 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Show browser notification - using Service Worker if available
   const showBrowserNotification = useCallback(async (notification: Notification) => {
+    // CRITICAL: Check if notification exists before using it
+    if (!notification || typeof notification !== 'object') {
+      console.error('Invalid notification object provided');
+      return;
+    }
+    
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         const baseUrl = window.location.origin;
-        const notificationUrl = `${baseUrl}/notifications/${notification.id}`;
+        // Store notification properties in local variables immediately
+        const notificationId = notification.id || '';
+        const notificationTitle = notification.title || 'Notification';
+        const notificationMessage = notification.message || '';
+        const notificationUrl = `${baseUrl}/notifications/${notificationId}`;
         
         // Try to use Service Worker for background notifications
         if ('serviceWorker' in navigator) {
           try {
             const registration = await navigator.serviceWorker.ready;
-            await registration.showNotification(notification.title, {
-              body: notification.message,
+            await registration.showNotification(notificationTitle, {
+              body: notificationMessage,
               icon: '/tconnect_logo-removebg-preview.png',
               badge: '/tconnect_logo-removebg-preview.png',
-              tag: notification.id,
+              tag: notificationId,
               requireInteraction: false,
               silent: false, // Enable system sound
               vibrate: [200, 100, 200], // Vibration for mobile
               data: {
                 url: notificationUrl,
-                id: notification.id
+                id: notificationId
               }
             });
             
@@ -204,16 +214,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
         
         // Fallback to regular notification
-        const browserNotification = new Notification(notification.title, {
-          body: notification.message,
+        // Use stored variables - NEVER reference 'notification' parameter here
+        const browserNotification = new Notification(notificationTitle, {
+          body: notificationMessage,
           icon: '/tconnect_logo-removebg-preview.png',
           badge: '/tconnect_logo-removebg-preview.png',
-          tag: notification.id,
+          tag: notificationId,
           requireInteraction: false,
           silent: false,
           data: {
             url: notificationUrl,
-            id: notification.id
+            id: notificationId
           }
         });
 
@@ -224,17 +235,20 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Store ALL values we need BEFORE the onclick handler to avoid iOS closure issues
         // NEVER reference the 'notification' parameter inside onclick handler
         // Get link BEFORE creating onclick handler to avoid closure issues on iOS
-        const notificationLinkValue = (() => {
-          try {
-            // Access notification.link BEFORE the onclick handler
-            if (notification && typeof notification === 'object' && notification !== null) {
-              return notification.link || null;
-            }
-          } catch (e) {
-            // Ignore any errors
+        // Use the stored notification object from the function parameter
+        // But access it BEFORE the onclick handler is created
+        let notificationLinkValue = null;
+        try {
+          // Access notification.link BEFORE the onclick handler
+          // notification is the function parameter, accessed here in the outer scope
+          const notifParam = notification;
+          if (notifParam && typeof notifParam === 'object' && notifParam !== null && 'link' in notifParam) {
+            notificationLinkValue = notifParam.link || null;
           }
-          return null;
-        })();
+        } catch (e) {
+          // Ignore any errors - notificationLinkValue stays null
+          notificationLinkValue = null;
+        }
         
         const finalNotificationUrl = notificationUrl || '/';
         const finalNotificationLink = notificationLinkValue || '/';

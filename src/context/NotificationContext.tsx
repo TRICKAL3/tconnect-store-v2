@@ -1,14 +1,13 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { getApiBase } from '../lib/getApiBase';
 
 interface Notification {
   id: string;
-  userId: string | null;
   type: string;
   title: string;
   message: string;
-  link: string | null;
+  link?: string;
   read: boolean;
   createdAt: string;
 }
@@ -17,8 +16,8 @@ interface NotificationContextValue {
   notifications: Notification[];
   unreadCount: number;
   loading: boolean;
-  refreshNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
+  refreshNotifications: () => Promise<void>;
   markAllAsRead: () => Promise<void>;
 }
 
@@ -86,9 +85,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [user?.email, API_BASE]);
 
   const refreshNotifications = useCallback(async () => {
-    setLoading(true);
     await fetchNotifications();
-    setLoading(false);
   }, [fetchNotifications]);
 
   const markAsRead = useCallback(async (id: string) => {
@@ -138,7 +135,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Play notification sound - using multiple methods for better compatibility
   const playNotificationSound = useCallback(() => {
     try {
-      // Method 1: Try Web Audio API (works on most browsers)
+      // Method 1: Try Web Audio API
       try {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
@@ -170,6 +167,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, []);
 
+  // Detect iOS Safari
+  const isIOS = useCallback(() => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }, []);
+
   // Show browser notification - using Service Worker if available
   const showBrowserNotification = useCallback(async (notification: Notification) => {
     // CRITICAL: Check if notification exists before using it
@@ -185,10 +188,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const notificationId = notification.id || '';
         const notificationTitle = notification.title || 'Notification';
         const notificationMessage = notification.message || '';
-        const notificationUrl = `${baseUrl}/notifications/${notificationId}`;
+        const notificationLink = notification.link || null;
+        const notificationUrl = notificationLink 
+          ? `${baseUrl}${notificationLink.startsWith('/') ? notificationLink : '/' + notificationLink}`
+          : `${baseUrl}/notifications/${notificationId}`;
         
-        // Try to use Service Worker for background notifications
-        if ('serviceWorker' in navigator) {
+        // For iOS: Skip Service Worker entirely and use simple browser notification
+        const isIOSDevice = isIOS();
+        
+        if (!isIOSDevice && 'serviceWorker' in navigator) {
+          // Try Service Worker for non-iOS devices
           try {
             const registration = await navigator.serviceWorker.ready;
             await registration.showNotification(notificationTitle, {
@@ -197,15 +206,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               badge: '/tconnect_logo-removebg-preview.png',
               tag: notificationId,
               requireInteraction: false,
-              silent: false, // Enable system sound
-              vibrate: [200, 100, 200], // Vibration for mobile
+              silent: false,
+              vibrate: [200, 100, 200],
               data: {
                 url: notificationUrl,
                 id: notificationId
               }
             });
             
-            // Play custom sound
             playNotificationSound();
             return;
           } catch (swError) {
@@ -213,78 +221,114 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
         }
         
-        // Fallback to regular notification
-        // Use stored variables - NEVER reference 'notification' parameter here
-        const browserNotification = new Notification(notificationTitle, {
+        // For iOS or fallback: Use simple browser notification
+        // Create notification with minimal options for iOS compatibility
+        const notificationOptions: any = {
           body: notificationMessage,
           icon: '/tconnect_logo-removebg-preview.png',
           badge: '/tconnect_logo-removebg-preview.png',
           tag: notificationId,
           requireInteraction: false,
-          silent: false,
-          data: {
+          silent: false
+        };
+        
+        // Only add data property if not iOS (iOS has issues with it)
+        if (!isIOSDevice) {
+          notificationOptions.data = {
             url: notificationUrl,
             id: notificationId
-          }
-        });
+          };
+        }
+        
+        const browserNotification = new Notification(notificationTitle, notificationOptions);
 
         // Play custom sound
         playNotificationSound();
 
-        // Add click handler for iOS Safari (which doesn't always use Service Worker)
-        // Store ALL values we need BEFORE the onclick handler to avoid iOS closure issues
-        // NEVER reference the 'notification' parameter inside onclick handler
-        // Get link BEFORE creating onclick handler to avoid closure issues on iOS
-        // Use the stored notification object from the function parameter
-        // But access it BEFORE the onclick handler is created
-        let notificationLinkValue = null;
-        try {
-          // Access notification.link BEFORE the onclick handler
-          // notification is the function parameter, accessed here in the outer scope
-          const notifParam = notification;
-          if (notifParam && typeof notifParam === 'object' && notifParam !== null && 'link' in notifParam) {
-            notificationLinkValue = notifParam.link || null;
+        // For iOS: Use a completely different approach - store URL in a global map
+        // This avoids any closure issues
+        if (isIOSDevice) {
+          // Store notification URL in a global map using notification ID
+          if (!(window as any).__notificationUrls) {
+            (window as any).__notificationUrls = new Map();
           }
-        } catch (e) {
-          // Ignore any errors - notificationLinkValue stays null
-          notificationLinkValue = null;
-        }
-        
-        const finalNotificationUrl = notificationUrl || '/';
-        const finalNotificationLink = notificationLinkValue || '/';
-        const urlToOpenFinal = (finalNotificationLink !== '/' && finalNotificationLink) ? finalNotificationLink : finalNotificationUrl;
-        
-        browserNotification.onclick = (event) => {
-          try {
-            if (event) {
-              event.preventDefault();
-            }
-            window.focus();
-            // Use stored URL - never reference 'notification' here
-            if (urlToOpenFinal) {
-              window.location.href = urlToOpenFinal;
-            }
-            if (browserNotification && typeof browserNotification.close === 'function') {
-              browserNotification.close();
-            }
-          } catch (error) {
-            // Don't log error with 'notification' in message
-            console.error('Error handling click:', error);
-            // Fallback: just close the notification if possible
+          (window as any).__notificationUrls.set(notificationId, notificationUrl);
+          
+          // Simple onclick handler that only uses the global map
+          browserNotification.onclick = function(event: Event) {
             try {
-              if (browserNotification && typeof browserNotification.close === 'function') {
-                browserNotification.close();
+              if (event) {
+                event.preventDefault();
               }
-            } catch (closeError) {
-              // Don't log error with 'notification' in message
-              console.error('Error closing:', closeError);
+              window.focus();
+              // Get URL from global map - no closure, no notification reference
+              const urlMap = (window as any).__notificationUrls;
+              const targetUrl = urlMap ? urlMap.get(notificationId) : notificationUrl;
+              if (targetUrl) {
+                window.location.href = targetUrl;
+              }
+              // Clean up
+              if (urlMap) {
+                urlMap.delete(notificationId);
+              }
+              // Close notification
+              try {
+                if (browserNotification && typeof browserNotification.close === 'function') {
+                  browserNotification.close();
+                }
+              } catch (e) {
+                // Ignore
+              }
+            } catch (error) {
+              console.error('Error in click handler:', error);
+              try {
+                if (browserNotification && typeof browserNotification.close === 'function') {
+                  browserNotification.close();
+                }
+              } catch (e) {
+                // Ignore
+              }
             }
-          }
-        };
+          };
+        } else {
+          // For non-iOS: Use closure with stored variables
+          const finalUrl = notificationUrl;
+          browserNotification.onclick = function(event: Event) {
+            try {
+              if (event) {
+                event.preventDefault();
+              }
+              window.focus();
+              if (finalUrl) {
+                window.location.href = finalUrl;
+              }
+              try {
+                if (browserNotification && typeof browserNotification.close === 'function') {
+                  browserNotification.close();
+                }
+              } catch (e) {
+                // Ignore
+              }
+            } catch (error) {
+              console.error('Error in click handler:', error);
+              try {
+                if (browserNotification && typeof browserNotification.close === 'function') {
+                  browserNotification.close();
+                }
+              } catch (e) {
+                // Ignore
+              }
+            }
+          };
+        }
 
         // Auto-close after 8 seconds
         setTimeout(() => {
-          browserNotification.close();
+          try {
+            browserNotification.close();
+          } catch (e) {
+            // Ignore
+          }
         }, 8000);
       } catch (error) {
         console.error('Failed to show browser notification:', error);
@@ -292,7 +336,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } else {
       console.log('Notification permission not granted. Current permission:', Notification.permission);
     }
-  }, [playNotificationSound]);
+  }, [playNotificationSound, isIOS]);
 
   // Request notification permission - better approach with user interaction
   useEffect(() => {
@@ -396,7 +440,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error('useNotifications must be used within NotificationProvider');
+    throw new Error('useNotifications must be used within a NotificationProvider');
   }
   return context;
 };

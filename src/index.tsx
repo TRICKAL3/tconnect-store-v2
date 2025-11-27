@@ -66,13 +66,27 @@ if (process.env.NODE_ENV === 'development') {
 // Register Service Worker for background notifications (completely non-blocking)
 // Do this after React has rendered to avoid blocking
 if ('serviceWorker' in navigator) {
+  // Unregister old service workers first to force update
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => {
+      // Unregister old versions to force update
+      registration.unregister().catch(() => {
+        // Ignore errors
+      });
+    });
+  }).catch(() => {
+    // Ignore errors
+  });
+
   // Wait for page to fully load, then register in background
   if (document.readyState === 'complete') {
     // Page already loaded, register immediately but async
     setTimeout(() => {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
         .then((registration) => {
           console.log('✅ Service Worker registered:', registration.scope);
+          // Force update
+          registration.update();
         })
         .catch((error) => {
           console.log('⚠️ Service Worker registration failed (non-critical):', error);
@@ -83,9 +97,11 @@ if ('serviceWorker' in navigator) {
     // Wait for page load
     window.addEventListener('load', () => {
       setTimeout(() => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
           .then((registration) => {
             console.log('✅ Service Worker registered:', registration.scope);
+            // Force update
+            registration.update();
           })
           .catch((error) => {
             console.log('⚠️ Service Worker registration failed (non-critical):', error);

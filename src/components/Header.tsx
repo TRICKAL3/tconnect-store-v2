@@ -113,7 +113,13 @@ const Header: React.FC = () => {
 
               {/* Dropdown Menu */}
               {isProfileDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-dark-card border border-dark-border rounded-xl shadow-xl z-50 overflow-hidden neon-glow">
+                <>
+                  {/* Backdrop for mobile */}
+                  <div 
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                    onClick={() => setIsProfileDropdownOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm md:w-56 md:max-w-none bg-dark-card border border-dark-border rounded-xl shadow-xl z-50 overflow-hidden neon-glow left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0">
                   {!user ? (
                     <div className="py-2">
                       <Link

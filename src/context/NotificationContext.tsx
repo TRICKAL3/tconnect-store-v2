@@ -217,6 +217,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
         });
 
+        // Add click handler for iOS Safari (which doesn't always use Service Worker)
+        browserNotification.onclick = (event) => {
+          event.preventDefault();
+          window.focus();
+          // Use window.location for better iOS compatibility
+          if (notification.link) {
+            window.location.href = notification.link;
+          } else {
+            window.location.href = notificationUrl;
+          }
+          browserNotification.close();
+        };
+
         // Play custom sound
         playNotificationSound();
 

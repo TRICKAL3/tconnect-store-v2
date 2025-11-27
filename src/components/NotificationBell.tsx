@@ -59,7 +59,13 @@ const NotificationBell: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm md:w-96 bg-dark-surface border-2 border-neon-blue/30 rounded-xl shadow-2xl z-50 max-h-96 overflow-hidden flex flex-col">
+        <>
+          {/* Backdrop for mobile */}
+          <div 
+            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm md:w-96 bg-dark-surface border-2 border-neon-blue/30 rounded-xl shadow-2xl z-50 max-h-96 overflow-hidden flex flex-col left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0">
           {/* Header */}
           <div className="p-4 border-b border-dark-border flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">Notifications</h3>
@@ -147,6 +153,7 @@ const NotificationBell: React.FC = () => {
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   );

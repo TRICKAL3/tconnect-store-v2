@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { auth } from './lib/firebaseClient';
 import { getRedirectResult, onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from './context/AuthContext';
@@ -32,8 +32,28 @@ import EnableNotifications from './components/EnableNotifications';
 
 function AppContent() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const isAdmin = location.pathname === '/admin';
+
+  // Listen for Service Worker messages (for iOS notification navigation)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'navigate') {
+          const url = event.data.url;
+          if (url) {
+            // Use window.location for better iOS compatibility
+            if (url.startsWith('http')) {
+              window.location.href = url;
+            } else {
+              navigate(url);
+            }
+          }
+        }
+      });
+    }
+  }, [navigate]);
 
   // Handle redirect after successful sign-in/sign-up
   useEffect(() => {

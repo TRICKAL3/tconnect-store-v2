@@ -86,14 +86,29 @@ self.addEventListener('notificationclick', (event) => {
       type: 'window',
       includeUncontrolled: true
     }).then((clientList) => {
-      // Check if there's already a window/tab open with the target URL
+      // Check if there's already a window/tab open
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
+        // Focus existing window and navigate to the URL
+        if ('focus' in client) {
+          client.focus();
+          // For iOS Safari, we need to send a message to navigate
+          if ('postMessage' in client) {
+            client.postMessage({
+              type: 'navigate',
+              url: urlToOpen
+            });
+          }
+          return;
         }
       }
       // If no window is open, open a new one
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    }).catch((error) => {
+      console.error('Error handling notification click:', error);
+      // Fallback: try to open window directly
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }

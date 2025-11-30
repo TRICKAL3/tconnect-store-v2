@@ -75,7 +75,7 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
     }
     
     // For non-iOS devices: Show browser notifications
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (typeof window.Notification !== 'undefined' && window.Notification.permission === 'granted') {
       try {
         const baseUrl = window.location.origin;
         // Store notification properties in local variables immediately
@@ -114,7 +114,11 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
         
         // Fallback to regular browser notification
         const finalUrl = notificationUrl;
-        const browserNotification = new Notification(notificationTitle, {
+        if (typeof window.Notification === 'undefined') {
+          console.log('Notification API not available');
+          return;
+        }
+        const browserNotification = new window.Notification(notificationTitle, {
           body: notificationMessage,
           icon: '/tconnect_logo-removebg-preview.png',
           badge: '/tconnect_logo-removebg-preview.png',
@@ -244,10 +248,10 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
 
   // Request notification permission for admin
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
+    if (typeof window.Notification !== 'undefined' && window.Notification.permission === 'default') {
       // Request permission after a short delay
       setTimeout(() => {
-        Notification.requestPermission().then(permission => {
+        window.Notification.requestPermission().then(permission => {
           console.log('🔔 Admin notification permission:', permission);
         });
       }, 2000);

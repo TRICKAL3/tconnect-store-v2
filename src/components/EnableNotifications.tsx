@@ -8,8 +8,8 @@ const EnableNotifications: React.FC = () => {
 
   useEffect(() => {
     // Check notification permission
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
+    if (typeof window.Notification !== 'undefined') {
+      setPermission(window.Notification.permission);
     }
 
     // Check if service worker is registered
@@ -20,7 +20,7 @@ const EnableNotifications: React.FC = () => {
     }
 
     // Show prompt if permission is default and service worker is not registered
-    if (Notification.permission === 'default' && !serviceWorkerRegistered) {
+    if (typeof window.Notification !== 'undefined' && window.Notification.permission === 'default' && !serviceWorkerRegistered) {
       // Show after 3 seconds
       const timer = setTimeout(() => {
         setShowPrompt(true);
@@ -49,8 +49,8 @@ const EnableNotifications: React.FC = () => {
     await registerServiceWorker();
 
     // Then request notification permission
-    if ('Notification' in window) {
-      const result = await Notification.requestPermission();
+    if (typeof window.Notification !== 'undefined') {
+      const result = await window.Notification.requestPermission();
       setPermission(result);
       setShowPrompt(false);
 

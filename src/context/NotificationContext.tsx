@@ -189,7 +189,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
     
     // For non-iOS devices: Show browser notifications
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (typeof window.Notification !== 'undefined' && window.Notification.permission === 'granted') {
       try {
         const baseUrl = window.location.origin;
         // Store notification properties in local variables immediately
@@ -228,7 +228,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         
         // Fallback to regular browser notification
         const finalUrl = notificationUrl;
-        const browserNotification = new Notification(notificationTitle, {
+        if (typeof window.Notification === 'undefined') {
+          console.log('Notification API not available');
+          return;
+        }
+        const browserNotification = new window.Notification(notificationTitle, {
           body: notificationMessage,
           icon: '/tconnect_logo-removebg-preview.png',
           badge: '/tconnect_logo-removebg-preview.png',
@@ -287,13 +291,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Request notification permission - better approach with user interaction
   useEffect(() => {
-    if (!hasRequestedPermission.current && 'Notification' in window) {
+    if (!hasRequestedPermission.current && typeof window.Notification !== 'undefined') {
       // Only request if permission is default (not yet asked)
-      if (Notification.permission === 'default') {
+      if (window.Notification.permission === 'default') {
         // Request permission after a short delay or on user interaction
         const requestPermission = () => {
           hasRequestedPermission.current = true;
-          Notification.requestPermission().then(permission => {
+          window.Notification.requestPermission().then(permission => {
             console.log('🔔 Notification permission:', permission);
             if (permission === 'granted') {
               console.log('✅ Notifications enabled! You will receive alerts for new messages.');
@@ -318,7 +322,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             document.addEventListener('touchstart', handleUserInteraction, { once: true });
           }
         }, 2000);
-      } else if (Notification.permission === 'granted') {
+      } else if (window.Notification.permission === 'granted') {
         console.log('✅ Notifications already enabled');
         hasRequestedPermission.current = true;
       }

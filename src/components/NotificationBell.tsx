@@ -32,8 +32,8 @@ const NotificationBell: React.FC = () => {
     setIsOpen(!isOpen);
     
     // Request notification permission if not granted
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then(permission => {
+    if (typeof window.Notification !== 'undefined' && window.Notification.permission === 'default') {
+      window.Notification.requestPermission().then(permission => {
         if (permission === 'granted') {
           console.log('✅ Notifications enabled!');
         }

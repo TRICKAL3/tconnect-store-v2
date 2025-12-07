@@ -24,6 +24,7 @@ const Cart: React.FC = () => {
   };
 
   const proceedToCheckout = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     navigate('/checkout');
   };
 

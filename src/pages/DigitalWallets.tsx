@@ -83,7 +83,11 @@ const DigitalWallets: React.FC = () => {
   // removed unused addToCart (virtual cards use custom amount and go to checkout)
 
   const addToCartAndCheckout = (wallet: DigitalWallet) => {
-    if (!user) { navigate('/signin'); return; }
+    if (!user) { 
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      navigate('/signin'); 
+      return; 
+    }
     const amountUsd = Math.max(25, amountByWallet[wallet.id] || 0);
     const email = (emailByWallet[wallet.id] || '').trim();
     dispatch({
@@ -103,11 +107,16 @@ const DigitalWallets: React.FC = () => {
         }
       }
     });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     navigate('/checkout');
   };
 
   const addVirtualCardAndCheckout = (wallet: DigitalWallet) => {
-    if (!user) { navigate('/signin'); return; }
+    if (!user) { 
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      navigate('/signin'); 
+      return; 
+    }
     const amountUsd = Math.max(25, amountByWallet[wallet.id] || 0);
     dispatch({
       type: 'ADD_ITEM',
@@ -121,6 +130,7 @@ const DigitalWallets: React.FC = () => {
         quantity: 1
       }
     });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     navigate('/checkout');
   };
 

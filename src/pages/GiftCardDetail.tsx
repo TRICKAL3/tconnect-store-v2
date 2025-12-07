@@ -81,6 +81,7 @@ const GiftCardDetail: React.FC = () => {
 
   const buyNow = () => {
     addToCart();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     navigate('/checkout');
   };
 

@@ -36,6 +36,11 @@ function AppContent() {
   const { user, loading: authLoading } = useAuth();
   const isAdmin = location.pathname === '/admin';
 
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [location.pathname]);
+
   // Listen for Service Worker messages (for iOS notification navigation)
   useEffect(() => {
     if ('serviceWorker' in navigator) {

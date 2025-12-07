@@ -277,9 +277,14 @@ const GiftCards: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        if (!user) { navigate('/signin'); return; }
+                        if (!user) { 
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                          navigate('/signin'); 
+                          return; 
+                        }
                         if (card.inStock) {
                           addToCart(card);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
                           navigate('/checkout');
                         }
                       }}

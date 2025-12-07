@@ -23,6 +23,7 @@ const NotificationBell: React.FC = () => {
   const handleNotificationClick = (notification: any) => {
     markAsRead(notification.id);
     // Navigate to notification detail page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     navigate(`/notifications/${notification.id}`);
     setIsOpen(false);
   };
@@ -112,6 +113,7 @@ const NotificationBell: React.FC = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
                             navigate(`/notifications/${notification.id}`);
                             setIsOpen(false);
                           }}

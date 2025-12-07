@@ -118,6 +118,11 @@ const Crypto: React.FC = () => {
     }));
   };
 
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentStep]);
+
   const addToCart = () => {
     if (!user) { navigate('/signin'); return; }
     const selectedExchange = order.exchange === 'other' ? (order.customExchange || 'Other') : exchanges.find(e => e.id === order.exchange)?.name;
@@ -214,7 +219,10 @@ const Crypto: React.FC = () => {
         </div>
 
         <button
-          onClick={() => setCurrentStep(2)}
+          onClick={() => {
+            setCurrentStep(2);
+            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+          }}
           disabled={!order.amountUsd || order.amountUsd < 10}
           className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-105 ${
             order.amountUsd && order.amountUsd >= 10
@@ -277,13 +285,19 @@ const Crypto: React.FC = () => {
 
       <div className="flex space-x-4">
         <button
-          onClick={() => setCurrentStep(1)}
+          onClick={() => {
+            setCurrentStep(1);
+            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+          }}
           className="flex-1 cyber-border text-white py-3 px-6 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >
           Back
         </button>
         <button
-          onClick={() => setCurrentStep(3)}
+          onClick={() => {
+            setCurrentStep(3);
+            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+          }}
           disabled={!order.exchange}
           className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-105 ${
             order.exchange
@@ -399,7 +413,10 @@ const Crypto: React.FC = () => {
 
       <div className="flex space-x-4 mt-8">
         <button
-          onClick={() => setCurrentStep(2)}
+          onClick={() => {
+            setCurrentStep(2);
+            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+          }}
           className="flex-1 cyber-border text-white py-3 px-6 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >
           Back
@@ -449,6 +466,7 @@ const Crypto: React.FC = () => {
               exchangeId: '',
               notes: ''
             });
+            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
           }}
           className="w-full cyber-border text-white py-3 px-6 rounded-xl font-bold transition-all duration-300 hover:scale-105"
         >

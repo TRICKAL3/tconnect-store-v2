@@ -59,6 +59,13 @@ const Checkout: React.FC = () => {
     fetchPoints();
   }, [user]);
 
+  // Scroll to top when order completes
+  useEffect(() => {
+    if (orderComplete) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [orderComplete]);
+
   // Points packages: 650 points = $5, 1300 points = $10
   const pointsPackages = [
     { points: 650, usd: 5 },
@@ -395,13 +402,6 @@ const Checkout: React.FC = () => {
       </div>
     );
   }
-
-  // Scroll to top when order completes
-  useEffect(() => {
-    if (orderComplete) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [orderComplete]);
 
   if (orderComplete) {
     return (

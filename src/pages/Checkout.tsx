@@ -362,6 +362,9 @@ const Checkout: React.FC = () => {
       // Clear cart only after successful order creation
       dispatch({ type: 'CLEAR_CART' });
       setOrderComplete(true);
+      
+      // Scroll to top on mobile after order completion
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
       console.error('Checkout error:', e);
       alert(e.message || 'Failed to complete order. Please try again.');
@@ -392,6 +395,13 @@ const Checkout: React.FC = () => {
       </div>
     );
   }
+
+  // Scroll to top when order completes
+  useEffect(() => {
+    if (orderComplete) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [orderComplete]);
 
   if (orderComplete) {
     return (

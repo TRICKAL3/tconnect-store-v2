@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Gift, Shield, Zap, CreditCard, TrendingUp, CheckCircle, Globe } from 'lucide-react';
+import { ArrowRight, Gift, Shield, Zap, CreditCard, TrendingUp, CheckCircle, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getApiBase } from '../lib/getApiBase';
 import paypalLogo from '../assets/paypal.jpg';
 import skrillLogo from '../assets/skrill.jpg';
@@ -326,77 +326,113 @@ const Home: React.FC = () => {
             
             {/* Promotional Slideshow - Right Corner */}
             <div className="flex justify-center md:justify-end order-1 md:order-2">
-              <div className="relative w-full max-w-md">
+              <div className="relative w-full max-w-md group">
                 {slides.length > 0 ? (
                   <>
-                    {slides.map((slide, index) => (
-                      <div
-                        key={slide.id}
-                        className={`transition-opacity duration-1000 ${
-                          index === currentSlide ? 'opacity-100 relative' : 'opacity-0 absolute inset-0 pointer-events-none'
-                        }`}
-                      >
-                        <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-                          {slide.image ? (
-                            <>
-                              <img 
-                                src={slide.image} 
-                                alt={slide.title || 'Promotion'} 
-                                className="w-full h-64 sm:h-72 md:h-80 lg:h-96 object-cover"
-                                onError={(e) => {
-                                  // Fallback to emoji if image fails
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                  const fallback = document.createElement('div');
-                                  fallback.className = 'w-full h-64 sm:h-72 md:h-80 lg:h-96 bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow';
-                                  fallback.textContent = '🎁';
-                                  target.parentElement?.appendChild(fallback);
-                                }}
-                              />
-                              {/* Title overlay - Top Left */}
-                              {slide.title && (
-                                <div className="absolute top-4 left-4">
-                                  <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-lg holographic">
-                                    {slide.title}
-                                  </h3>
-                                  {slide.subtitle && (
-                                    <p className="text-sm sm:text-base md:text-lg text-neon-blue drop-shadow-lg mt-1">
-                                      {slide.subtitle}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                              {/* CTA Button - Bottom Right */}
-                              {slide.cta && slide.ctaLink && (
-                                <div className="absolute bottom-4 right-4">
-                                  <Link
-                                    to={slide.ctaLink}
-                                    className="inline-block bg-neon-blue/90 hover:bg-neon-blue text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-semibold text-sm md:text-base shadow-lg hover:shadow-xl transition-all active:scale-95 neon-glow"
-                                  >
-                                    {slide.cta}
-                                  </Link>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="w-full h-64 sm:h-72 md:h-80 lg:h-96 bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow rounded-2xl">
-                              🎁
-                            </div>
-                          )}
-                        </div>
+                    <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+                      {/* Navigation Arrows */}
+                      {slides.length > 1 && (
+                        <>
+                          <button
+                            onClick={() => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all duration-300 opacity-0 group-hover:opacity-100 active:scale-95"
+                            aria-label="Previous slide"
+                          >
+                            <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+                          </button>
+                          <button
+                            onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 bg-black/50 hover:bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all duration-300 opacity-0 group-hover:opacity-100 active:scale-95"
+                            aria-label="Next slide"
+                          >
+                            <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+                          </button>
+                        </>
+                      )}
+                      
+                      {/* Slides Container */}
+                      <div className="relative h-64 sm:h-72 md:h-80 lg:h-96 overflow-hidden">
+                        {slides.map((slide, index) => (
+                          <div
+                            key={slide.id}
+                            className={`absolute inset-0 transition-all duration-700 ease-in-out ${
+                              index === currentSlide 
+                                ? 'opacity-100 translate-x-0 z-10' 
+                                : index < currentSlide
+                                ? 'opacity-0 -translate-x-full z-0'
+                                : 'opacity-0 translate-x-full z-0'
+                            }`}
+                          >
+                            {slide.image ? (
+                              <>
+                                <img 
+                                  src={slide.image} 
+                                  alt={slide.title || 'Promotion'} 
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const fallback = document.createElement('div');
+                                    fallback.className = 'w-full h-full bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow';
+                                    fallback.textContent = '🎁';
+                                    target.parentElement?.appendChild(fallback);
+                                  }}
+                                />
+                                {/* Gradient Overlay for better text readability */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+                                
+                                {/* Title overlay - Top Left */}
+                                {slide.title && (
+                                  <div className="absolute top-4 left-4 z-10">
+                                    <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-2xl holographic animate-fade-in">
+                                      {slide.title}
+                                    </h3>
+                                    {slide.subtitle && (
+                                      <p className="text-sm sm:text-base md:text-lg text-neon-blue drop-shadow-2xl mt-1 animate-fade-in-delay">
+                                        {slide.subtitle}
+                                      </p>
+                                    )}
+                                    {slide.description && (
+                                      <p className="text-xs sm:text-sm text-gray-200 drop-shadow-lg mt-2 max-w-xs hidden sm:block">
+                                        {slide.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                                {/* CTA Button - Bottom Right */}
+                                {slide.cta && slide.ctaLink && (
+                                  <div className="absolute bottom-4 right-4 z-10">
+                                    <Link
+                                      to={slide.ctaLink}
+                                      className="inline-block bg-neon-blue/90 hover:bg-neon-blue text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-semibold text-sm md:text-base shadow-2xl hover:shadow-neon-blue/50 transition-all active:scale-95 neon-glow transform hover:scale-105"
+                                    >
+                                      {slide.cta}
+                                    </Link>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="w-full h-full bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow rounded-2xl">
+                                🎁
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                     
-                    {/* Slideshow indicator */}
+                    {/* Enhanced Slideshow indicator */}
                     {slides.length > 1 && (
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2">
-                        <div className="flex space-x-2">
+                      <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 z-10">
+                        <div className="flex space-x-2 bg-black/30 backdrop-blur-sm px-3 py-2 rounded-full">
                           {slides.map((_, idx) => (
                             <button
                               key={idx}
                               onClick={() => setCurrentSlide(idx)}
-                              className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full transition-all duration-300 active:scale-125 ${
-                                idx === currentSlide ? 'bg-neon-blue neon-glow scale-125' : 'bg-gray-500 hover:bg-gray-400'
+                              className={`transition-all duration-300 active:scale-125 ${
+                                idx === currentSlide 
+                                  ? 'w-8 h-2.5 md:w-10 md:h-3 bg-neon-blue neon-glow rounded-full' 
+                                  : 'w-2.5 h-2.5 md:w-3 md:h-3 bg-gray-500 hover:bg-gray-400 rounded-full'
                               }`}
                               aria-label={`Go to slide ${idx + 1}`}
                             />

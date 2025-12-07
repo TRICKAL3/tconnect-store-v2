@@ -504,6 +504,11 @@ html {
   animation: fadeIn 0.6s ease-out forwards;
 }
 
+.animate-fade-in-delay {
+  animation: fadeIn 0.8s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
 /* Intersection Observer animation classes */
 .fade-in-on-scroll {
   opacity: 0;

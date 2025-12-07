@@ -145,6 +145,8 @@ const Crypto: React.FC = () => {
         }
       });
       setCurrentStep(4);
+      // Scroll to top on mobile after adding to cart
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -159,7 +161,7 @@ const Crypto: React.FC = () => {
   }, []);
 
   const renderStep1 = () => (
-    <div className="card-dark p-8 rounded-2xl">
+    <div className="card-dark p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl">
       <div className="text-center mb-8">
         <div className="text-8xl mb-6 font-bold" style={{ color: '#f7931a' }}>₿</div>
         <h2 className="text-3xl font-bold text-white mb-4">Buy Crypto</h2>
@@ -228,31 +230,31 @@ const Crypto: React.FC = () => {
   );
 
   const renderStep2 = () => (
-    <div className="card-dark p-8 rounded-2xl">
+    <div className="card-dark p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white mb-4">Select Exchange</h2>
         <p className="text-gray-300">Choose your preferred exchange for receiving USDT</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {exchanges.map((exchange) => (
           <button
             key={exchange.id}
             onClick={() => handleExchangeSelect(exchange.id)}
-            className={`p-6 rounded-xl border-2 transition-all duration-300 text-left ${
+            className={`p-4 sm:p-6 rounded-lg sm:rounded-xl border-2 transition-all duration-300 text-left active:scale-95 ${
               order.exchange === exchange.id
-                ? 'border-neon-blue bg-neon-blue/10'
+                ? 'border-neon-blue bg-neon-blue/10 neon-glow'
                 : 'border-dark-border hover:border-neon-blue/50'
             }`}
           >
-            <div className="flex items-center space-x-4">
-              <div className="text-3xl">{exchange.logo}</div>
-              <div>
-                <h3 className="text-xl font-bold text-white">{exchange.name}</h3>
-                <p className="text-gray-300 text-sm">{exchange.description}</p>
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <div className="text-2xl sm:text-3xl flex-shrink-0">{exchange.logo}</div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg md:text-xl font-bold text-white truncate">{exchange.name}</h3>
+                <p className="text-gray-300 text-xs sm:text-sm line-clamp-2">{exchange.description}</p>
               </div>
               {order.exchange === exchange.id && (
-                <CheckCircle className="w-6 h-6 text-neon-blue ml-auto" />
+                <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-neon-blue flex-shrink-0 ml-auto" />
               )}
             </div>
           </button>
@@ -297,7 +299,7 @@ const Crypto: React.FC = () => {
   );
 
   const renderStep3 = () => (
-    <div className="card-dark p-8 rounded-2xl">
+    <div className="card-dark p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl">
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-white mb-4">Exchange Details</h2>
         <p className="text-gray-300">Provide wallet details and choose the correct network for your coin</p>
@@ -419,7 +421,7 @@ const Crypto: React.FC = () => {
   );
 
   const renderStep4 = () => (
-    <div className="card-dark p-8 rounded-2xl text-center">
+    <div className="card-dark p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl text-center">
       <div className="text-6xl mb-6">✅</div>
       <h2 className="text-3xl font-bold text-white mb-4">Order Added to Cart!</h2>
       <p className="text-gray-300 mb-8">
@@ -471,29 +473,29 @@ const Crypto: React.FC = () => {
 
         {/* Progress Steps */}
         <div className="mb-8">
-          <div className="flex items-center justify-center space-x-4">
+          <div className="flex items-center justify-center space-x-2 sm:space-x-4 overflow-x-auto pb-2">
             {[1, 2, 3, 4].map((step) => (
-              <div key={step} className="flex items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+              <div key={step} className="flex items-center flex-shrink-0">
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-all duration-300 ${
                   currentStep >= step
-                    ? 'bg-neon-blue text-white'
+                    ? 'bg-neon-blue text-white neon-glow scale-110'
                     : 'bg-dark-surface text-gray-400'
                 }`}>
                   {step}
                 </div>
                 {step < 4 && (
-                  <div className={`w-16 h-1 mx-2 ${
+                  <div className={`w-8 sm:w-12 md:w-16 h-1 mx-1 sm:mx-2 transition-all duration-300 ${
                     currentStep > step ? 'bg-neon-blue' : 'bg-dark-surface'
                   }`} />
                 )}
               </div>
             ))}
           </div>
-          <div className="flex justify-center mt-4 space-x-16">
-            <span className="text-sm text-gray-300">Amount</span>
-            <span className="text-sm text-gray-300">Exchange</span>
-            <span className="text-sm text-gray-300">Details</span>
-            <span className="text-sm text-gray-300">Complete</span>
+          <div className="flex justify-center mt-3 sm:mt-4 space-x-4 sm:space-x-8 md:space-x-16 text-xs sm:text-sm">
+            <span className="text-gray-300 whitespace-nowrap">Amount</span>
+            <span className="text-gray-300 whitespace-nowrap">Exchange</span>
+            <span className="text-gray-300 whitespace-nowrap hidden sm:inline">Details</span>
+            <span className="text-gray-300 whitespace-nowrap hidden sm:inline">Complete</span>
           </div>
         </div>
 

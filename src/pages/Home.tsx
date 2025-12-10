@@ -275,39 +275,21 @@ const Home: React.FC = () => {
   
 
   return (
-    <div className="min-h-screen">
-      {/* Gaming Grid Background */}
-      <div className="fixed inset-0 gaming-grid opacity-20 pointer-events-none"></div>
-      
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section with Slogan and Slideshow */}
-      <section className="relative py-12 md:py-16 lg:py-20 bg-dark-gradient text-white overflow-hidden">
-        {/* Floating Particles */}
-        <div className="particles">
-          {[...Array(20)].map((_, i) => (
-            <div
-              key={i}
-              className="particle"
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 6}s`,
-                animationDuration: `${6 + Math.random() * 4}s`
-              }}
-            />
-          ))}
-        </div>
-        
+      <section className="relative py-12 md:py-16 lg:py-20 bg-gradient-to-br from-blue-50 to-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 lg:gap-12 items-center">
             {/* Static Slogan & Description - Left Side */}
             <div className="space-y-4 md:space-y-6 text-center md:text-left order-2 md:order-1">
               <div className="space-y-2 md:space-y-3">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight font-mono holographic">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-gray-900">
                   Premium Gift Cards
                 </h1>
-                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-light text-neon-blue">
+                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-light text-blue-600">
                   Your One-Stop Digital Store
                 </h2>
-                <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-300 max-w-xl mx-auto md:mx-0 leading-relaxed">
+                <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-600 max-w-xl mx-auto md:mx-0 leading-relaxed">
                   Discover premium gift cards for all your favorite brands. 
                   Easy to purchase, instant to deliver, and perfect for any occasion.
                 </p>
@@ -316,7 +298,8 @@ const Home: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center md:justify-start">
                 <Link
                   to="/giftcards"
-                  className="btn-cyber text-white px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-xl font-bold text-sm sm:text-base md:text-lg lg:text-xl active:scale-95 hover:scale-105 flex items-center justify-center neon-glow transition-all w-auto mx-auto sm:mx-0"
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-lg font-semibold text-sm sm:text-base md:text-lg lg:text-xl active:scale-95 hover:scale-105 flex items-center justify-center shadow-md hover:shadow-lg transition-all w-auto mx-auto sm:mx-0"
                 >
                   Start Shopping
                   <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />

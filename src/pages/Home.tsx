@@ -7,34 +7,34 @@ import skrillLogo from '../assets/skrill.jpg';
 import netellerLogo from '../assets/neteller.jpg';
 import perfectMoneyLogo from '../assets/perfect-money.jpg';
 
-// Sample promotions (will be replaced by admin slides)
+// Dark AI-generated cartoon/icon slides
 const sampleSlides = [
   {
     id: 'sample-1',
-    title: 'Gaming Gift Cards',
-    subtitle: 'Level Up Your Gaming',
-    description: 'Get instant access to Steam, PlayStation, Xbox, and more gaming platforms!',
-    image: '/s1.jpg',
-    cta: 'Shop Gaming',
+    title: 'Epic Recharge Rewards!',
+    subtitle: 'Limited-Time Bonus Campaign!',
+    description: 'Get exclusive bonuses and rewards on all purchases',
+    image: '💎', // Dark treasure chest / gem icon
+    cta: 'Get Extra Now!',
     ctaLink: '/giftcards',
     active: true
   },
   {
     id: 'sample-2',
-    title: 'Entertainment',
-    subtitle: 'Netflix & Spotify',
-    description: 'Stream your favorite shows and music with premium entertainment gift cards!',
-    image: '/s2.jpg',
-    cta: 'Explore Entertainment',
+    title: 'Premium Gift Cards',
+    subtitle: 'Instant Digital Delivery',
+    description: 'Shop thousands of gift cards from top brands worldwide',
+    image: '🎁', // Dark gift box icon
+    cta: 'Shop Now',
     ctaLink: '/giftcards',
     active: true
   },
   {
     id: 'sample-3',
-    title: 'Cryptocurrency',
-    subtitle: 'Trade Digital Assets',
-    description: 'Buy and sell Bitcoin, Ethereum, USDT, and other cryptocurrencies securely!',
-    image: '/s3.jpg',
+    title: 'Crypto Trading',
+    subtitle: 'Secure & Fast Transactions',
+    description: 'Buy and sell cryptocurrencies with the best rates',
+    image: '₿', // Bitcoin icon
     cta: 'Explore Crypto',
     ctaLink: '/crypto',
     active: true
@@ -275,21 +275,24 @@ const Home: React.FC = () => {
   
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-dark-bg">
+      {/* Gaming Grid Background */}
+      <div className="fixed inset-0 gaming-grid opacity-10 pointer-events-none"></div>
+      
       {/* Hero Section with Slogan and Slideshow */}
-      <section className="relative py-12 md:py-16 lg:py-20 bg-gradient-to-br from-blue-50 to-white overflow-hidden">
+      <section className="relative py-12 md:py-16 lg:py-20 bg-dark-gradient text-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 lg:gap-12 items-center">
             {/* Static Slogan & Description - Left Side */}
             <div className="space-y-4 md:space-y-6 text-center md:text-left order-2 md:order-1">
               <div className="space-y-2 md:space-y-3">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-gray-900">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-white">
                   Premium Gift Cards
                 </h1>
-                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-light text-blue-600">
+                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-light text-neon-blue">
                   Your One-Stop Digital Store
                 </h2>
-                <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-600 max-w-xl mx-auto md:mx-0 leading-relaxed">
+                <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-300 max-w-xl mx-auto md:mx-0 leading-relaxed">
                   Discover premium gift cards for all your favorite brands. 
                   Easy to purchase, instant to deliver, and perfect for any occasion.
                 </p>
@@ -299,7 +302,7 @@ const Home: React.FC = () => {
                 <Link
                   to="/giftcards"
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-lg font-semibold text-sm sm:text-base md:text-lg lg:text-xl active:scale-95 hover:scale-105 flex items-center justify-center shadow-md hover:shadow-lg transition-all w-auto mx-auto sm:mx-0"
+                  className="btn-cyber text-white px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-xl font-bold text-sm sm:text-base md:text-lg lg:text-xl active:scale-95 hover:scale-105 flex items-center justify-center neon-glow transition-all w-auto mx-auto sm:mx-0"
                 >
                   Start Shopping
                   <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
@@ -346,59 +349,52 @@ const Home: React.FC = () => {
                                 : 'opacity-0 translate-x-full z-0'
                             }`}
                           >
-                            {slide.image ? (
-                              <>
-                                <img 
-                                  src={slide.image} 
-                                  alt={slide.title || 'Promotion'} 
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    const fallback = document.createElement('div');
-                                    fallback.className = 'w-full h-full bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow';
-                                    fallback.textContent = '🎁';
-                                    target.parentElement?.appendChild(fallback);
-                                  }}
-                                />
-                                {/* Gradient Overlay for better text readability */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-                                
-                                {/* Title overlay - Top Left */}
-                                {slide.title && (
-                                  <div className="absolute top-4 left-4 z-10">
-                                    <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-2xl holographic animate-fade-in">
-                                      {slide.title}
-                                    </h3>
-                                    {slide.subtitle && (
-                                      <p className="text-sm sm:text-base md:text-lg text-neon-blue drop-shadow-2xl mt-1 animate-fade-in-delay">
-                                        {slide.subtitle}
-                                      </p>
-                                    )}
-                                    {slide.description && (
-                                      <p className="text-xs sm:text-sm text-gray-200 drop-shadow-lg mt-2 max-w-xs hidden sm:block">
-                                        {slide.description}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                                {/* CTA Button - Bottom Right */}
-                                {slide.cta && slide.ctaLink && (
-                                  <div className="absolute bottom-4 right-4 z-10">
-                                    <Link
-                                      to={slide.ctaLink}
-                                      className="inline-block bg-neon-blue/90 hover:bg-neon-blue text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-semibold text-sm md:text-base shadow-2xl hover:shadow-neon-blue/50 transition-all active:scale-95 neon-glow transform hover:scale-105"
-                                    >
-                                      {slide.cta}
-                                    </Link>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <div className="w-full h-full bg-dark-surface flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl neon-glow rounded-2xl">
-                                🎁
+                            {/* Dark AI-generated cartoon/icon background */}
+                            <div className="w-full h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center relative overflow-hidden">
+                              {/* Dark pattern overlay */}
+                              <div className="absolute inset-0 opacity-20" style={{
+                                backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.1) 1px, transparent 0)',
+                                backgroundSize: '40px 40px'
+                              }}></div>
+                              
+                              {/* Large dark icon/cartoon */}
+                              <div className="text-8xl sm:text-9xl md:text-[12rem] lg:text-[14rem] filter drop-shadow-2xl z-10 relative">
+                                {slide.image}
                               </div>
-                            )}
+                              
+                              {/* Gradient Overlay for better text readability */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                              
+                              {/* Title overlay - Top Left */}
+                              {slide.title && (
+                                <div className="absolute top-4 left-4 z-20">
+                                  <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white drop-shadow-2xl animate-fade-in">
+                                    {slide.title}
+                                  </h3>
+                                  {slide.subtitle && (
+                                    <p className="text-sm sm:text-base md:text-lg text-yellow-400 drop-shadow-2xl mt-1 animate-fade-in-delay font-semibold">
+                                      {slide.subtitle}
+                                    </p>
+                                  )}
+                                  {slide.description && (
+                                    <p className="text-xs sm:text-sm text-gray-300 drop-shadow-lg mt-2 max-w-xs hidden sm:block">
+                                      {slide.description}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {/* CTA Button - Bottom Right */}
+                              {slide.cta && slide.ctaLink && (
+                                <div className="absolute bottom-4 right-4 z-20">
+                                  <Link
+                                    to={slide.ctaLink}
+                                    className="inline-block bg-green-500 hover:bg-green-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg font-bold text-sm md:text-base shadow-2xl hover:shadow-green-500/50 transition-all active:scale-95 border-2 border-yellow-400 transform hover:scale-105"
+                                  >
+                                    {slide.cta}
+                                  </Link>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

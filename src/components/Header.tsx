@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Menu, X, User, Settings, LogOut, Package, LogIn, Gift } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Settings, LogOut, Package, LogIn, Gift, Home, Search, Calendar, Monitor, Gamepad2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getApiBase } from '../lib/getApiBase';
@@ -41,11 +41,11 @@ const Header: React.FC = () => {
   }, [user?.email]);
 
   const navigation = [
-    { name: 'Home', href: '/' },
-    { name: 'Gift Cards', href: '/giftcards' },
-    { name: 'Crypto', href: '/crypto' },
-    { name: 'Digital Wallets & Cards', href: '/wallets' },
-    { name: 'Payments & TT Orders', href: '/payments' },
+    { name: 'Home', href: '/', icon: Home },
+    { name: 'Gift Cards', href: '/giftcards', icon: Gift },
+    { name: 'Crypto', href: '/crypto', icon: Package },
+    { name: 'Digital Wallets & Cards', href: '/wallets', icon: Package },
+    { name: 'Payments & TT Orders', href: '/payments', icon: Package },
   ];
 
   const avatarLetter = (user?.email || 'U').charAt(0).toUpperCase();
@@ -71,49 +71,83 @@ const Header: React.FC = () => {
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center group flex-shrink-0"
           >
-            <img src="/tconnect_logo-removebg-preview.png" alt="tConnect" className="h-16 sm:h-20 md:h-24 lg:h-28 w-auto object-contain group-hover:opacity-80 transition-opacity duration-300" />
+            <img src="/tconnect_logo-removebg-preview.png" alt="tConnect" className="h-20 sm:h-24 md:h-28 lg:h-32 w-auto object-contain group-hover:opacity-80 transition-opacity duration-300" />
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
-                  location.pathname === item.href
-                    ? 'text-white bg-neon-blue/20 border-neon-blue font-semibold'
-                    : 'text-gray-300 hover:text-white hover:bg-dark-card border-dark-border hover:border-neon-blue'
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
+          <nav className="hidden lg:flex items-center space-x-1 flex-1 justify-center">
+            {navigation.map((item) => {
+              const Icon = item.icon;
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    isActive
+                      ? 'text-white bg-purple-600/30 border-b-2 border-purple-400'
+                      : 'text-white hover:text-purple-300 hover:bg-dark-card/50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
           </nav>
 
-          {/* Cart and Mobile Menu */}
-          <div className="flex items-center space-x-2 md:space-x-4">
-            {/* Profile Dropdown */}
-            <div className="relative" ref={profileDropdownRef}>
-              {!user ? (
-                <button
-                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-neon-blue/20 flex items-center justify-center border-2 border-neon-blue/30 hover:border-neon-blue transition-all active:scale-95"
+          {/* Right Side: Search, Cart, Auth */}
+          <div className="flex items-center space-x-2 md:space-x-3">
+            {/* Search Button */}
+            <button
+              className="hidden md:flex items-center space-x-2 px-3 py-2 text-white hover:text-purple-300 hover:bg-dark-card/50 rounded-lg transition-all duration-200"
+              aria-label="Search"
+            >
+              <Search className="w-5 h-5" />
+              <span className="hidden lg:inline text-sm">Search</span>
+            </button>
+
+            {/* Cart Button */}
+            <Link
+              to="/cart"
+              className="relative p-2 text-white hover:text-purple-300 hover:bg-dark-card/50 rounded-lg transition-all duration-200 active:scale-95"
+            >
+              <ShoppingCart className="w-5 h-5" />
+              {state.itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold text-[10px]">
+                  {state.itemCount > 9 ? '9+' : state.itemCount}
+                </span>
+              )}
+            </Link>
+
+            {/* Auth Buttons / Profile */}
+            {!user ? (
+              <div className="hidden md:flex items-center space-x-2">
+                <Link
+                  to="/signin"
+                  className="px-3 py-2 text-white hover:text-purple-300 hover:bg-dark-card/50 rounded-lg transition-all duration-200 text-sm"
                 >
-                  <User className="w-4 h-4 md:w-5 md:h-5 text-neon-blue" />
-                </button>
-              ) : (
+                  Sign in
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-200 text-sm font-medium"
+                >
+                  Create Account
+                </Link>
+              </div>
+            ) : (
+              <div className="relative" ref={profileDropdownRef}>
                 <button
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-neon-blue/20 flex items-center justify-center overflow-hidden border-2 border-neon-blue/30 hover:border-neon-blue transition-all active:scale-95"
+                  className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-dark-card flex items-center justify-center overflow-hidden border border-dark-border hover:border-purple-400 transition-all active:scale-95"
                 >
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-neon-blue font-bold text-xs md:text-sm">{avatarLetter}</span>
+                    <span className="text-white font-bold text-xs md:text-sm">{avatarLetter}</span>
                   )}
                 </button>
-              )}
 
               {/* Dropdown Menu */}
               {isProfileDropdownOpen && (
@@ -124,39 +158,19 @@ const Header: React.FC = () => {
                     onClick={() => setIsProfileDropdownOpen(false)}
                   />
                   <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm md:w-56 md:max-w-none bg-dark-card border border-dark-border rounded-lg shadow-xl z-50 overflow-hidden left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0">
-                  {!user ? (
-                    <div className="py-2">
-                      <Link
-                        to="/signin"
-                        onClick={() => setIsProfileDropdownOpen(false)}
-                        className="flex items-center px-4 py-3 text-gray-300 hover:text-white hover:bg-dark-surface transition-colors"
-                      >
-                        <LogIn className="w-5 h-5 mr-3 text-gray-400" />
-                        Sign In
-                      </Link>
-                      <Link
-                        to="/signup"
-                        onClick={() => setIsProfileDropdownOpen(false)}
-                        className="flex items-center px-4 py-3 text-gray-300 hover:text-white hover:bg-dark-surface transition-colors"
-                      >
-                        <User className="w-5 h-5 mr-3 text-gray-400" />
-                        Sign Up
-                      </Link>
-                    </div>
-                  ) : (
                     <div className="py-2">
                       <div className="px-4 py-2 border-b border-dark-border">
                         <p className="text-white font-semibold text-sm">{user.name || 'User'}</p>
                         <p className="text-gray-400 text-xs truncate">{user.email}</p>
                       </div>
                       {/* Points Balance */}
-                      <div className="px-4 py-3 border-b border-dark-border bg-neon-blue/10">
+                      <div className="px-4 py-3 border-b border-dark-border bg-purple-600/10">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
-                            <Gift className="w-4 h-4 text-neon-blue" />
+                            <Gift className="w-4 h-4 text-purple-400" />
                             <span className="text-gray-300 text-sm">TConnect Points</span>
                           </div>
-                          <span className="text-neon-blue font-bold text-lg">{pointsBalance.toLocaleString()}</span>
+                          <span className="text-purple-400 font-bold text-lg">{pointsBalance.toLocaleString()}</span>
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
                           ≈ ${((pointsBalance / 1300) * 10).toFixed(2)} value
@@ -189,56 +203,48 @@ const Header: React.FC = () => {
                         Logout
                       </button>
                     </div>
-                  )}
                   </div>
                 </>
               )}
-            </div>
-            
+              </div>
+            )}
+
             {/* Notification Bell - Only show if user is logged in */}
             {user && <NotificationBell />}
-            
-            {/* Cart Button */}
-            <Link
-              to="/cart"
-              className="relative p-2 md:p-3 text-gray-300 hover:text-neon-blue transition-all duration-200 hover:bg-dark-card rounded-lg border border-dark-border hover:border-neon-blue active:scale-95"
-            >
-              <ShoppingCart className="w-5 h-5 md:w-6 md:h-6" />
-              {state.itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-neon-blue text-white text-xs rounded-full h-5 w-5 md:h-6 md:w-6 flex items-center justify-center font-bold text-[10px] md:text-xs shadow-lg neon-glow">
-                  {state.itemCount > 9 ? '9+' : state.itemCount}
-                </span>
-              )}
-            </Link>
 
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 text-gray-300 hover:text-neon-blue transition-all duration-200 hover:bg-dark-card rounded-lg border border-dark-border hover:border-neon-blue active:scale-95"
+              className="lg:hidden p-2 text-white hover:text-purple-300 hover:bg-dark-card/50 rounded-lg transition-all duration-200 active:scale-95"
             >
               {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
-            {/* Mobile Navigation */}
+        {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden pb-4">
+          <div className="lg:hidden pb-4">
             <div className="px-3 pt-3 pb-4 space-y-2 bg-dark-card rounded-lg mt-3 border border-dark-border shadow-xl">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 active:scale-95 ${
-                    location.pathname === item.href
-                      ? 'text-white bg-neon-blue/20 border border-neon-blue font-semibold'
-                      : 'text-gray-300 hover:text-white hover:bg-dark-surface'
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {item.name}
-                </Link>
-              ))}
+              {navigation.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`flex items-center space-x-2 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 active:scale-95 ${
+                      isActive
+                        ? 'text-white bg-purple-600/30 border-b-2 border-purple-400'
+                        : 'text-gray-300 hover:text-white hover:bg-dark-surface'
+                    }`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
               {!user ? (
                 <>
                   <Link

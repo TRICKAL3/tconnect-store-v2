@@ -62,16 +62,16 @@ const Header: React.FC = () => {
   }, []);
 
   return (
-    <header className="bg-dark-surface/95 backdrop-blur-md border-b border-dark-border sticky top-0 z-50 shadow-lg">
+    <header className="bg-dark-surface/95 backdrop-blur-md sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-        <div className="flex justify-between items-center h-28 md:h-36 lg:h-44 xl:h-52">
+        <div className="flex justify-between items-center py-3 md:py-4">
           {/* Logo */}
           <Link 
             to="/" 
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center group flex-shrink-0"
           >
-            <img src={tconnectLogo} alt="tConnect" className="h-32 sm:h-40 md:h-48 lg:h-56 xl:h-64 w-auto object-contain group-hover:opacity-80 transition-opacity duration-300" />
+            <img src="/tconnect_logo-removebg-preview.png" alt="tConnect" className="h-16 sm:h-20 md:h-24 lg:h-28 w-auto object-contain group-hover:opacity-80 transition-opacity duration-300" />
           </Link>
 
           {/* Desktop Navigation */}
@@ -287,6 +287,8 @@ const Header: React.FC = () => {
           </div>
         )}
       </div>
+      {/* Border line after all header content */}
+      <div className="border-b border-dark-border"></div>
     </header>
   );
 };

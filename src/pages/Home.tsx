@@ -529,8 +529,9 @@ const Home: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {featuredCards.map((card) => (
-              <div
+              <Link
                 key={card.id}
+                to="/giftcards"
                 className="group card-dark rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden border border-dark-border hover:border-neon-blue/50"
               >
                 <div className="p-4">
@@ -559,7 +560,7 @@ const Home: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Link>
               ))}
             </div>
           )}
@@ -597,8 +598,9 @@ const Home: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {popularCards.map((card) => (
-              <div
+              <Link
                 key={card.id}
+                to="/giftcards"
                 className="group card-dark rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden border border-dark-border hover:border-neon-blue/50"
               >
                 <div className="p-4">
@@ -628,7 +630,7 @@ const Home: React.FC = () => {
                     
                   </div>
                 </div>
-              </div>
+              </Link>
               ))}
             </div>
           )}

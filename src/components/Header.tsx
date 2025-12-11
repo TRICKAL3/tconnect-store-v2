@@ -63,7 +63,7 @@ const Header: React.FC = () => {
 
   return (
     <header className="bg-dark-surface/95 backdrop-blur-md sticky top-0 z-50 shadow-lg">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center py-3 md:py-4">
           {/* Logo */}
           <Link 

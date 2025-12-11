@@ -71,7 +71,7 @@ const Header: React.FC = () => {
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center group flex-shrink-0"
           >
-            <img src={tconnectLogo} alt="tConnect" className="h-20 sm:h-24 md:h-32 lg:h-40 xl:h-48 w-auto object-contain group-hover:opacity-80 transition-opacity duration-300" />
+            <img src={tconnectLogo} alt="tConnect" className="h-32 sm:h-40 md:h-48 lg:h-56 xl:h-64 w-auto object-contain group-hover:opacity-80 transition-opacity duration-300" />
           </Link>
 
           {/* Desktop Navigation */}

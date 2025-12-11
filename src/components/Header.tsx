@@ -64,14 +64,14 @@ const Header: React.FC = () => {
   return (
     <header className="bg-dark-surface/95 backdrop-blur-md border-b border-dark-border sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-        <div className="flex justify-between items-center h-20 md:h-24">
+        <div className="flex justify-between items-center h-24 md:h-28 lg:h-32">
           {/* Logo */}
           <Link 
             to="/" 
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center group flex-shrink-0"
           >
-            <img src={tconnectLogo} alt="tConnect" className="h-12 sm:h-14 md:h-16 w-auto object-contain group-hover:opacity-80 transition-opacity duration-300" />
+            <img src={tconnectLogo} alt="tConnect" className="h-16 sm:h-20 md:h-24 lg:h-28 w-auto object-contain group-hover:opacity-80 transition-opacity duration-300" />
           </Link>
 
           {/* Desktop Navigation */}

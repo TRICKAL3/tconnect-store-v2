@@ -11,26 +11,46 @@ import perfectMoneyLogo from '../assets/perfect-money.jpg';
 const sampleSlides = [
   {
     id: 'sample-1',
-    title: 'Epic Recharge Rewards!',
-    subtitle: 'Limited-Time Bonus Campaign!',
-    description: 'Get exclusive bonuses and rewards on all purchases',
-    image: '💎', // Dark treasure chest / gem icon
-    cta: 'Get Extra Now!',
+    title: 'Exclusive Rewards!',
+    subtitle: 'Bonus Points & Cashback',
+    description: 'Earn rewards on every purchase and unlock special bonuses',
+    image: '🏆', // Trophy for rewards
+    cta: 'Claim Rewards',
     ctaLink: '/giftcards',
     active: true
   },
   {
     id: 'sample-2',
-    title: 'Premium Gift Cards',
-    subtitle: 'Instant Digital Delivery',
-    description: 'Shop thousands of gift cards from top brands worldwide',
-    image: '🎁', // Dark gift box icon
-    cta: 'Shop Now',
+    title: 'Gaming Gift Cards',
+    subtitle: 'Level Up Your Game',
+    description: 'Steam, PlayStation, Xbox, Nintendo and more gaming platforms',
+    image: '🎮', // Game controller
+    cta: 'Shop Gaming',
     ctaLink: '/giftcards',
     active: true
   },
   {
     id: 'sample-3',
+    title: 'Software & Apps',
+    subtitle: 'Digital Tools & Services',
+    description: 'Get premium software, apps, and digital services instantly',
+    image: '💻', // Laptop/software
+    cta: 'Browse Software',
+    ctaLink: '/giftcards',
+    active: true
+  },
+  {
+    id: 'sample-4',
+    title: 'Premium Gift Cards',
+    subtitle: 'Instant Digital Delivery',
+    description: 'Shop thousands of gift cards from top brands worldwide',
+    image: '🎁', // Gift box
+    cta: 'Shop Now',
+    ctaLink: '/giftcards',
+    active: true
+  },
+  {
+    id: 'sample-5',
     title: 'Crypto Trading',
     subtitle: 'Secure & Fast Transactions',
     description: 'Buy and sell cryptocurrencies with the best rates',
@@ -302,10 +322,10 @@ const Home: React.FC = () => {
                 <Link
                   to="/giftcards"
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  className="btn-cyber text-white px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-xl font-bold text-sm sm:text-base md:text-lg lg:text-xl active:scale-95 hover:scale-105 flex items-center justify-center neon-glow transition-all w-auto mx-auto sm:mx-0"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2.5 md:px-8 md:py-3 rounded-lg font-semibold text-sm md:text-base active:scale-95 hover:scale-105 flex items-center justify-center shadow-lg hover:shadow-xl transition-all w-auto mx-auto sm:mx-0 border border-blue-400/50"
                 >
                   Start Shopping
-                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
+                  <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5" />
                 </Link>
               </div>
             </div>

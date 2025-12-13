@@ -20,7 +20,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.password) return res.status(400).json({ error: 'Invalid credentials' });
-  const ok = await bcrypt.compare(password, user.password);
+  const ok = await bcrypt.compare(String(password), String(user.password));
   if (!ok) return res.status(400).json({ error: 'Invalid credentials' });
   const token = signToken({ id: user.id, email: user.email, role: user.role });
   res.json({ token, user: { id: user.id, email: user.email, name: user.name, role: user.role } });

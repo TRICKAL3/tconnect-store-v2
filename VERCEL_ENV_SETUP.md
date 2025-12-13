@@ -45,9 +45,11 @@ Click **"Add New"** for each variable:
 
 #### Variable 4: BASE_URL
 - **Key:** `BASE_URL`
-- **Value:** `https://tconnect-store-v2.vercel.app` (your frontend URL)
+- **Value:** `https://tconnect-store-v2.vercel.app` (your current frontend URL)
 - **Environments:** ☑️ Production ☑️ Preview ☑️ Development
 - Click **"Save"**
+
+**💡 Note:** You can update this later when you add a custom domain (e.g., `https://tconnect.store`). Just edit the variable and redeploy!
 
 ---
 
@@ -105,4 +107,18 @@ You need to add these 4 environment variables in Vercel:
 | `BASE_URL` | `https://tconnect-store-v2.vercel.app` |
 
 **Don't forget to redeploy after adding them!** 🚀
+
+---
+
+## 🔄 Updating BASE_URL Later (When You Get Custom Domain)
+
+When you add a custom domain (e.g., `tconnect.store`):
+
+1. **Go to Vercel** → Your project → **Settings** → **Environment Variables**
+2. **Find `BASE_URL`** and click **"Edit"**
+3. **Change value to:** `https://tconnect.store` (or your custom domain)
+4. **Click "Save"**
+5. **Redeploy** (Deployments → Three dots → Redeploy)
+
+That's it! The email links will automatically use your new domain. ✅
 

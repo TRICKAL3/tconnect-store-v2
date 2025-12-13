@@ -1,0 +1,68 @@
+═══════════════════════════════════════════════════════════════
+  QUICK SETUP: Add Resend API Key to Vercel
+═══════════════════════════════════════════════════════════════
+
+YOUR API KEY: re_QZmA3Xwc_DSTvxbbuzXdtEd1PBJWDnifD
+
+───────────────────────────────────────────────────────────────
+STEP 1: Go to Vercel Dashboard
+───────────────────────────────────────────────────────────────
+→ https://vercel.com/dashboard
+→ Sign in
+
+───────────────────────────────────────────────────────────────
+STEP 2: Select Your Backend Project
+───────────────────────────────────────────────────────────────
+→ Find your backend/server project
+→ Click on it
+
+───────────────────────────────────────────────────────────────
+STEP 3: Add Environment Variables
+───────────────────────────────────────────────────────────────
+→ Click "Settings" tab
+→ Click "Environment Variables" (left sidebar)
+→ Click "Add New" for each variable below:
+
+┌─────────────────────────────────────────────────────────────┐
+│ Variable 1: RESEND_API_KEY                                   │
+│ Value: re_QZmA3Xwc_DSTvxbbuzXdtEd1PBJWDnifD                  │
+│ Environments: ☑ Production ☑ Preview ☑ Development          │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Variable 2: FROM_EMAIL                                       │
+│ Value: noreply@tconnect.store                                │
+│ Environments: ☑ Production ☑ Preview ☑ Development          │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Variable 3: FROM_NAME                                        │
+│ Value: TConnect Store                                        │
+│ Environments: ☑ Production ☑ Preview ☑ Development          │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ Variable 4: BASE_URL                                         │
+│ Value: https://tconnect-store-v2.vercel.app                 │
+│ Environments: ☑ Production ☑ Preview ☑ Development          │
+└─────────────────────────────────────────────────────────────┘
+
+───────────────────────────────────────────────────────────────
+STEP 4: REDEPLOY (CRITICAL!)
+───────────────────────────────────────────────────────────────
+⚠️ Environment variables only work after redeployment!
+
+→ Go to "Deployments" tab
+→ Click three dots (⋯) on latest deployment
+→ Click "Redeploy"
+→ Wait 2-3 minutes
+
+───────────────────────────────────────────────────────────────
+✅ DONE! Test It
+───────────────────────────────────────────────────────────────
+1. Create a test order in admin panel
+2. Approve the order
+3. Check user's email - they should receive an email!
+
+═══════════════════════════════════════════════════════════════
+

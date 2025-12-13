@@ -292,9 +292,9 @@ const Header: React.FC = () => {
             </div>
           </div>
         )}
-        {/* Border line after all header content */}
-        <div className="border-b border-dark-border"></div>
       </div>
+      {/* Border line after all header content */}
+      <div className="border-b border-dark-border"></div>
     </header>
   );
 };

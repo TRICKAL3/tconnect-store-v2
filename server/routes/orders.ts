@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../lib/auth';
 import { basicAdminAuth } from '../lib/adminAuth';
+import { sendOrderApprovedEmail, sendOrderRejectedEmail, sendOrderFulfilledEmail } from '../lib/email';
 
 const router = Router();
 
@@ -207,6 +208,43 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
       } catch (notifError: any) {
         console.error('❌ Failed to create notification:', notifError?.message || notifError);
         // Don't fail status update if notification fails
+      }
+    }
+    
+    // Send email notification to user when order status changes
+    if ((status === 'approved' || status === 'rejected' || status === 'fulfilled') && order.user && order.user.email) {
+      try {
+        // Get order items with gift card codes
+        const orderItems = await prisma.orderItem.findMany({
+          where: { orderId: orderId }
+        });
+        
+        const emailData = {
+          orderId: order.id,
+          orderNumber: order.id.substring(0, 8).toUpperCase(),
+          userEmail: order.user.email,
+          userName: order.user.name || 'Customer',
+          totalUsd: order.totalUsd,
+          totalMwk: order.totalMwk,
+          items: orderItems.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            priceUsd: item.priceUsd,
+            type: item.type,
+            giftCardCodes: item.giftCardCodes || undefined
+          }))
+        };
+        
+        if (status === 'approved') {
+          await sendOrderApprovedEmail(emailData);
+        } else if (status === 'rejected') {
+          await sendOrderRejectedEmail(emailData);
+        } else if (status === 'fulfilled') {
+          await sendOrderFulfilledEmail(emailData);
+        }
+      } catch (emailError: any) {
+        console.error('❌ Failed to send order status email:', emailError?.message || emailError);
+        // Don't fail status update if email fails
       }
     }
     

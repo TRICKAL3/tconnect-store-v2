@@ -213,6 +213,7 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
     
     // Send email notification to user when order status changes
     if ((status === 'approved' || status === 'rejected' || status === 'fulfilled') && order.user && order.user.email) {
+      console.log(`📧 [Email] Attempting to send ${status} email to ${order.user.email} for order ${orderId}`);
       try {
         // Get order items with gift card codes
         const orderItems = await prisma.orderItem.findMany({
@@ -235,6 +236,13 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
           }))
         };
         
+        console.log(`📧 [Email] Email data prepared:`, {
+          userEmail: emailData.userEmail,
+          userName: emailData.userName,
+          orderNumber: emailData.orderNumber,
+          itemsCount: emailData.items.length
+        });
+        
         if (status === 'approved') {
           await sendOrderApprovedEmail(emailData);
         } else if (status === 'rejected') {
@@ -243,9 +251,12 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
           await sendOrderFulfilledEmail(emailData);
         }
       } catch (emailError: any) {
-        console.error('❌ Failed to send order status email:', emailError?.message || emailError);
+        console.error('❌ [Email] Failed to send order status email:', emailError?.message || emailError);
+        console.error('❌ [Email] Error details:', emailError);
         // Don't fail status update if email fails
       }
+    } else {
+      console.log(`⚠️ [Email] Skipping email send - Status: ${status}, User: ${order.user ? 'exists' : 'null'}, Email: ${order.user?.email || 'none'}`);
     }
     
     // Handle points: deduct if paid with points, award if paid with bank/card

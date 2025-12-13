@@ -1,5 +1,14 @@
 import { Resend } from 'resend';
 
+// Log environment variable status (only once on module load)
+if (typeof process !== 'undefined' && process.env) {
+  console.log('📧 [Email] Environment check:');
+  console.log('📧 [Email] RESEND_API_KEY:', process.env.RESEND_API_KEY ? `Set (${process.env.RESEND_API_KEY.substring(0, 10)}...)` : 'NOT SET');
+  console.log('📧 [Email] FROM_EMAIL:', process.env.FROM_EMAIL || 'Using default: noreply@tconnect.store');
+  console.log('📧 [Email] FROM_NAME:', process.env.FROM_NAME || 'Using default: TConnect Store');
+  console.log('📧 [Email] BASE_URL:', process.env.BASE_URL || 'Using default: https://tconnect-store-v2.vercel.app');
+}
+
 // Initialize Resend only if API key is provided
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -70,12 +79,21 @@ function formatOrderItems(items: OrderEmailData['items']): string {
 }
 
 export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void> {
+  console.log('📧 [Email] sendOrderApprovedEmail called for:', data.userEmail);
+  
   if (!resend) {
-    console.warn('⚠️ Resend API key not configured. Skipping email send.');
+    console.error('❌ [Email] Resend API key not configured. Check RESEND_API_KEY environment variable.');
+    console.error('❌ [Email] Current RESEND_API_KEY value:', process.env.RESEND_API_KEY ? 'Set (but not working)' : 'NOT SET');
+    return;
+  }
+  
+  if (!data.userEmail || !data.userEmail.includes('@')) {
+    console.error('❌ [Email] Invalid email address:', data.userEmail);
     return;
   }
   
   try {
+    console.log('📧 [Email] Sending approved email via Resend...');
     const orderHistoryUrl = `${BASE_URL}/orders`;
     
     const html = `
@@ -143,16 +161,21 @@ export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void
       </html>
     `;
     
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: data.userEmail,
       subject: `Order #${data.orderNumber} Approved - TConnect Store`,
       html,
     });
     
-    console.log(`✅ Order approved email sent to ${data.userEmail} for order ${data.orderId}`);
+    console.log(`✅ [Email] Order approved email sent successfully!`);
+    console.log(`✅ [Email] Resend response:`, result);
+    console.log(`✅ [Email] To: ${data.userEmail}, Order: ${data.orderId}`);
   } catch (error: any) {
-    console.error('❌ Failed to send order approved email:', error?.message || error);
+    console.error('❌ [Email] Failed to send order approved email');
+    console.error('❌ [Email] Error message:', error?.message || 'Unknown error');
+    console.error('❌ [Email] Error details:', JSON.stringify(error, null, 2));
+    console.error('❌ [Email] Full error:', error);
     // Don't throw - email failures shouldn't break the order update
   }
 }

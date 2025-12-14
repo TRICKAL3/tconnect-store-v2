@@ -59,10 +59,16 @@ const Checkout: React.FC = () => {
     fetchPoints();
   }, [user]);
 
-  // Scroll to top when order completes
+  // Scroll to top when order completes or component mounts
   useEffect(() => {
+    // Scroll immediately on mount
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Scroll when order completes (with delay to ensure DOM is updated)
     if (orderComplete) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     }
   }, [orderComplete]);
 

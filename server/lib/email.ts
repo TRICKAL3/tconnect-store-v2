@@ -1,16 +1,33 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
 // Log environment variable status (only once on module load)
 if (typeof process !== 'undefined' && process.env) {
   console.log('📧 [Email] Environment check:');
-  console.log('📧 [Email] RESEND_API_KEY:', process.env.RESEND_API_KEY ? `Set (${process.env.RESEND_API_KEY.substring(0, 10)}...)` : 'NOT SET');
+  console.log('📧 [Email] SMTP_HOST:', process.env.SMTP_HOST || 'NOT SET');
+  console.log('📧 [Email] SMTP_USER:', process.env.SMTP_USER || 'NOT SET');
+  console.log('📧 [Email] SMTP_PASS:', process.env.SMTP_PASS ? 'Set (hidden)' : 'NOT SET');
   console.log('📧 [Email] FROM_EMAIL:', process.env.FROM_EMAIL || 'Using default: noreply@tconnect.store');
   console.log('📧 [Email] FROM_NAME:', process.env.FROM_NAME || 'Using default: TConnect Store');
   console.log('📧 [Email] BASE_URL:', process.env.BASE_URL || 'Using default: https://tconnect-store-v2.vercel.app');
 }
 
-// Initialize Resend only if API key is provided
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// Initialize Nodemailer transporter
+let transporter: nodemailer.Transporter | null = null;
+
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+  console.log('✅ [Email] Nodemailer transporter initialized');
+} else {
+  console.warn('⚠️ [Email] SMTP not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.');
+}
 
 const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@tconnect.store';
 const FROM_NAME = process.env.FROM_NAME || 'TConnect Store';
@@ -81,9 +98,8 @@ function formatOrderItems(items: OrderEmailData['items']): string {
 export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void> {
   console.log('📧 [Email] sendOrderApprovedEmail called for:', data.userEmail);
   
-  if (!resend) {
-    console.error('❌ [Email] Resend API key not configured. Check RESEND_API_KEY environment variable.');
-    console.error('❌ [Email] Current RESEND_API_KEY value:', process.env.RESEND_API_KEY ? 'Set (but not working)' : 'NOT SET');
+  if (!transporter) {
+    console.error('❌ [Email] SMTP not configured. Check SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables.');
     return;
   }
   
@@ -93,7 +109,7 @@ export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void
   }
   
   try {
-    console.log('📧 [Email] Sending approved email via Resend...');
+    console.log('📧 [Email] Sending approved email via SMTP...');
     const orderHistoryUrl = `${BASE_URL}/orders`;
     
     const html = `
@@ -161,7 +177,7 @@ export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void
       </html>
     `;
     
-    const result = await resend.emails.send({
+    const result = await transporter!.sendMail({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: data.userEmail,
       subject: `Order #${data.orderNumber} Approved - TConnect Store`,
@@ -169,7 +185,7 @@ export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void
     });
     
     console.log(`✅ [Email] Order approved email sent successfully!`);
-    console.log(`✅ [Email] Resend response:`, result);
+    console.log(`✅ [Email] Message ID:`, result.messageId);
     console.log(`✅ [Email] To: ${data.userEmail}, Order: ${data.orderId}`);
   } catch (error: any) {
     console.error('❌ [Email] Failed to send order approved email');
@@ -181,8 +197,8 @@ export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void
 }
 
 export async function sendOrderRejectedEmail(data: OrderEmailData): Promise<void> {
-  if (!resend) {
-    console.warn('⚠️ Resend API key not configured. Skipping email send.');
+  if (!transporter) {
+    console.warn('⚠️ SMTP not configured. Skipping email send.');
     return;
   }
   
@@ -257,14 +273,15 @@ export async function sendOrderRejectedEmail(data: OrderEmailData): Promise<void
       </html>
     `;
     
-    await resend.emails.send({
+    const result = await transporter.sendMail({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: data.userEmail,
       subject: `Order #${data.orderNumber} Rejected - TConnect Store`,
       html,
     });
     
-    console.log(`✅ Order rejected email sent to ${data.userEmail} for order ${data.orderId}`);
+    console.log(`✅ [Email] Order rejected email sent to ${data.userEmail} for order ${data.orderId}`);
+    console.log(`✅ [Email] Message ID:`, result.messageId);
   } catch (error: any) {
     console.error('❌ Failed to send order rejected email:', error?.message || error);
     // Don't throw - email failures shouldn't break the order update
@@ -272,8 +289,8 @@ export async function sendOrderRejectedEmail(data: OrderEmailData): Promise<void
 }
 
 export async function sendOrderFulfilledEmail(data: OrderEmailData): Promise<void> {
-  if (!resend) {
-    console.warn('⚠️ Resend API key not configured. Skipping email send.');
+  if (!transporter) {
+    console.warn('⚠️ SMTP not configured. Skipping email send.');
     return;
   }
   
@@ -348,14 +365,15 @@ export async function sendOrderFulfilledEmail(data: OrderEmailData): Promise<voi
       </html>
     `;
     
-    await resend.emails.send({
+    const result = await transporter.sendMail({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: data.userEmail,
       subject: `Order #${data.orderNumber} Delivered - TConnect Store`,
       html,
     });
     
-    console.log(`✅ Order fulfilled email sent to ${data.userEmail} for order ${data.orderId}`);
+    console.log(`✅ [Email] Order fulfilled email sent to ${data.userEmail} for order ${data.orderId}`);
+    console.log(`✅ [Email] Message ID:`, result.messageId);
   } catch (error: any) {
     console.error('❌ Failed to send order fulfilled email:', error?.message || error);
     // Don't throw - email failures shouldn't break the order update

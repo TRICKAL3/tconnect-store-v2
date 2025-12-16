@@ -1401,6 +1401,27 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
   const [value, setValue] = useState<number>(0);
   const [type, setType] = useState('giftcard');
   const [saving, setSaving] = useState(false);
+  const [rates, setRates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadRates();
+  }, []);
+
+  const loadRates = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/rates`, { headers: getAdminHeaders() as HeadersInit });
+      if (res.ok) {
+        const data = await res.json();
+        setRates(data);
+      }
+    } catch (error) {
+      console.error('Failed to load rates:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const save = async () => {
     setSaving(true);
@@ -1417,6 +1438,7 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
           (window as any).refreshRates();
         }
         setValue(0); // Reset form
+        await loadRates(); // Reload rates to update chart
       } else {
         throw new Error(`Failed to save rate: ${res.statusText}`);
       }
@@ -1427,18 +1449,138 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
       setSaving(false);
     }
   };
+
+  // Prepare chart data
+  const prepareChartData = () => {
+    const dateMap: Record<string, { giftcard?: number; crypto?: number; wallet?: number }> = {};
+    
+    rates.forEach((rate: any) => {
+      const date = new Date(rate.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (!dateMap[date]) {
+        dateMap[date] = {};
+      }
+      dateMap[date][rate.type] = rate.value;
+    });
+
+    const sortedDates = Object.keys(dateMap).sort((a, b) => {
+      return new Date(a).getTime() - new Date(b).getTime();
+    });
+
+    const chartData: any[] = [];
+    let lastGiftcard = null;
+    let lastCrypto = null;
+    let lastWallet = null;
+
+    sortedDates.forEach(date => {
+      const dayData = dateMap[date];
+      lastGiftcard = dayData.giftcard ?? lastGiftcard;
+      lastCrypto = dayData.crypto ?? lastCrypto;
+      lastWallet = dayData.wallet ?? lastWallet;
+
+      chartData.push({
+        date,
+        giftcard: lastGiftcard,
+        crypto: lastCrypto,
+        wallet: lastWallet
+      });
+    });
+
+    return chartData;
+  };
+
+  const chartData = prepareChartData();
+
+  // Get current rates
+  const getCurrentRate = (rateType: string) => {
+    const typeRates = rates.filter((r: any) => r.type === rateType).sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return typeRates.length > 0 ? typeRates[0].value : 0;
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <select value={type} onChange={(e) => setType(e.target.value)} className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white">
-          <option value="giftcard">giftcard</option>
-          <option value="crypto">crypto</option>
-          <option value="wallet">wallet</option>
-        </select>
-        <input type="number" value={value || ''} onChange={(e) => setValue(parseInt(e.target.value || '0', 10))} placeholder="MWK per USD" className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white" />
-        <button disabled={saving} onClick={save} className="btn-cyber text-white px-6 py-3 rounded-lg">{saving ? 'Saving...' : 'Save Rate'}</button>
+    <div className="space-y-6">
+      {/* Add Rate Form */}
+      <div className="card-dark p-6 rounded-xl">
+        <h3 className="text-xl font-bold text-white mb-4">Add New Rate</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <select value={type} onChange={(e) => setType(e.target.value)} className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white">
+            <option value="giftcard">Gift Card</option>
+            <option value="crypto">Cryptocurrency</option>
+            <option value="wallet">Digital Wallet</option>
+          </select>
+          <input type="number" value={value || ''} onChange={(e) => setValue(parseInt(e.target.value || '0', 10))} placeholder="MWK per USD" className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white" />
+          <button disabled={saving} onClick={save} className="btn-cyber text-white px-6 py-3 rounded-lg">{saving ? 'Saving...' : 'Save Rate'}</button>
+        </div>
+        <p className="text-gray-400 text-sm mt-2">New entries become the latest rate for that type.</p>
       </div>
-      <p className="text-gray-400 text-sm">New entries become the latest rate for that type.</p>
+
+      {/* Current Rates */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="card-dark p-4 rounded-xl">
+          <div className="text-sm text-gray-400 mb-1">Gift Cards</div>
+          <div className="text-2xl font-bold text-white">{getCurrentRate('giftcard').toLocaleString()} MWK/$1</div>
+        </div>
+        <div className="card-dark p-4 rounded-xl">
+          <div className="text-sm text-gray-400 mb-1">Cryptocurrency</div>
+          <div className="text-2xl font-bold text-white">{getCurrentRate('crypto').toLocaleString()} MWK/$1</div>
+        </div>
+        <div className="card-dark p-4 rounded-xl">
+          <div className="text-sm text-gray-400 mb-1">Digital Wallets</div>
+          <div className="text-2xl font-bold text-white">{getCurrentRate('wallet').toLocaleString()} MWK/$1</div>
+        </div>
+      </div>
+
+      {/* Rate History Chart */}
+      {chartData.length > 0 && (
+        <div className="card-dark p-6 rounded-xl">
+          <h3 className="text-xl font-bold text-white mb-4">Rate History Chart</h3>
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis 
+                dataKey="date" 
+                stroke="#9CA3AF"
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF"
+                style={{ fontSize: '12px' }}
+                label={{ value: 'MWK per $1', angle: -90, position: 'insideLeft', style: { fill: '#9CA3AF' } }}
+              />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
+                labelStyle={{ color: '#fff' }}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="giftcard" 
+                stroke="#a855f7" 
+                strokeWidth={2}
+                name="Gift Cards"
+                dot={{ fill: '#a855f7', r: 4 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="crypto" 
+                stroke="#eab308" 
+                strokeWidth={2}
+                name="Cryptocurrency"
+                dot={{ fill: '#eab308', r: 4 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="wallet" 
+                stroke="#3b82f6" 
+                strokeWidth={2}
+                name="Digital Wallets"
+                dot={{ fill: '#3b82f6', r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }

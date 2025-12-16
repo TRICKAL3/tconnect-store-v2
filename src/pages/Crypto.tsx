@@ -42,7 +42,7 @@ const Crypto: React.FC = () => {
     notes: ''
   });
   const [currentStep, setCurrentStep] = useState(1);
-  const [inStock] = useState(true);
+  const [inStock, setInStock] = useState(true);
   const [cryptoOptions, setCryptoOptions] = useState<string[]>(['USDT']);
 
   const exchanges: Exchange[] = [
@@ -154,8 +154,24 @@ const Crypto: React.FC = () => {
     (async () => {
       try {
         const products = await fetchProducts();
-        const coins = products.filter(p => p.type === 'crypto' && p.inStock).map(p => p.name.toUpperCase());
-        if (coins.length) setCryptoOptions(coins);
+        const cryptoProducts = products.filter(p => p.type === 'crypto');
+        const coins = cryptoProducts.filter(p => p.inStock).map(p => p.name.toUpperCase());
+        
+        // Check if any crypto is in stock
+        const hasInStockCrypto = cryptoProducts.some(p => p.inStock);
+        setInStock(hasInStockCrypto);
+        
+        if (coins.length) {
+          setCryptoOptions(coins);
+          // If selected coin is not in stock, switch to first available coin
+          if (!coins.includes(order.coin) && coins.length > 0) {
+            setOrder(prev => ({ ...prev, coin: coins[0] }));
+          }
+        } else {
+          // No crypto in stock
+          setCryptoOptions(['USDT']); // Keep default for display
+          setInStock(false);
+        }
       } catch {}
     })();
   }, []);
@@ -215,15 +231,15 @@ const Crypto: React.FC = () => {
 
         <button
           onClick={() => setCurrentStep(2)}
-          disabled={!order.amountUsd || order.amountUsd < 10}
+          disabled={!inStock || !order.amountUsd || order.amountUsd < 10}
           className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-105 ${
-            order.amountUsd && order.amountUsd >= 10
+            inStock && order.amountUsd && order.amountUsd >= 10
               ? 'btn-cyber text-white'
               : 'bg-gray-600 text-gray-400 cursor-not-allowed'
           }`}
         >
           <ArrowRight className="w-5 h-5" />
-          <span>Select Exchange</span>
+          <span>{inStock ? 'Select Exchange' : 'Out of Stock'}</span>
         </button>
       </div>
     </div>

@@ -87,7 +87,7 @@ The email system now uses **Nodemailer** with SMTP, which works with:
 ---
 
 ## ✅ Test Email Setup
-
+n
 ### Method 1: Use Test Endpoint
 
 1. **In browser console** (F12), run:

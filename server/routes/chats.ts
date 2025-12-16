@@ -27,6 +27,38 @@ router.get('/all', basicAdminAuth, async (_req, res) => {
   }
 });
 
+// Get user's chats (by userId or email) - MUST be before /:id route
+router.get('/user/:identifier', async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    
+    // Try to find chats by userId or email
+    const chats = await prisma.chat.findMany({
+      where: {
+        OR: [
+          { userId: identifier },
+          { userEmail: identifier }
+        ]
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1 // Get latest message for preview
+        },
+        _count: {
+          select: { messages: true }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    res.json(chats);
+  } catch (error: any) {
+    console.error('Failed to get user chats:', error);
+    res.status(500).json({ error: error.message || 'Failed to get user chats' });
+  }
+});
+
 // Create a new chat session
 router.post('/', async (req, res) => {
   try {

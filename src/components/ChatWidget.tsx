@@ -21,9 +21,19 @@ interface Chat {
   messages: ChatMessage[];
 }
 
+interface ChatListItem {
+  id: string;
+  status: 'bot' | 'waiting' | 'active' | 'closed';
+  messages: ChatMessage[];
+  updatedAt: string;
+  _count?: { messages: number };
+}
+
 const ChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [chat, setChat] = useState<Chat | null>(null);
+  const [chatHistory, setChatHistory] = useState<ChatListItem[]>([]);
+  const [showChatHistory, setShowChatHistory] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -36,6 +46,60 @@ const ChatWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const { user, loading: authLoading } = useAuth();
+
+  const loadChat = async (chatId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/chats/${chatId}`);
+      if (res.ok) {
+        const loadedChat = await res.json();
+        setChat(loadedChat);
+        setShowNameForm(false);
+        localStorage.setItem('tconnect_chat_id', chatId);
+      } else {
+        // Chat not found, clear stored ID
+        localStorage.removeItem('tconnect_chat_id');
+      }
+    } catch (error) {
+      console.error('Failed to load chat:', error);
+      localStorage.removeItem('tconnect_chat_id');
+    }
+  };
+
+  const loadChatHistory = async () => {
+    try {
+      const identifier = user?.id || user?.email || email;
+      if (!identifier) return;
+
+      const res = await fetch(`${API_BASE}/chats/user/${encodeURIComponent(identifier)}`);
+      if (res.ok) {
+        const history = await res.json();
+        setChatHistory(history);
+        
+        // If no active chat but we have history, show history
+        if (!chat && history.length > 0) {
+          setShowChatHistory(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load chat history:', error);
+    }
+  };
+
+  // Load chat from localStorage on mount
+  useEffect(() => {
+    const storedChatId = localStorage.getItem('tconnect_chat_id');
+    if (storedChatId) {
+      loadChat(storedChatId);
+    }
+  }, []);
+
+  // Load user's chat history when widget opens
+  useEffect(() => {
+    if (isOpen && (user?.id || user?.email || email)) {
+      loadChatHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, user?.id, user?.email, email]);
 
   // Auto-fill name and email from auth context if available
   useEffect(() => {
@@ -104,6 +168,11 @@ const ChatWidget: React.FC = () => {
         const newChat = await res.json();
         setChat(newChat);
         setShowNameForm(false);
+        setShowChatHistory(false);
+        // Store chat ID in localStorage
+        localStorage.setItem('tconnect_chat_id', newChat.id);
+        // Reload chat history
+        loadChatHistory();
       }
     } catch (error) {
       console.error('Failed to initialize chat:', error);
@@ -231,18 +300,79 @@ const ChatWidget: React.FC = () => {
           <MessageCircle className="w-5 h-5" />
           <h3 className="font-bold">Live Chat Support</h3>
         </div>
-        <button
-          onClick={handleClose}
-          className="hover:bg-white/20 rounded-full p-1 transition-colors"
-          aria-label="Close chat"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center space-x-2">
+          {chatHistory.length > 0 && (
+            <button
+              onClick={() => {
+                setShowChatHistory(!showChatHistory);
+                if (!showChatHistory) {
+                  setChat(null);
+                }
+              }}
+              className="hover:bg-white/20 rounded-full p-1 transition-colors text-xs"
+              title="Chat History"
+            >
+              History ({chatHistory.length})
+            </button>
+          )}
+          <button
+            onClick={handleClose}
+            className="hover:bg-white/20 rounded-full p-1 transition-colors"
+            aria-label="Close chat"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Chat Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-dark-surface">
-        {showNameForm && !chat ? (
+        {showChatHistory && chatHistory.length > 0 ? (
+          <div className="space-y-2">
+            <div className="text-white font-semibold mb-3">Your Chat History</div>
+            {chatHistory.map((chatItem) => (
+              <button
+                key={chatItem.id}
+                onClick={() => {
+                  loadChat(chatItem.id);
+                  setShowChatHistory(false);
+                }}
+                className="w-full text-left p-3 bg-dark-bg border border-dark-border rounded-lg hover:border-neon-blue transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-white text-sm font-semibold">
+                    Chat #{chatItem.id.substring(0, 8)}
+                  </span>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    chatItem.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                    chatItem.status === 'closed' ? 'bg-gray-500/20 text-gray-400' :
+                    'bg-yellow-500/20 text-yellow-400'
+                  }`}>
+                    {chatItem.status}
+                  </span>
+                </div>
+                {chatItem.messages.length > 0 && (
+                  <p className="text-gray-400 text-xs truncate">
+                    {chatItem.messages[0].content.substring(0, 50)}...
+                  </p>
+                )}
+                <p className="text-gray-500 text-xs mt-1">
+                  {new Date(chatItem.updatedAt).toLocaleDateString()}
+                </p>
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setShowChatHistory(false);
+                setChat(null);
+                setShowNameForm(true);
+              }}
+              className="w-full mt-4 btn-cyber text-white py-2 rounded-lg"
+            >
+              Start New Chat
+            </button>
+          </div>
+        ) : showNameForm && !chat ? (
           <div className="space-y-4">
             <div className="text-white text-center">
               <Bot className="w-12 h-12 mx-auto mb-2 text-neon-blue" />

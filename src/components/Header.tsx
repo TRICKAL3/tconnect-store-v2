@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Menu, X, User, Settings, LogOut, Package, LogIn, Gift, Home, Search, Calendar, Monitor, Gamepad2 } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Settings, LogOut, Package, LogIn, Gift, Home, Search, Calendar, Monitor, Gamepad2, TrendingUp } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getApiBase } from '../lib/getApiBase';
@@ -46,6 +46,7 @@ const Header: React.FC = () => {
     { name: 'Crypto', href: '/crypto', icon: Package },
     { name: 'Digital Wallets & Cards', href: '/wallets', icon: Package },
     { name: 'Payments & TT Orders', href: '/payments', icon: Package },
+    { name: 'Rates', href: '/rates', icon: TrendingUp },
   ];
 
   const avatarLetter = (user?.email || 'U').charAt(0).toUpperCase();

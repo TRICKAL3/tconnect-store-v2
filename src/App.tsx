@@ -27,6 +27,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import RefundPolicy from './pages/RefundPolicy';
 import AMLPolicy from './pages/AMLPolicy';
+import Rates from './pages/Rates';
 import ChatWidget from './components/ChatWidget';
 import EnableNotifications from './components/EnableNotifications';
 
@@ -255,6 +256,7 @@ function AppContent() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/orders" element={<OrderHistory />} />
+          <Route path="/rates" element={<Rates />} />
           <Route path="/notifications/:id" element={<NotificationDetail />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />

@@ -42,11 +42,12 @@ const Rates: React.FC = () => {
         setRates(data);
         
         // Calculate current rates (latest for each type)
-        const latest: Record<string, number | string> = {};
+        const latest: Record<string, number> = {};
+        const latestDates: Record<string, string> = {};
         data.forEach((rate: Rate) => {
-          if (!latest[rate.type] || new Date(rate.createdAt) > new Date(latest[rate.type + '_date'] as string || 0)) {
+          if (!latest[rate.type] || new Date(rate.createdAt) > new Date(latestDates[rate.type] || 0)) {
             latest[rate.type] = rate.value;
-            latest[rate.type + '_date'] = rate.createdAt;
+            latestDates[rate.type] = rate.createdAt;
           }
         });
         setCurrentRates({

@@ -1459,7 +1459,10 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
       if (!dateMap[date]) {
         dateMap[date] = {};
       }
-      dateMap[date][rate.type] = rate.value;
+      const rateType = rate.type as 'giftcard' | 'crypto' | 'wallet';
+      if (rateType === 'giftcard' || rateType === 'crypto' || rateType === 'wallet') {
+        dateMap[date][rateType] = rate.value;
+      }
     });
 
     const sortedDates = Object.keys(dateMap).sort((a, b) => {

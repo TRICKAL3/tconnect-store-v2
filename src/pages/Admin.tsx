@@ -1470,9 +1470,9 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
     });
 
     const chartData: any[] = [];
-    let lastGiftcard = null;
-    let lastCrypto = null;
-    let lastWallet = null;
+    let lastGiftcard: number | null = null;
+    let lastCrypto: number | null = null;
+    let lastWallet: number | null = null;
 
     sortedDates.forEach(date => {
       const dayData = dateMap[date];

@@ -12,9 +12,10 @@ import slidesRouter from '../server/routes/slides';
 import ttOrdersRouter from '../server/routes/ttorders';
 import chatsRouter from '../server/routes/chats';
 import notificationsRouter from '../server/routes/notifications';
-import emailTestRouter from '../server/routes/email-test';
+import walletRouter from '../server/routes/wallet';
+import promotionsRouter from '../server/routes/promotions';
 
-const app = express();
+export const app = express();
 
 // CORS configuration - allow all origins
 app.use(cors({
@@ -55,7 +56,8 @@ app.use('/slides', slidesRouter);
 app.use('/ttorders', ttOrdersRouter);
 app.use('/chats', chatsRouter);
 app.use('/notifications', notificationsRouter);
-app.use('/email-test', emailTestRouter);
+app.use('/wallet', walletRouter);
+app.use('/promotions', promotionsRouter);
 
 // Root route
 app.get('/', (_req, res) => res.json({ 
@@ -72,9 +74,11 @@ app.get('/', (_req, res) => res.json({
     users: '/users',
     slides: '/slides',
     ttorders: '/ttorders',
+    wallet: '/wallet',
     chats: '/chats',
-    notifications: '/notifications',
-    emailTest: '/email-test'
+    notifications: '/notifications'
+    ,
+    promotions: '/promotions'
   }
 }));
 

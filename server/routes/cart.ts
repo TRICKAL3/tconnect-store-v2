@@ -101,7 +101,7 @@ router.get('/admin/overview', basicAdminAuth, async (_req, res) => {
       } catch {
         /* ignore */
       }
-      const lines = items.filter((x): x is Record<string, unknown> => x && typeof x === 'object');
+      const lines = items.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null);
       const qty = lines.reduce((s, it) => s + (typeof it.quantity === 'number' ? it.quantity : 0), 0);
       return {
         snapshotId: r.id,

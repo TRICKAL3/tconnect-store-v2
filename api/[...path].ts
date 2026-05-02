@@ -63,6 +63,7 @@ app.use('/wallet', walletRouter);
 app.use('/promotions', promotionsRouter);
 app.use('/blogs', blogsRouter);
 app.use('/payments', paymentsRouter);
+app.use('/cart', cartRouter);
 
 // Root route
 app.get('/', (_req, res) => res.json({ 

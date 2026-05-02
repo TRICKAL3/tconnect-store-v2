@@ -16,6 +16,7 @@ import walletRouter from '../server/routes/wallet';
 import promotionsRouter from '../server/routes/promotions';
 import blogsRouter from '../server/routes/blogs';
 import paymentsRouter from '../server/routes/payments';
+import cartRouter from '../server/routes/cart';
 
 export const app = express();
 
@@ -83,7 +84,8 @@ app.get('/', (_req, res) => res.json({
     notifications: '/notifications',
     promotions: '/promotions',
     blogs: '/blogs',
-    payments: '/payments'
+    payments: '/payments',
+    cart: '/cart'
   }
 }));
 

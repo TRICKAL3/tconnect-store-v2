@@ -143,11 +143,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     
     const fullPath = originalQuery ? `${path}?${originalQuery}` : path;
-    
-    // Update the request URL and path to match what Express expects
-    // Type assertion needed because Express Request expects string
+
+    // Express matches routes from url / originalUrl; set both for Vercel catch-all.
     (req as any).url = fullPath;
     (req as any).path = path;
+    (req as any).originalUrl = fullPath;
     
     console.log('🚀 API Handler called:', {
       method: req.method,

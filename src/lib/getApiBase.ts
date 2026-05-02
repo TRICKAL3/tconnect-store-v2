@@ -1,10 +1,14 @@
 // Safe API base selection:
-// - Localhost dev: same-origin `/api` (CRA setupProxy.js → backend :4001) avoids cross-origin "Failed to fetch"
-// - Optional REACT_APP_API_BASE=http://127.0.0.1:4001 only if you need a direct absolute URL (e.g. custom tooling)
-// - Production/non-localhost must never call localhost / 127.0.0.1
+// - Localhost: `/api` unless REACT_APP_API_BASE is set (CRA proxy → :4001).
+// - Production (not localhost): `/api` same-origin (Vercel serverless) by default so routes like /cart work.
+// - Opt-in external API: REACT_APP_USE_EXTERNAL_API=true plus REACT_APP_API_BASE=https://your-railway...
 
 export const getApiBase = (): string => {
   const env = process.env.REACT_APP_API_BASE?.trim();
+  const external =
+    String(process.env.REACT_APP_USE_EXTERNAL_API || '')
+      .trim()
+      .toLowerCase() === 'true';
   const host = typeof window !== 'undefined' ? window.location.hostname : '';
   const isLocalHost = host === 'localhost' || host === '127.0.0.1';
 
@@ -15,7 +19,7 @@ export const getApiBase = (): string => {
     return '/api';
   }
 
-  if (env && env.length > 0) {
+  if (external && env && env.length > 0) {
     const lowered = env.toLowerCase();
     if (!lowered.includes('localhost') && !lowered.includes('127.0.0.1')) {
       return env.replace(/\/+$/, '');

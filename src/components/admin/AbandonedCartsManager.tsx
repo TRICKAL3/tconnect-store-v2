@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getApiBase } from '../../lib/getApiBase';
 
-const API_BASE = getApiBase();
-
 type Row = {
   snapshotId: string;
   userId: string;
@@ -25,7 +23,7 @@ const AbandonedCartsManager: React.FC<{ getAdminHeaders: () => Record<string, st
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch(`${API_BASE}/cart/admin/overview`, {
+      const res = await fetch(`${getApiBase()}/cart/admin/overview`, {
         headers: { ...getAdminHeaders() },
       });
       const text = await res.text();

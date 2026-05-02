@@ -82,9 +82,9 @@ const Rates: React.FC = () => {
     });
 
     const chartData: RateChartData[] = [];
-    let lastGiftcard = null;
-    let lastCrypto = null;
-    let lastWallet = null;
+    let lastGiftcard: number | null = null;
+    let lastCrypto: number | null = null;
+    let lastWallet: number | null = null;
 
     sortedDates.forEach(date => {
       const dayData = dateMap[date];
@@ -169,7 +169,7 @@ const Rates: React.FC = () => {
           {/* Wallet Rate */}
           <div className="card-dark p-6 rounded-xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-white">Digital Wallets</h3>
+              <h3 className="text-xl font-bold text-white">Payments (wallets + virtual cards)</h3>
               <DollarSign className="w-6 h-6 text-blue-400" />
             </div>
             <div className="text-3xl font-bold text-white mb-2">
@@ -232,7 +232,7 @@ const Rates: React.FC = () => {
                   dataKey="wallet" 
                   stroke="#3b82f6" 
                   strokeWidth={2}
-                  name="Digital Wallets"
+                  name="Payments"
                   dot={{ fill: '#3b82f6', r: 4 }}
                 />
               </LineChart>

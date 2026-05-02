@@ -31,6 +31,17 @@ yarn-error.log*
 # Environment
 .env
 .env.production
+.env.vercel
+.env.vercel.*
+
+# Never commit pasted secrets / tooling temp
+.tmp_*.txt
+
+# Compiled API bundle (Vercel builds from source)
+api/dist/
+
+# Local DB snapshots / prisma exports
+backend/data/
 
 # Database
 backend/prisma/dev.db

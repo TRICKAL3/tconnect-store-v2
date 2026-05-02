@@ -14,6 +14,8 @@ import chatsRouter from '../server/routes/chats';
 import notificationsRouter from '../server/routes/notifications';
 import walletRouter from '../server/routes/wallet';
 import promotionsRouter from '../server/routes/promotions';
+import blogsRouter from '../server/routes/blogs';
+import paymentsRouter from '../server/routes/payments';
 
 export const app = express();
 
@@ -58,6 +60,8 @@ app.use('/chats', chatsRouter);
 app.use('/notifications', notificationsRouter);
 app.use('/wallet', walletRouter);
 app.use('/promotions', promotionsRouter);
+app.use('/blogs', blogsRouter);
+app.use('/payments', paymentsRouter);
 
 // Root route
 app.get('/', (_req, res) => res.json({ 
@@ -76,9 +80,10 @@ app.get('/', (_req, res) => res.json({
     ttorders: '/ttorders',
     wallet: '/wallet',
     chats: '/chats',
-    notifications: '/notifications'
-    ,
-    promotions: '/promotions'
+    notifications: '/notifications',
+    promotions: '/promotions',
+    blogs: '/blogs',
+    payments: '/payments'
   }
 }));
 

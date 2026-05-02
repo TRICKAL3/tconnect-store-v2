@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Check, X } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 
 const EnableNotifications: React.FC = () => {
   const [permission, setPermission] = useState<NotificationPermission>('default');

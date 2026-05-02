@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getApiBase } from '../lib/getApiBase';
 
 interface Notification {
@@ -15,7 +15,6 @@ interface Notification {
 export const useAdminNotifications = (getAdminHeaders: () => Record<string, string>) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
   const API_BASE = getApiBase();
   const prevNotificationsRef = useRef<Notification[]>([]);
 
@@ -284,6 +283,8 @@ export const useAdminNotifications = (getAdminHeaders: () => Record<string, stri
 
     return () => clearInterval(interval);
   }, [fetchNotifications, fetchUnreadCount, showBrowserNotification]);
+
+  const loading = false;
 
   return {
     notifications,

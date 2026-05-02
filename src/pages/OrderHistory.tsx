@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Package, Clock, CheckCircle, XCircle, Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { getApiBase } from '../lib/getApiBase';
+import { getApiBase, getAbsoluteImageUrl } from '../lib/getApiBase';
 
 const OrderHistory: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -45,9 +45,11 @@ const OrderHistory: React.FC = () => {
       
       if (res.ok) {
         const data = await res.json();
-        console.log('✅ [OrderHistory] Orders loaded:', data.length, 'orders');
-        setOrders(Array.isArray(data) ? data : []);
-        setError(null);
+        const list = Array.isArray(data) ? data : (data?.orders ?? []);
+        const userNotFound = data?.userNotFound === true;
+        console.log('✅ [OrderHistory] Orders loaded:', list.length, 'orders', userNotFound ? '(userNotFound)' : '');
+        setOrders(list);
+        setError(userNotFound ? 'Account not synced. Please sign out and sign back in to see your orders.' : null);
       } else {
         const errorText = await res.text();
         console.error('❌ [OrderHistory] Failed to load orders:', {
@@ -207,7 +209,15 @@ const OrderHistory: React.FC = () => {
                       >
                         {getStatusLabel(order.status || 'pending')}
                       </span>
+                      {order.isExpired && order.status === 'pending' && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gray-600 text-gray-300 border border-gray-500">
+                          Expired
+                        </span>
+                      )}
                     </div>
+                    {order.isExpired && order.status === 'pending' && (
+                      <p className="text-gray-500 text-xs mt-1">Payment window closed. Create a new order to pay.</p>
+                    )}
                     <p className="text-gray-400 text-xs md:text-sm">
                       {new Date(order.createdAt).toLocaleDateString('en-US', {
                         year: 'numeric',
@@ -251,9 +261,9 @@ const OrderHistory: React.FC = () => {
                       return (
                         <div key={idx} className="p-2 md:p-3 bg-dark-surface rounded-lg">
                           <div className="flex items-center space-x-2 md:space-x-3">
-                            {item.image && (item.image.startsWith('http') || item.image.startsWith('/')) ? (
+                            {getAbsoluteImageUrl(item.image) ? (
                               <img
-                                src={item.image}
+                                src={getAbsoluteImageUrl(item.image)}
                                 alt={item.name}
                                 className="w-10 h-10 md:w-12 md:h-12 rounded object-cover flex-shrink-0"
                                 onError={(e) => {
@@ -264,7 +274,7 @@ const OrderHistory: React.FC = () => {
                                 }}
                               />
                             ) : null}
-                            <div className={`w-10 h-10 md:w-12 md:h-12 bg-dark-bg rounded flex items-center justify-center flex-shrink-0 ${item.image && (item.image.startsWith('http') || item.image.startsWith('/')) ? 'hidden' : ''}`}>
+                            <div className={`w-10 h-10 md:w-12 md:h-12 bg-dark-bg rounded flex items-center justify-center flex-shrink-0 ${getAbsoluteImageUrl(item.image) ? 'hidden' : ''}`}>
                               <span className="text-white text-xs md:text-sm">{item.name?.charAt(0).toUpperCase() || '?'}</span>
                             </div>
                             <div className="flex-1 min-w-0">

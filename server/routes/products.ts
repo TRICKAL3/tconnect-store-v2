@@ -19,6 +19,23 @@ router.get('/', async (_req, res) => {
   }
 });
 
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    res.json(product);
+  } catch (error: any) {
+    console.error('❌ [Products] Error fetching product:', error);
+    res.status(500).json({
+      error: 'Failed to fetch product',
+      message: error.message,
+    });
+  }
+});
+
 // Create/update (temporarily open for setup)
 router.post('/', basicAdminAuth, async (req: any, res) => {
   try {

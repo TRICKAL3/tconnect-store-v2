@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { getApiBase } from '../lib/getApiBase';
+import { cartAccountEmail } from '../lib/cartIdentity';
 
 interface Notification {
   id: string;
@@ -35,14 +36,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const hasRequestedPermission = useRef(false);
 
   const fetchNotifications = useCallback(async () => {
+    setLoading(true);
     if (!user?.email) {
       setNotifications([]);
       setUnreadCount(0);
-      return;
+      setLoading(false);
+      return [];
     }
 
+    const emailQuery = encodeURIComponent(cartAccountEmail(user.email));
+
     try {
-      const res = await fetch(`${API_BASE}/notifications?email=${encodeURIComponent(user.email)}`, {
+      const res = await fetch(`${API_BASE}/notifications?email=${emailQuery}`, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -50,38 +55,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data);
-        setUnreadCount(data.filter((n: Notification) => !n.read).length);
-        return data;
+        const list = Array.isArray(data) ? data : [];
+        setNotifications(list);
+        setUnreadCount(list.filter((n: Notification) => !n.read).length);
+        setLoading(false);
+        return list;
       }
+      const errText = await res.text().catch(() => '');
+      console.warn('[notifications] fetch failed', res.status, errText.slice(0, 200));
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }
+    setLoading(false);
     return [];
-  }, [user?.email, API_BASE]);
-
-  const fetchUnreadCount = useCallback(async () => {
-    if (!user?.email) {
-      setUnreadCount(0);
-      return 0;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/notifications/unread-count?email=${encodeURIComponent(user.email)}`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadCount(data.count);
-        return data.count;
-      }
-    } catch (error) {
-      console.error('Failed to fetch unread count:', error);
-    }
-    return 0;
   }, [user?.email, API_BASE]);
 
   const refreshNotifications = useCallback(async () => {
@@ -97,7 +83,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email: user.email })
+        body: JSON.stringify({ email: cartAccountEmail(user.email) })
       });
 
       if (res.ok) {
@@ -120,7 +106,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email: user.email })
+        body: JSON.stringify({ email: cartAccountEmail(user.email) })
       });
 
       if (res.ok) {

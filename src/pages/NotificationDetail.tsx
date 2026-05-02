@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Check, Clock } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
-import { getApiBase } from '../lib/getApiBase';
 
 const NotificationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,19 +21,8 @@ const NotificationDetail: React.FC = () => {
         }
         setLoading(false);
       } else {
-        // If not in local state, try to fetch from API
-        const fetchNotification = async () => {
-          try {
-            const API_BASE = getApiBase();
-            // We'll need to get user email from auth context
-            // For now, just show not found
-            setLoading(false);
-          } catch (error) {
-            console.error('Failed to fetch notification:', error);
-            setLoading(false);
-          }
-        };
-        fetchNotification();
+        // If not in local state, just stop loading and show "Not Found"
+        setLoading(false);
       }
     }
   }, [id, notifications, markAsRead]);

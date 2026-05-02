@@ -183,6 +183,22 @@ ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("or
 ALTER TABLE "PaymentSubmission" ADD CONSTRAINT "PaymentSubmission_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "ChatMessage" ADD CONSTRAINT "ChatMessage_chatId_fkey" FOREIGN KEY ("chatId") REFERENCES "Chat"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- Logged-in user carts (Synced from app; cleared after checkout.)
+CREATE TABLE IF NOT EXISTS user_cart_snapshots (
+    id         TEXT NOT NULL PRIMARY KEY,
+    user_id    TEXT NOT NULL UNIQUE,
+    items_json TEXT NOT NULL,
+    updated_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE user_cart_snapshots DROP CONSTRAINT IF EXISTS user_cart_snapshots_user_id_fkey;
+ALTER TABLE user_cart_snapshots
+    ADD CONSTRAINT user_cart_snapshots_user_id_fkey
+    FOREIGN KEY (user_id)
+    REFERENCES "User"("id")
+    ON DELETE CASCADE
+    ON UPDATE CASCADE;
+
 -- Success message
 SELECT 'All tables created successfully! ✅' AS message;
 

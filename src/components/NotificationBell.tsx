@@ -42,18 +42,19 @@ const NotificationBell: React.FC = () => {
     }
   };
 
-  const unreadNotifications = notifications.filter(n => !n.read);
   const recentNotifications = notifications.slice(0, 10); // Show 10 most recent
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        type="button"
         onClick={handleBellClick}
-        className="relative w-9 h-9 md:w-10 md:h-10 rounded-full bg-neon-blue/20 flex items-center justify-center border-2 border-neon-blue/30 hover:border-neon-blue transition-all active:scale-95"
+        className="relative p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+        aria-label="Notifications"
       >
-        <Bell className="w-4 h-4 md:w-5 md:h-5 text-neon-blue" />
+        <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-dark-surface">
+          <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[1rem] h-4 px-0.5 flex items-center justify-center">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -66,7 +67,7 @@ const NotificationBell: React.FC = () => {
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm md:w-96 bg-dark-surface border-2 border-neon-blue/30 rounded-xl shadow-2xl z-50 max-h-96 overflow-hidden flex flex-col left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0">
+          <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-sm md:w-96 bg-dark-card border border-dark-border rounded-xl shadow-xl z-50 max-h-96 overflow-hidden flex flex-col left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0">
           {/* Header */}
           <div className="p-4 border-b border-dark-border flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">Notifications</h3>

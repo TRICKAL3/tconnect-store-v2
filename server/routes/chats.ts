@@ -59,11 +59,11 @@ router.get('/user/:identifier', async (req, res) => {
   }
 });
 
-// Create a new chat session
+// Create a new chat session. If type === 'payment_link', no initial message (frontend posts order summary + bot 1/2).
 router.post('/', async (req, res) => {
   try {
-    const { userId, userName, userEmail } = req.body;
-    
+    const { userId, userName, userEmail, type } = req.body;
+
     const chat = await prisma.chat.create({
       data: {
         userId: userId || null,
@@ -73,15 +73,16 @@ router.post('/', async (req, res) => {
       }
     });
 
-    // Add initial bot greeting message
-    await prisma.chatMessage.create({
-      data: {
-        chatId: chat.id,
-        senderType: 'bot',
-        senderName: 'TConnect Bot',
-        content: `Hello! 👋 Welcome to TConnect Store. Thank you for contacting us. Our team will reply to you in a few minutes. Please feel free to share your question or concern, and we'll get back to you as soon as possible!`
-      }
-    });
+    if (type !== 'payment_link') {
+      await prisma.chatMessage.create({
+        data: {
+          chatId: chat.id,
+          senderType: 'bot',
+          senderName: 'TConnect Bot',
+          content: 'Hello! 👋 Welcome to TConnect Store. Thank you for contacting us. Our team will reply to you in a few minutes. Please feel free to share your question or concern, and we\'ll get back to you as soon as possible!'
+        }
+      });
+    }
 
     const chatWithMessages = await prisma.chat.findUnique({
       where: { id: chat.id },
@@ -151,20 +152,24 @@ router.post('/:id/messages', async (req, res) => {
       }
     });
 
+    const contentTrim = (content || '').trim();
+    const isPaymentLinkRequest = senderType === 'user' && chat.status === 'bot' && contentTrim.startsWith('[Payment link request]');
+
     // If user sends message and chat is in bot mode, switch to waiting and send confirmation
     if (senderType === 'user' && chat.status === 'bot') {
       await prisma.chat.update({
         where: { id },
         data: { status: 'waiting' }
       });
-
-      // Send confirmation message that admin will reply soon
+      const botContent = isPaymentLinkRequest
+        ? 'An agent will join shortly to send you the payment link. You can send your proof of payment here in the chat once you\'ve paid.'
+        : 'Thank you for your message! Our support team has been notified and will reply to you shortly. Please wait for an agent to join the chat.';
       await prisma.chatMessage.create({
         data: {
           chatId: id,
           senderType: 'bot',
           senderName: 'TConnect Bot',
-          content: 'Thank you for your message! Our support team has been notified and will reply to you shortly. Please wait for an agent to join the chat.'
+          content: botContent
         }
       });
     }

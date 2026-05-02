@@ -32,10 +32,10 @@ module.exports = {
           900: '#0f172a',
         },
         dark: {
-          bg: '#0a0a0a',
-          surface: '#111111',
-          card: '#1a1a1a',
-          border: '#2a2a2a',
+          bg: '#0b1120',
+          surface: '#111827',
+          card: '#1e293b',
+          border: '#334155',
         },
         neon: {
           blue: '#00d4ff',
@@ -68,7 +68,7 @@ module.exports = {
       },
       backgroundImage: {
         'cyber-gradient': 'linear-gradient(45deg, #00d4ff, #8b5cf6)',
-        'dark-gradient': 'linear-gradient(135deg, #0a0a0a, #111111, #1a1a1a)',
+        'dark-gradient': 'linear-gradient(135deg, #0b1120, #111827, #1e293b)',
         'neon-gradient': 'linear-gradient(45deg, #00d4ff, #8b5cf6, #10b981, #f59e0b)',
       }
     },

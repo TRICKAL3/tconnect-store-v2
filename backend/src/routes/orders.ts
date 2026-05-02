@@ -38,6 +38,7 @@ router.post('/', async (req: any, res) => {
         payment: payment
           ? {
               create: {
+                method: payment.method || 'bank',
                 bankName: payment.bankName || 'National Bank of Malawi',
                 accountName: payment.accountName,
                 accountNumber: payment.accountNumber || null,

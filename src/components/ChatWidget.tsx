@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { MessageCircle, X, Send, Bot, User as UserIcon, Loader2, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
@@ -43,9 +44,12 @@ const ChatWidget: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [showNameForm, setShowNameForm] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const { user, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const loadChat = async (chatId: string) => {
     try {
@@ -86,12 +90,28 @@ const ChatWidget: React.FC = () => {
   };
 
   // Load chat from localStorage on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const storedChatId = localStorage.getItem('tconnect_chat_id');
     if (storedChatId) {
       loadChat(storedChatId);
     }
   }, []);
+
+  // When URL has openChat=chatId (e.g. after Pay by card), open widget and load that chat
+  const openChatId = searchParams.get('openChat');
+  useEffect(() => {
+    if (!openChatId) return;
+    loadChat(openChatId);
+    setIsOpen(true);
+    setShowChatHistory(false);
+    // Clear openChat from URL so it doesn't reopen on refresh
+    const next = new URLSearchParams(searchParams);
+    next.delete('openChat');
+    const q = next.toString();
+    navigate({ pathname: location.pathname || '/', search: q ? `?${q}` : '' }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openChatId]);
 
   // Load user's chat history when widget opens
   useEffect(() => {
@@ -122,30 +142,52 @@ const ChatWidget: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, chat, showNameForm, user, name, loading, authLoading]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Keep newest messages visible inside the widget only — scrollIntoView() would scroll the
+  // whole page when the chat body doesn’t overflow (fixed panel at bottom of viewport).
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat?.messages]);
+    if (!isOpen || !chat?.messages?.length) return;
+    const id = requestAnimationFrame(() => {
+      const el = messagesScrollRef.current;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [chat?.messages, isOpen]);
 
-  // Poll for new messages when chat is open
+  // Poll for new messages when chat is open (only update state when something changed)
   useEffect(() => {
     if (!isOpen || !chat) return;
 
     const chatId = chat.id;
+    const lastMessageCount = chat.messages?.length ?? 0;
+    const lastMessageId = chat.messages?.[chat.messages.length - 1]?.id ?? null;
+
     const pollInterval = setInterval(async () => {
       try {
         const res = await fetch(`${API_BASE}/chats/${chatId}`);
         if (res.ok) {
           const updatedChat = await res.json();
-          setChat(updatedChat);
+          const newCount = updatedChat.messages?.length ?? 0;
+          const newLastId = updatedChat.messages?.[updatedChat.messages.length - 1]?.id ?? null;
+          // Only update state when messages actually changed (avoids "reconnecting" feel)
+          if (newCount !== lastMessageCount || newLastId !== lastMessageId) {
+            setChat(updatedChat);
+          }
         }
       } catch (error) {
         console.error('Failed to poll chat:', error);
       }
-    }, 2000); // Poll every 2 seconds
+    }, 3000); // Poll every 3 seconds
 
     return () => clearInterval(pollInterval);
-  }, [isOpen, chat]);
+  }, [isOpen, chat]); // Restart polling when chat instance changes
+
+  // When a chat is closed, clear the stored chat ID so we don't keep reopening it
+  useEffect(() => {
+    if (chat?.status === 'closed') {
+      localStorage.removeItem('tconnect_chat_id');
+    }
+  }, [chat?.status]);
 
   const initializeChat = async () => {
     if (!showNameForm && chat) return;
@@ -284,40 +326,50 @@ const ChatWidget: React.FC = () => {
     return (
       <button
         onClick={handleOpen}
-        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 bg-neon-blue text-white p-3 md:p-4 rounded-full shadow-lg hover:bg-neon-blue/90 active:scale-95 transition-all duration-300 z-50 flex items-center justify-center neon-glow"
+        className="fixed bottom-4 right-4 md:bottom-6 md:right-6 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 text-white p-3 md:p-4 rounded-full shadow-[0_0_30px_rgba(249,115,22,0.7)] hover:shadow-[0_0_45px_rgba(248,113,113,0.9)] border border-white/10 hover:border-white/30 active:scale-95 hover:-translate-y-0.5 transition-all duration-300 z-50 flex items-center justify-center backdrop-blur"
         aria-label="Open chat"
       >
-        <MessageCircle className="w-5 h-5 md:w-6 md:h-6" />
+        <MessageCircle className="w-5 h-5 md:w-6 md:h-6 drop-shadow-[0_0_8px_rgba(15,23,42,0.9)]" />
       </button>
     );
   }
 
   return (
-    <div className="fixed bottom-4 right-4 md:bottom-6 md:right-6 w-[calc(100vw-2rem)] md:w-96 h-[calc(100vh-8rem)] md:h-[600px] max-h-[600px] bg-dark-bg border border-neon-blue rounded-lg shadow-2xl z-50 flex flex-col neon-glow">
+    <div className="fixed bottom-4 right-4 md:bottom-6 md:right-6 w-[calc(100vw-2rem)] md:w-96 h-[calc(100vh-8rem)] md:h-[600px] max-h-[600px] rounded-2xl shadow-[0_24px_80px_rgba(15,23,42,0.95)] border border-amber-500/70 bg-gradient-to-br from-slate-950 via-slate-900 to-black z-50 flex flex-col overflow-hidden backdrop-blur-xl">
       {/* Header */}
-      <div className="bg-neon-blue text-white p-4 rounded-t-lg flex items-center justify-between">
+      <div className="relative bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-white p-4 rounded-t-2xl flex items-center justify-between shadow-[0_10px_40px_rgba(248,113,22,0.7)]">
+        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.4),_transparent_55%)] pointer-events-none" />
         <div className="flex items-center space-x-2">
-          <MessageCircle className="w-5 h-5" />
-          <h3 className="font-bold">Live Chat Support</h3>
+          <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-black/25 shadow-inner border border-white/20">
+            <MessageCircle className="w-5 h-5 drop-shadow-[0_0_10px_rgba(15,23,42,0.9)]" />
+          </div>
+          <div className="flex flex-col">
+            <h3 className="font-bold tracking-wide">Live Chat Support</h3>
+            <span className="text-[11px] uppercase tracking-[0.2em] text-white/70">
+              Powered by TConnect
+            </span>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          {chatHistory.length > 0 && (
-            <button
-              onClick={() => {
-                setShowChatHistory(!showChatHistory);
-                if (!showChatHistory) {
-                  setChat(null);
-                }
-              }}
-              className="hover:bg-white/20 rounded-full p-1 transition-colors text-xs"
-              title="Chat History"
-            >
-              History ({chatHistory.length})
-            </button>
-          )}
+        <div className="flex items-center space-x-2 relative z-10">
+          <button
+            onClick={() => {
+              const goingToHistory = !showChatHistory;
+              setShowChatHistory(goingToHistory);
+              if (goingToHistory) {
+                // Leaving current chat to view the list / start a new one
+                setChat(null);
+                localStorage.removeItem('tconnect_chat_id');
+                loadChatHistory();
+              }
+            }}
+            className="hover:bg-white/20 bg-black/15 border border-white/20 rounded-full px-2.5 py-1 transition-all text-xs whitespace-nowrap shadow-[0_2px_10px_rgba(15,23,42,0.8)] hover:-translate-y-0.5"
+            title={chatHistory.length > 0 ? 'Chat history & new chat' : 'Start new chat / My chats'}
+          >
+            {showChatHistory ? 'Back' : chatHistory.length > 0 ? `Chats (${chatHistory.length})` : 'New chat'}
+          </button>
           <button
             onClick={handleClose}
-            className="hover:bg-white/20 rounded-full p-1 transition-colors"
+            className="hover:bg-white/20 bg-black/15 rounded-full p-1 transition-all shadow-[0_2px_10px_rgba(15,23,42,0.8)] hover:-translate-y-0.5"
             aria-label="Close chat"
           >
             <X className="w-5 h-5" />
@@ -326,48 +378,63 @@ const ChatWidget: React.FC = () => {
       </div>
 
       {/* Chat Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-dark-surface">
-        {showChatHistory && chatHistory.length > 0 ? (
+      <div
+        ref={messagesScrollRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950/90 via-slate-900/95 to-slate-950"
+      >
+        {showChatHistory ? (
           <div className="space-y-2">
-            <div className="text-white font-semibold mb-3">Your Chat History</div>
-            {chatHistory.map((chatItem) => (
-              <button
-                key={chatItem.id}
-                onClick={() => {
-                  loadChat(chatItem.id);
-                  setShowChatHistory(false);
-                }}
-                className="w-full text-left p-3 bg-dark-bg border border-dark-border rounded-lg hover:border-neon-blue transition-colors"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-white text-sm font-semibold">
-                    Chat #{chatItem.id.substring(0, 8)}
-                  </span>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    chatItem.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                    chatItem.status === 'closed' ? 'bg-gray-500/20 text-gray-400' :
-                    'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {chatItem.status}
-                  </span>
-                </div>
-                {chatItem.messages.length > 0 && (
-                  <p className="text-gray-400 text-xs truncate">
-                    {chatItem.messages[0].content.substring(0, 50)}...
+            <div className="text-white font-semibold mb-3">
+              {chatHistory.length > 0 ? 'Your Chat History' : 'My Chats'}
+            </div>
+            {chatHistory.length > 0 ? (
+              chatHistory.map((chatItem) => (
+                <button
+                  key={chatItem.id}
+                  onClick={() => {
+                    loadChat(chatItem.id);
+                    setShowChatHistory(false);
+                  }}
+                  className="w-full text-left p-3 bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700/70 rounded-xl hover:border-amber-500/80 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_35px_rgba(15,23,42,0.9)]"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-white text-sm font-semibold">
+                      Chat #{chatItem.id.substring(0, 8)}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      chatItem.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                      chatItem.status === 'closed' ? 'bg-gray-500/20 text-gray-400' :
+                      'bg-yellow-500/20 text-yellow-400'
+                    }`}>
+                      {chatItem.status}
+                    </span>
+                  </div>
+                  {chatItem.messages.length > 0 && (
+                    <p className="text-gray-400 text-xs truncate">
+                      {chatItem.messages[0].content.substring(0, 50)}...
+                    </p>
+                  )}
+                  <p className="text-gray-500 text-xs mt-1">
+                    {new Date(chatItem.updatedAt).toLocaleDateString()}
                   </p>
-                )}
-                <p className="text-gray-500 text-xs mt-1">
-                  {new Date(chatItem.updatedAt).toLocaleDateString()}
-                </p>
-              </button>
-            ))}
+                </button>
+              ))
+            ) : (
+              <p className="text-gray-400 text-sm">No previous chats yet.</p>
+            )}
             <button
               onClick={() => {
                 setShowChatHistory(false);
                 setChat(null);
-                setShowNameForm(true);
+                localStorage.removeItem('tconnect_chat_id');
+                // If we already know the user's name, skip the form and let auto-init create a new chat
+                if (user?.name || name) {
+                  setShowNameForm(false);
+                } else {
+                  setShowNameForm(true);
+                }
               }}
-              className="w-full mt-4 btn-cyber text-white py-2 rounded-lg"
+              className="w-full mt-4 btn-cyber text-white py-2 rounded-xl shadow-[0_12px_40px_rgba(56,189,248,0.6)] hover:shadow-[0_16px_55px_rgba(129,140,248,0.9)] hover:-translate-y-0.5 transition-all"
             >
               Start New Chat
             </button>
@@ -387,19 +454,19 @@ const ChatWidget: React.FC = () => {
                   placeholder="Your Name *"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none text-base"
+                  className="w-full px-3 py-2 bg-slate-950/70 border border-dark-border/80 rounded-xl text-white focus:border-neon-blue focus:outline-none text-base shadow-inner"
                 />
                 <input
                   type="email"
                   placeholder="Your Email (optional)"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none text-base"
+                  className="w-full px-3 py-2 bg-slate-950/70 border border-dark-border/80 rounded-xl text-white focus:border-neon-blue focus:outline-none text-base shadow-inner"
                 />
                 <button
                   onClick={initializeChat}
                   disabled={!name.trim() || loading}
-                  className="w-full btn-cyber text-white py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                  className="w-full btn-cyber text-white py-2 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 shadow-[0_12px_40px_rgba(56,189,248,0.6)] hover:shadow-[0_16px_55px_rgba(129,140,248,0.9)] hover:-translate-y-0.5 transition-all"
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Start Chat'}
                 </button>
@@ -411,6 +478,28 @@ const ChatWidget: React.FC = () => {
               </div>
             )}
           </div>
+        ) : chat && chat.status === 'closed' ? (
+          <div className="space-y-4 text-center">
+            <div className="text-white font-semibold">This chat has been closed.</div>
+            <p className="text-gray-400 text-sm">
+              You can start a new conversation below.
+            </p>
+            <button
+              onClick={() => {
+                localStorage.removeItem('tconnect_chat_id');
+                setChat(null);
+                // If we already know the user's name, skip the form and let auto-init create a new chat
+                if (user?.name || name) {
+                  setShowNameForm(false);
+                } else {
+                  setShowNameForm(true);
+                }
+              }}
+              className="w-full btn-cyber text-white py-2 rounded-lg"
+            >
+              Start New Chat
+            </button>
+          </div>
         ) : chat && chat.messages.length > 0 ? (
           <>
             {chat.messages.map((msg) => (
@@ -419,12 +508,12 @@ const ChatWidget: React.FC = () => {
                 className={`flex ${msg.senderType === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
+                  className={`max-w-[80%] rounded-2xl px-3 py-2.5 shadow-[0_12px_35px_rgba(15,23,42,0.9)] border ${
                     msg.senderType === 'user'
-                      ? 'bg-neon-blue text-white'
+                      ? 'bg-gradient-to-br from-neon-blue via-sky-400 to-purple-500 text-white border-white/10'
                       : msg.senderType === 'agent'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-dark-bg border border-neon-blue/30 text-gray-300'
+                      ? 'bg-gradient-to-br from-emerald-500 via-emerald-400 to-lime-400 text-white border-white/10'
+                      : 'bg-slate-900/90 border-neon-blue/30 text-gray-200'
                   }`}
                 >
                   <div className="flex items-center space-x-2 mb-1">
@@ -462,7 +551,6 @@ const ChatWidget: React.FC = () => {
                 Waiting for agent to join...
               </div>
             )}
-            <div ref={messagesEndRef} />
           </>
         ) : (
           <div className="text-center text-gray-400">
@@ -474,7 +562,7 @@ const ChatWidget: React.FC = () => {
 
       {/* Input Area */}
       {chat && chat.status !== 'closed' && (
-        <form onSubmit={handleSendMessage} className="p-4 border-t border-dark-border bg-dark-surface">
+        <form onSubmit={handleSendMessage} className="p-4 border-t border-dark-border/60 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 shadow-[0_-10px_40px_rgba(15,23,42,0.9)]">
           {imagePreview && (
             <div className="mb-2 relative">
               <img src={imagePreview} alt="Preview" className="max-h-32 rounded-lg" />
@@ -502,7 +590,7 @@ const ChatWidget: React.FC = () => {
             />
             <label
               htmlFor="chat-image-input"
-              className="bg-dark-bg border border-dark-border rounded-lg px-3 py-2 cursor-pointer hover:bg-dark-card transition-colors flex items-center"
+              className="bg-slate-950/80 border border-dark-border/80 rounded-xl px-3 py-2 cursor-pointer hover:bg-slate-900 transition-colors flex items-center shadow-inner"
               title="Upload image"
             >
               <ImageIcon className="w-5 h-5 text-gray-400" />
@@ -513,12 +601,12 @@ const ChatWidget: React.FC = () => {
               onChange={(e) => setMessage(e.target.value)}
               placeholder={chat.status === 'waiting' ? 'Type a message... (waiting for agent)' : 'Type a message...'}
               disabled={sending || uploadingImage}
-              className="flex-1 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none disabled:opacity-50"
+              className="flex-1 px-3 py-2 bg-slate-950/80 border border-dark-border/80 rounded-xl text-white focus:border-neon-blue focus:outline-none disabled:opacity-50 shadow-inner"
             />
             <button
               type="submit"
               disabled={(!message.trim() && !imageFile) || sending || uploadingImage}
-              className="bg-neon-blue text-white px-4 py-2 rounded-lg hover:bg-neon-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="bg-gradient-to-br from-neon-blue via-sky-400 to-purple-500 text-white px-4 py-2 rounded-xl hover:shadow-[0_12px_40px_rgba(56,189,248,0.8)] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_8px_25px_rgba(15,23,42,0.9)] active:scale-95"
             >
               {sending || uploadingImage ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
             </button>

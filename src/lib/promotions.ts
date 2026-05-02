@@ -1,5 +1,5 @@
 import { getApiBase } from './getApiBase';
-import type { CartItem } from '../context/CartContext';
+import type { CartItem } from './cartTypes';
 
 export type PromotionType =
   | 'order_percent'

@@ -8,15 +8,31 @@ datasource db {
 }
 
 model User {
+  id           String              @id @default(cuid())
+  email        String              @unique
+  password     String?             // Optional for Firebase OAuth users
+  name         String
+  phone        String?
+  avatarUrl    String?
+  role         String              @default("user") // user, admin, staff
+  pointsBalance Int                @default(0) // TConnect Points balance
+  orders       Order[]
+  pointsTransactions PointsTransaction[]
+  pointsReceipts PointsReceipt[]
+  wallets      Wallet[]
+  cartSnapshot UserCartSnapshot?
+  createdAt    DateTime            @default(now())
+}
+
+/// Latest cart for logged-in users (synced from storefront; cleared after order).
+model UserCartSnapshot {
   id        String   @id @default(cuid())
-  email     String   @unique
-  password  String?  // Optional for Firebase OAuth users
-  name      String
-  phone     String?
-  avatarUrl String?
-  role      String   @default("user") // user, admin, staff
-  orders    Order[]
-  createdAt DateTime @default(now())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemsJson String   @map("items_json")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_cart_snapshots")
 }
 
 model Product {
@@ -88,6 +104,7 @@ model Order {
   totalMwk     Int
   payment      PaymentSubmission?
   items        OrderItem[]
+  pointsReceipt PointsReceipt?
   createdAt    DateTime      @default(now())
 }
 
@@ -158,14 +175,105 @@ model ChatMessage {
   createdAt   DateTime @default(now())
 }
 
+model PointsTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String   // earned | redeemed | adjusted
+  points      Int      // Positive for earned, negative for redeemed
+  orderId     String?  // Order ID if related to an order
+  description String?  // Description of transaction
+  createdAt   DateTime @default(now())
+}
+
+model PointsReceipt {
+  id          String   @id @default(cuid())
+  receiptId   String   @unique // The receipt ID shown on the receipt (e.g., PTS-1763911694797-E6PJW)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  customerName String
+  email       String
+  points      Int      // Points amount (650 or 1300)
+  usdValue    Float    // USD value (5 or 10)
+  orderId     String?  @unique // Order ID if used in an order (unique for one-to-one relation)
+  order       Order?   @relation(fields: [orderId], references: [id])
+  verified    Boolean  @default(false) // Admin verification status
+  createdAt   DateTime @default(now())
+}
+
 model Notification {
   id          String   @id @default(cuid())
   userId      String?  // null = admin notification, userId = user notification
-  type        String   // order_created | order_confirmed | order_rejected | message_received | tt_order_created
+  type        String   // order_created | order_confirmed | order_rejected | message_received | tt_order_created | admin_message | stock_update | promotion | system_announcement
   title       String
   message     String
   link        String?  // Optional link to related resource (e.g., /orders/123, /admin/chats/456)
   read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Promotion {
+  id                  String    @id @default(cuid())
+  name                String
+  description         String?
+  type                String
+  active              Boolean   @default(true)
+  code                String?
+  startsAt            DateTime? @map("starts_at")
+  endsAt              DateTime? @map("ends_at")
+  minOrderUsd         Float?    @map("min_order_usd")
+  discountPercent     Float?    @map("discount_percent")
+  discountUsd         Float?    @map("discount_usd")
+  maxDiscountUsd      Float?    @map("max_discount_usd")
+  appliesToCategory   String?   @map("applies_to_category")
+  appliesToProductId  String?   @map("applies_to_product_id")
+  appliesToProductType String?  @map("applies_to_product_type")
+  buyQuantity         Int?      @map("buy_quantity")
+  getQuantity         Int?      @map("get_quantity")
+  stackable           Boolean   @default(false)
+  priority            Int       @default(0)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("promotions")
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  summary     String?
+  content     String
+  imageUrl1   String   @map("image_url_1")
+  imageUrl2   String   @map("image_url_2")
+  imageUrl3   String?  @map("image_url_3")
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("blog_posts")
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  currency  String   @default("MWK") // Store minor units of this currency in balance
+  balance   Int      @default(0)     // Balance in minor units (e.g. tambala/cents)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id          String   @id @default(cuid())
+  walletId    String
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+  type        String   // topup | purchase | withdrawal | adjustment
+  amount      Int      // Positive = credit, Negative = debit (minor units)
+  status      String   @default("pending") // pending | completed | failed
+  externalRef String?  // OneKhusa referenceNumber or TAN
+  metadata    String?  // JSON blob with extra data
   createdAt   DateTime @default(now())
 }
 

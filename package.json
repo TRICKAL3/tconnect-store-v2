@@ -31,12 +31,18 @@
     "zod": "^3.23.8"
   },
   "scripts": {
+    "local": "concurrently -n api,web -c blue,green \"npm run backend:dev\" \"wait-on -t 120000 http://127.0.0.1:4001/health && npm run start\"",
     "start": "react-scripts start",
+    "dev": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "postinstall": "prisma generate",
-    "build:api": "tsc --project api/tsconfig.json"
+    "build:api": "tsc --project api/tsconfig.json",
+    "start:api": "tsc -p api/tsconfig.server.json && node api/dist/server/dev-server.js",
+    "backend:dev": "npm --prefix backend run dev",
+    "clean": "node -e \"try{require('fs').rmSync('node_modules/.cache',{recursive:true,force:true});console.log('Cache cleared');}catch(e){console.log('No cache or error:',e.message);}\"",
+    "start:fresh": "npm run clean && npm start"
   },
   "eslintConfig": {
     "extends": [
@@ -62,6 +68,9 @@
     "@types/express": "^4.17.21",
     "@types/jest": "^27.5.0",
     "@types/jsonwebtoken": "^9.0.6",
-    "@vercel/node": "^3.2.29"
+    "@vercel/node": "^3.2.29",
+    "baseline-browser-mapping": "latest",
+    "concurrently": "^9.2.1",
+    "wait-on": "^8.0.5"
   }
 }

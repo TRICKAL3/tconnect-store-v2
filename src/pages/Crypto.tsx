@@ -1,29 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import { ShoppingCart, ArrowRight, CheckCircle, Wallet, Mail, User, FileText } from 'lucide-react';
+import { ShoppingCart, ArrowRight, CheckCircle, Wallet, Mail, User, FileText, Zap } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { getMwkAmountFromUsd } from '../utils/rates';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchProducts } from '../lib/api';
+import type { CartItem } from '../lib/cartTypes';
 
-interface Exchange {
-  id: string;
-  name: string;
-  logo: string;
-  description: string;
-  supported: boolean;
-}
+type DeliveryMethod = '' | 'binance_id' | 'binance_email' | 'wallet';
+
+const NETWORKS = ['BEP20', 'TRC20', 'ERC20'] as const;
 
 interface CryptoOrder {
   coin: string;
   amountUsd: number;
-  exchange: string;
-  customExchange?: string;
-  network?: string;
+  deliveryMethod: DeliveryMethod;
+  binanceId: string;
+  binanceEmail: string;
   walletAddress: string;
-  email: string;
-  exchangeId: string;
+  network: (typeof NETWORKS)[number] | '';
   notes: string;
+}
+
+function deliverySummary(method: Exclude<DeliveryMethod, ''>): string {
+  switch (method) {
+    case 'binance_id':
+      return 'Binance ID';
+    case 'binance_email':
+      return 'Binance email';
+    case 'wallet':
+      return 'Wallet address';
+    default:
+      return '';
+  }
 }
 
 const Crypto: React.FC = () => {
@@ -33,162 +42,145 @@ const Crypto: React.FC = () => {
   const [order, setOrder] = useState<CryptoOrder>({
     coin: 'USDT',
     amountUsd: 0,
-    exchange: '',
-    customExchange: '',
-    network: '',
+    deliveryMethod: '',
+    binanceId: '',
+    binanceEmail: '',
     walletAddress: '',
-    email: '',
-    exchangeId: '',
-    notes: ''
+    network: '',
+    notes: '',
   });
   const [currentStep, setCurrentStep] = useState(1);
   const [inStock, setInStock] = useState(true);
   const [cryptoOptions, setCryptoOptions] = useState<string[]>(['USDT']);
 
-  const exchanges: Exchange[] = [
-    {
-      id: 'binance',
-      name: 'Binance',
-      logo: '🟡',
-      description: 'World\'s largest cryptocurrency exchange',
-      supported: true
-    },
-    {
-      id: 'bybit',
-      name: 'Bybit',
-      logo: '🔵',
-      description: 'Professional trading platform',
-      supported: true
-    },
-    {
-      id: 'okx',
-      name: 'OKX',
-      logo: '⚫',
-      description: 'Global crypto exchange',
-      supported: true
-    },
-    {
-      id: 'kucoin',
-      name: 'KuCoin',
-      logo: '🟢',
-      description: 'The People\'s Exchange',
-      supported: true
-    },
-    {
-      id: 'huobi',
-      name: 'Huobi',
-      logo: '🔴',
-      description: 'Global digital asset exchange',
-      supported: true
-    },
-    {
-      id: 'gate',
-      name: 'Gate.io',
-      logo: '🟠',
-      description: 'Secure crypto trading platform',
-      supported: true
-    },
-    {
-      id: 'mexc',
-      name: 'MEXC',
-      logo: '🟣',
-      description: 'Global digital asset trading platform',
-      supported: true
-    },
-    {
-      id: 'bitget',
-      name: 'Bitget',
-      logo: '🔵',
-      description: 'Social trading platform',
-      supported: true
-    }
-  ];
-
-  const handleInputChange = (field: keyof CryptoOrder, value: string | number) => {
-    setOrder(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleInputChange = <K extends keyof CryptoOrder>(field: K, value: CryptoOrder[K]) => {
+    setOrder((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleExchangeSelect = (exchangeId: string) => {
-    setOrder(prev => ({
-      ...prev,
-      exchange: exchangeId
-    }));
+  const validateDestination = (): string | null => {
+    switch (order.deliveryMethod) {
+      case 'binance_id':
+        if (!order.binanceId.trim()) return 'Enter your Binance ID.';
+        return null;
+      case 'binance_email': {
+        const e = order.binanceEmail.trim();
+        if (!e) return 'Enter your Binance email.';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return 'Enter a valid email address.';
+        return null;
+      }
+      case 'wallet': {
+        if (!order.walletAddress.trim()) return 'Enter your wallet address.';
+        if (!NETWORKS.includes(order.network as (typeof NETWORKS)[number]))
+          return 'Select a network: BEP20, TRC20, or ERC20.';
+        return null;
+      }
+      default:
+        return 'Choose how you want to receive your crypto.';
+    }
+  };
+
+  const buildCartPayload = (): CartItem | null => {
+    const err = validateDestination();
+    if (err) {
+      alert(err);
+      return null;
+    }
+    if (!(order.amountUsd > 0) || order.amountUsd < 10) {
+      alert('Enter an amount of at least $10.');
+      return null;
+    }
+    const dm = order.deliveryMethod as Exclude<DeliveryMethod, ''>;
+
+    const metadata: Record<string, unknown> = {
+      coin: order.coin,
+      amountUsd: order.amountUsd,
+      deliveryMethod: dm,
+      notes: order.notes.trim() || undefined,
+    };
+    if (dm === 'binance_id') metadata.binanceId = order.binanceId.trim();
+    if (dm === 'binance_email') metadata.binanceEmail = order.binanceEmail.trim().toLowerCase();
+    if (dm === 'wallet') {
+      metadata.walletAddress = order.walletAddress.trim();
+      metadata.network = order.network;
+    }
+
+    const methodLabel = deliverySummary(dm);
+    return {
+      id: `${order.coin.toLowerCase()}-${Date.now()}`,
+      name: `${order.coin} · $${order.amountUsd.toFixed(2)} USD · ${methodLabel}`,
+      price: order.amountUsd,
+      category: 'Cryptocurrency',
+      type: 'crypto',
+      image: order.coin === 'USDT' ? '₮' : '🪙',
+      quantity: 1,
+      metadata,
+    };
   };
 
   const addToCart = () => {
-    if (!user) { navigate('/signin'); return; }
-    const selectedExchange = order.exchange === 'other' ? (order.customExchange || 'Other') : exchanges.find(e => e.id === order.exchange)?.name;
-    if (order.amountUsd > 0 && order.exchange && order.walletAddress) {
-      dispatch({
-        type: 'ADD_ITEM',
-        payload: {
-          id: `${order.coin.toLowerCase()}-${Date.now()}`,
-          name: `${order.coin} Order - ${selectedExchange}`,
-          price: order.amountUsd,
-          category: 'Cryptocurrency',
-          type: 'crypto',
-          image: order.coin === 'USDT' ? '₮' : '🪙',
-          quantity: 1,
-          metadata: {
-            coin: order.coin,
-            amountUsd: order.amountUsd,
-            exchange: order.exchange === 'other' ? (order.customExchange || 'Other') : exchanges.find(e => e.id === order.exchange)?.name,
-            network: order.network || '',
-            walletAddress: order.walletAddress,
-            email: order.email,
-            exchangeId: order.exchangeId,
-            notes: order.notes
-          }
-        }
-      });
-      setCurrentStep(4);
-      // Scroll to top on mobile after adding to cart
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (!user) {
+      navigate('/signin');
+      return;
     }
+    const payload = buildCartPayload();
+    if (!payload) return;
+    dispatch({ type: 'ADD_ITEM', payload });
+    setCurrentStep(3);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const buyNow = () => {
+    if (!user) {
+      navigate('/signin');
+      return;
+    }
+    const payload = buildCartPayload();
+    if (!payload) return;
+    dispatch({ type: 'ADD_ITEM', payload });
+    navigate('/checkout');
   };
 
   useEffect(() => {
     (async () => {
       try {
         const products = await fetchProducts();
-        const cryptoProducts = products.filter(p => p.type === 'crypto');
-        const coins = cryptoProducts.filter(p => p.inStock).map(p => p.name.toUpperCase());
-        
-        // Check if any crypto is in stock
-        const hasInStockCrypto = cryptoProducts.some(p => p.inStock);
+        const cryptoProducts = products.filter((p) => p.type === 'crypto');
+        const coins = cryptoProducts.filter((p) => p.inStock).map((p) => p.name.toUpperCase());
+        const hasInStockCrypto = cryptoProducts.some((p) => p.inStock);
         setInStock(hasInStockCrypto);
-        
         if (coins.length) {
           setCryptoOptions(coins);
-          // If selected coin is not in stock, switch to first available coin
-          if (!coins.includes(order.coin) && coins.length > 0) {
-            setOrder(prev => ({ ...prev, coin: coins[0] }));
-          }
+          setOrder((prev) => ({
+            ...prev,
+            coin: coins.includes(prev.coin) ? prev.coin : coins[0],
+          }));
         } else {
-          // No crypto in stock
-          setCryptoOptions(['USDT']); // Keep default for display
+          setCryptoOptions(['USDT']);
           setInStock(false);
         }
-      } catch {}
+      } catch {
+        /* keep defaults */
+      }
     })();
   }, []);
 
   const renderStep1 = () => (
     <div className="card-dark p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl">
       <div className="text-center mb-8">
-        <div className="text-8xl mb-6 font-bold" style={{ color: '#f7931a' }}>₿</div>
+        <div className="text-8xl mb-6 font-bold" style={{ color: '#f7931a' }}>
+          ₿
+        </div>
         <h2 className="text-3xl font-bold text-white mb-4">Buy Crypto</h2>
-        <p className="text-gray-300 mb-6">Select coin, exchange and amount (USD). Stable coins supported.</p>
-        
-        {/* Price and Stock Status */}
+        <p className="text-gray-300 mb-6">
+          Pick your coin and amount in USD. Next, tell us where to deliver—Binance ID, Binance email, or any wallet on
+          BEP20 / TRC20 / ERC20.
+        </p>
+
         <div className="mb-8">
-          <div className="text-sm text-gray-400">Today rate example (MWK): {getMwkAmountFromUsd(1, 'crypto').toLocaleString()} per $1</div>
-          <div className={`text-lg font-semibold ${
-            inStock ? 'text-neon-green' : 'text-neon-red'
-          }`}>
+          <div className="text-sm text-gray-400">
+            Today rate example (MWK): {getMwkAmountFromUsd(1, 'crypto').toLocaleString()} per $1
+          </div>
+          <div className={`text-lg font-semibold ${inStock ? 'text-neon-green' : 'text-neon-red'}`}>
             {inStock ? '✓ In Stock' : '✗ Out of Stock'}
           </div>
         </div>
@@ -196,23 +188,21 @@ const Crypto: React.FC = () => {
 
       <div className="space-y-6">
         <div>
-          <label className="block text-lg font-bold text-white mb-3">
-            Coin
-          </label>
+          <label className="block text-lg font-bold text-white mb-3">Coin</label>
           <select
             value={order.coin}
             onChange={(e) => handleInputChange('coin', e.target.value)}
             className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent transition-all duration-200 bg-dark-surface text-white"
           >
-            {cryptoOptions.map(c => (
-              <option key={c} value={c}>{c}</option>
+            {cryptoOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-lg font-bold text-white mb-3">
-            Amount (USD)
-          </label>
+          <label className="block text-lg font-bold text-white mb-3">Amount (USD)</label>
           <input
             type="number"
             min="10"
@@ -230,6 +220,7 @@ const Crypto: React.FC = () => {
         </div>
 
         <button
+          type="button"
           onClick={() => setCurrentStep(2)}
           disabled={!inStock || !order.amountUsd || order.amountUsd < 10}
           className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-105 ${
@@ -239,7 +230,7 @@ const Crypto: React.FC = () => {
           }`}
         >
           <ArrowRight className="w-5 h-5" />
-          <span>{inStock ? 'Select Exchange' : 'Out of Stock'}</span>
+          <span>{inStock ? 'Delivery details' : 'Out of Stock'}</span>
         </button>
       </div>
     </div>
@@ -248,227 +239,191 @@ const Crypto: React.FC = () => {
   const renderStep2 = () => (
     <div className="card-dark p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-white mb-4">Select Exchange</h2>
-        <p className="text-gray-300">Choose your preferred exchange for receiving USDT</p>
+        <h2 className="text-3xl font-bold text-white mb-4">Where should we deliver?</h2>
+        <p className="text-gray-300">Choose Binance ID, Binance email, or an external wallet (BEP20, TRC20, or ERC20 only).</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
-        {exchanges.map((exchange) => (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+        {(
+          [
+            { id: 'binance_id' as const, title: 'Binance ID', desc: 'Your Binance user ID', Icon: User },
+            { id: 'binance_email' as const, title: 'Binance email', desc: 'Email on your Binance account', Icon: Mail },
+            { id: 'wallet' as const, title: 'Wallet address', desc: 'Any wallet — choose network below', Icon: Wallet },
+          ] as const
+        ).map(({ id, title, desc, Icon }) => (
           <button
-            key={exchange.id}
-            onClick={() => handleExchangeSelect(exchange.id)}
-            className={`p-4 sm:p-6 rounded-lg sm:rounded-xl border-2 transition-all duration-300 text-left active:scale-95 ${
-              order.exchange === exchange.id
+            key={id}
+            type="button"
+            onClick={() => handleInputChange('deliveryMethod', id)}
+            className={`p-4 sm:p-5 rounded-xl border-2 transition-all duration-300 text-left active:scale-[0.99] ${
+              order.deliveryMethod === id
                 ? 'border-neon-blue bg-neon-blue/10 neon-glow'
                 : 'border-dark-border hover:border-neon-blue/50'
             }`}
           >
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              <div className="text-2xl sm:text-3xl flex-shrink-0">{exchange.logo}</div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base sm:text-lg md:text-xl font-bold text-white truncate">{exchange.name}</h3>
-                <p className="text-gray-300 text-xs sm:text-sm line-clamp-2">{exchange.description}</p>
+            <div className="flex items-start space-x-3">
+              <Icon className="w-7 h-7 text-neon-blue flex-shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base sm:text-lg font-bold text-white">{title}</h3>
+                <p className="text-gray-400 text-xs sm:text-sm mt-1">{desc}</p>
               </div>
-              {order.exchange === exchange.id && (
-                <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-neon-blue flex-shrink-0 ml-auto" />
-              )}
+              {order.deliveryMethod === id && <CheckCircle className="w-5 h-5 text-neon-blue flex-shrink-0" />}
             </div>
           </button>
         ))}
-        <div className={`p-6 rounded-xl border-2 ${order.exchange === 'other' ? 'border-neon-blue bg-neon-blue/10' : 'border-dark-border'}`}>
-          <label className="block text-white font-bold mb-2">Other Exchange</label>
-          <input
-            type="text"
-            placeholder="Type exchange name"
-            value={order.exchange === 'other' ? (order.customExchange || '') : ''}
-            onFocus={() => handleExchangeSelect('other')}
-            onChange={(e) => {
-              handleExchangeSelect('other');
-              handleInputChange('customExchange', e.target.value);
-            }}
-            className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent transition-all duration-200 bg-dark-surface text-white"
+      </div>
+
+      <div className="space-y-6 border-t border-dark-border pt-6">
+        {order.deliveryMethod === 'binance_id' && (
+          <div>
+            <label className="block text-lg font-bold text-white mb-3">
+              <User className="w-5 h-5 inline mr-2" />
+              Binance ID
+            </label>
+            <input
+              type="text"
+              placeholder="Your Binance ID"
+              value={order.binanceId}
+              onChange={(e) => handleInputChange('binanceId', e.target.value)}
+              className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent bg-dark-surface text-white"
+            />
+            <p className="text-sm text-gray-400 mt-2">Find it in Binance profile or account settings.</p>
+          </div>
+        )}
+
+        {order.deliveryMethod === 'binance_email' && (
+          <div>
+            <label className="block text-lg font-bold text-white mb-3">
+              <Mail className="w-5 h-5 inline mr-2" />
+              Binance email
+            </label>
+            <input
+              type="email"
+              placeholder="same email linked to Binance"
+              value={order.binanceEmail}
+              onChange={(e) => handleInputChange('binanceEmail', e.target.value)}
+              className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent bg-dark-surface text-white"
+            />
+          </div>
+        )}
+
+        {order.deliveryMethod === 'wallet' && (
+          <>
+            <div>
+              <label className="block text-lg font-bold text-white mb-3">Network</label>
+              <select
+                value={order.network}
+                onChange={(e) =>
+                  handleInputChange('network', e.target.value as CryptoOrder['network'])
+                }
+                className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent bg-dark-surface text-white"
+              >
+                <option value="">Select network</option>
+                {NETWORKS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <p className="text-sm text-gray-400 mt-2">Wallet transfers are supported on BEP20, TRC20, and ERC20 only.</p>
+            </div>
+            <div>
+              <label className="block text-lg font-bold text-white mb-3">
+                <Wallet className="w-5 h-5 inline mr-2" />
+                Wallet address
+              </label>
+              <input
+                type="text"
+                placeholder="Receiving address"
+                value={order.walletAddress}
+                onChange={(e) => handleInputChange('walletAddress', e.target.value)}
+                className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent bg-dark-surface text-white font-mono text-sm sm:text-base"
+              />
+            </div>
+          </>
+        )}
+
+        <div>
+          <label className="block text-lg font-bold text-white mb-3">
+            <FileText className="w-5 h-5 inline mr-2" />
+            Notes <span className="text-gray-500 font-normal">(optional)</span>
+          </label>
+          <textarea
+            placeholder="Anything else we should know"
+            value={order.notes}
+            onChange={(e) => handleInputChange('notes', e.target.value)}
+            rows={3}
+            className="w-full border-2 border-dark-border rounded-xl px-4 py-3 focus:ring-2 focus:ring-neon-blue bg-dark-surface text-white resize-none"
           />
         </div>
       </div>
 
-      <div className="flex space-x-4">
+      <div className="flex flex-col sm:flex-row gap-3 mt-8">
         <button
+          type="button"
           onClick={() => setCurrentStep(1)}
-          className="flex-1 cyber-border text-white py-3 px-6 rounded-xl font-bold transition-all duration-300 hover:scale-105"
+          className="flex-1 cyber-border text-white py-3 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]"
         >
           Back
         </button>
         <button
-          onClick={() => setCurrentStep(3)}
-          disabled={!order.exchange}
-          className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-105 ${
-            order.exchange
-              ? 'btn-cyber text-white'
-              : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+          type="button"
+          onClick={addToCart}
+          disabled={!order.deliveryMethod}
+          className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all flex items-center justify-center space-x-2 ${
+            order.deliveryMethod ? 'btn-cyber text-white hover:scale-[1.02]' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
           }`}
         >
-          <ArrowRight className="w-5 h-5" />
-          <span>Continue</span>
+          <ShoppingCart className="w-5 h-5" />
+          <span>Add to cart</span>
+        </button>
+        <button
+          type="button"
+          onClick={buyNow}
+          disabled={!order.deliveryMethod}
+          className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all flex items-center justify-center space-x-2 ${
+            order.deliveryMethod ? 'bg-white text-dark-bg hover:bg-gray-100' : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+          }`}
+        >
+          <Zap className="w-5 h-5" />
+          <span>Buy now</span>
         </button>
       </div>
     </div>
   );
 
   const renderStep3 = () => (
-    <div className="card-dark p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-white mb-4">Exchange Details</h2>
-        <p className="text-gray-300">Provide wallet details and choose the correct network for your coin</p>
-      </div>
-
-      <div className="space-y-6">
-        <div>
-          <label className="block text-lg font-bold text-white mb-3">
-            Network
-          </label>
-          <select
-            value={order.network || ''}
-            onChange={(e) => handleInputChange('network', e.target.value)}
-            className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent transition-all duration-200 bg-dark-surface text-white"
-          >
-            {order.coin === 'USDT' && (<>
-              <option value="TRC20">TRC20</option>
-              <option value="ERC20">ERC20</option>
-              <option value="BEP20">BEP20</option>
-            </>)}
-            {order.coin === 'USDC' && (<>
-              <option value="ERC20">ERC20</option>
-              <option value="TRC20">TRC20</option>
-              <option value="BEP20">BEP20</option>
-            </>)}
-            {order.coin === 'BUSD' && (<>
-              <option value="BEP20">BEP20</option>
-              <option value="ERC20">ERC20</option>
-            </>)}
-            {order.coin === 'BTC' && (<>
-              <option value="BTC">BTC (Legacy/SegWit)</option>
-              <option value="BTC Taproot">BTC Taproot</option>
-            </>)}
-            {order.coin === 'ETH' && (<>
-              <option value="ERC20">ERC20</option>
-            </>)}
-          </select>
-          <p className="text-sm text-gray-400 mt-2">Make sure the network matches your receiving address.</p>
-        </div>
-        <div>
-          <label className="block text-lg font-bold text-white mb-3">
-            <Wallet className="w-5 h-5 inline mr-2" />
-            Wallet Address
-          </label>
-          <input
-            type="text"
-            placeholder="Enter your wallet address"
-            value={order.walletAddress}
-            onChange={(e) => handleInputChange('walletAddress', e.target.value)}
-            className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent transition-all duration-200 bg-dark-surface text-white"
-          />
-          <p className="text-sm text-gray-400 mt-2">We support the network you select above for this coin.</p>
-        </div>
-
-        <div>
-          <label className="block text-lg font-bold text-white mb-3">
-            <Mail className="w-5 h-5 inline mr-2" />
-            Email Address
-          </label>
-          <input
-            type="email"
-            placeholder="Enter your email address"
-            value={order.email}
-            onChange={(e) => handleInputChange('email', e.target.value)}
-            className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent transition-all duration-200 bg-dark-surface text-white"
-          />
-        </div>
-
-        <div>
-          <label className="block text-lg font-bold text-white mb-3">
-            <User className="w-5 h-5 inline mr-2" />
-            Exchange ID (Optional)
-          </label>
-          <input
-            type="text"
-            placeholder="Enter your exchange user ID"
-            value={order.exchangeId}
-            onChange={(e) => handleInputChange('exchangeId', e.target.value)}
-            className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent transition-all duration-200 bg-dark-surface text-white"
-          />
-        </div>
-
-        <div>
-          <label className="block text-lg font-bold text-white mb-3">
-            <FileText className="w-5 h-5 inline mr-2" />
-            Additional Notes (Optional)
-          </label>
-          <textarea
-            placeholder="Any additional information or special instructions"
-            value={order.notes}
-            onChange={(e) => handleInputChange('notes', e.target.value)}
-            rows={3}
-            className="w-full border-2 border-dark-border rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-neon-blue focus:border-transparent transition-all duration-200 bg-dark-surface text-white resize-none"
-          />
-        </div>
-      </div>
-
-      <div className="flex space-x-4 mt-8">
-        <button
-          onClick={() => setCurrentStep(2)}
-          className="flex-1 cyber-border text-white py-3 px-6 rounded-xl font-bold transition-all duration-300 hover:scale-105"
-        >
-          Back
-        </button>
-        <button
-          onClick={addToCart}
-          disabled={!order.walletAddress || !order.email}
-          className={`flex-1 py-3 px-6 rounded-xl font-bold transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-105 ${
-            order.walletAddress && order.email
-              ? 'btn-cyber text-white'
-              : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-          }`}
-        >
-          <ShoppingCart className="w-5 h-5" />
-          <span>Add to Cart</span>
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderStep4 = () => (
     <div className="card-dark p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl text-center">
       <div className="text-6xl mb-6">✅</div>
-      <h2 className="text-3xl font-bold text-white mb-4">Order Added to Cart!</h2>
-      <p className="text-gray-300 mb-8">
-        Your USDT order has been added to your cart. You can now proceed to checkout.
-      </p>
-      
+      <h2 className="text-3xl font-bold text-white mb-4">Added to cart</h2>
+      <p className="text-gray-300 mb-8">Your {order.coin} order is in the cart. Continue to checkout when you’re ready.</p>
+
       <div className="space-y-4">
         <button
+          type="button"
           onClick={() => navigate('/cart')}
-          className="w-full btn-cyber text-white py-4 px-8 rounded-xl font-bold text-lg transition-all duration-300 hover:scale-105"
+          className="w-full btn-cyber text-white py-4 px-8 rounded-xl font-bold text-lg transition-all hover:scale-[1.02]"
         >
-          Go to Cart
+          Go to cart
         </button>
         <button
+          type="button"
           onClick={() => {
             setCurrentStep(1);
             setOrder({
-              coin: 'USDT',
+              coin: cryptoOptions[0] || 'USDT',
               amountUsd: 0,
-              exchange: '',
-              customExchange: '',
-              network: '',
+              deliveryMethod: '',
+              binanceId: '',
+              binanceEmail: '',
               walletAddress: '',
-              email: '',
-              exchangeId: '',
-              notes: ''
+              network: '',
+              notes: '',
             });
           }}
-          className="w-full cyber-border text-white py-3 px-6 rounded-xl font-bold transition-all duration-300 hover:scale-105"
+          className="w-full cyber-border text-white py-3 px-6 rounded-xl font-bold transition-all hover:scale-[1.02]"
         >
-          Place Another Order
+          Another order
         </button>
       </div>
     </div>
@@ -477,59 +432,48 @@ const Crypto: React.FC = () => {
   return (
     <div className="min-h-screen bg-dark-bg">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
         <div className="mb-12 text-center">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 holographic">
-            Buy Crypto
-          </h1>
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 holographic">Buy Crypto</h1>
           <p className="text-base md:text-lg text-gray-300 max-w-4xl mx-auto leading-relaxed">
-            Purchase supported coins and receive directly to your exchange wallet
+            Stable coins supported. Deliver to Binance (ID or email) or any wallet on BEP20, TRC20, or ERC20.
           </p>
         </div>
 
-        {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-2 sm:space-x-4 overflow-x-auto pb-2">
-            {[1, 2, 3, 4].map((step) => (
+            {[1, 2, 3].map((step) => (
               <div key={step} className="flex items-center flex-shrink-0">
-                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-all duration-300 ${
-                  currentStep >= step
-                    ? 'bg-neon-blue text-white neon-glow scale-110'
-                    : 'bg-dark-surface text-gray-400'
-                }`}>
+                <div
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-all ${
+                    currentStep >= step ? 'bg-neon-blue text-white neon-glow scale-110' : 'bg-dark-surface text-gray-400'
+                  }`}
+                >
                   {step}
                 </div>
-                {step < 4 && (
-                  <div className={`w-8 sm:w-12 md:w-16 h-1 mx-1 sm:mx-2 transition-all duration-300 ${
-                    currentStep > step ? 'bg-neon-blue' : 'bg-dark-surface'
-                  }`} />
+                {step < 3 && (
+                  <div
+                    className={`w-8 sm:w-16 md:w-24 h-1 mx-2 transition-all ${currentStep > step ? 'bg-neon-blue' : 'bg-dark-surface'}`}
+                  />
                 )}
               </div>
             ))}
           </div>
-          <div className="flex justify-center mt-3 sm:mt-4 space-x-4 sm:space-x-8 md:space-x-16 text-xs sm:text-sm">
+          <div className="flex justify-center mt-3 text-xs sm:text-sm gap-6 sm:gap-12 md:gap-20">
             <span className="text-gray-300 whitespace-nowrap">Amount</span>
-            <span className="text-gray-300 whitespace-nowrap">Exchange</span>
-            <span className="text-gray-300 whitespace-nowrap hidden sm:inline">Details</span>
-            <span className="text-gray-300 whitespace-nowrap hidden sm:inline">Complete</span>
+            <span className="text-gray-300 whitespace-nowrap">Deliver to</span>
+            <span className="text-gray-300 whitespace-nowrap">Done</span>
           </div>
         </div>
 
-        {/* Step Content */}
         {currentStep === 1 && renderStep1()}
         {currentStep === 2 && renderStep2()}
         {currentStep === 3 && renderStep3()}
-        {currentStep === 4 && renderStep4()}
 
-        {/* Security Notice */}
         <div className="mt-12 bg-neon-orange/10 border border-neon-orange/30 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-neon-orange mb-2">
-            Security Notice
-          </h3>
+          <h3 className="text-lg font-semibold text-neon-orange mb-2">Security</h3>
           <p className="text-neon-orange/80 text-sm">
-            All USDT transactions are secured with bank-level encryption. 
-            We only support TRC20 network for USDT transfers. Please ensure you have 
-            provided the correct TRC20 wallet address for your selected exchange.
+            Double-check Binance IDs, emails, and wallet addresses before paying. Wrong details can delay or lose funds.
+            For external wallets, the network must match (BEP20, TRC20, or ERC20).
           </p>
         </div>
       </div>

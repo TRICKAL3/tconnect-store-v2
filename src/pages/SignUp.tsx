@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getApiBase } from '../lib/getApiBase';
 import { auth } from '../lib/firebaseClient';
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logoImage from '../assets/tconnect_logo.png';
@@ -40,56 +39,11 @@ const SignUp: React.FC = () => {
       const provider = new GoogleAuthProvider();
       provider.addScope('profile');
       provider.addScope('email');
-      
-      console.log('🟢 Attempting popup-based sign-up...');
-      
-      // Try popup first (no redirect URI config needed)
-      try {
-        const result = await signInWithPopup(auth, provider);
-        console.log('✅ Popup sign-up successful:', result.user.email);
-        
-        // Upsert user to backend
-        const email = result.user.email;
-        const displayName = result.user.displayName || email?.split('@')[0] || 'User';
-        const photoURL = result.user.photoURL || undefined;
-        
-        try {
-          const API_BASE = getApiBase();
-          await fetch(`${API_BASE}/users/upsert`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, name: displayName, avatarUrl: photoURL })
-          });
-        } catch (upsertError) {
-          console.error('Failed to upsert user:', upsertError);
-        }
-        
-        // Redirect to home
-        navigate('/', { replace: true });
-        setLoading(false);
-      } catch (popupError: any) {
-        // If popup is blocked, fall back to redirect
-        if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/popup-closed-by-user') {
-          console.log('⚠️ Popup blocked, falling back to redirect...');
-          setError('Popup was blocked. Please allow popups and try again, or the page will redirect...');
-          
-          // Fallback to redirect after a short delay
-          setTimeout(async () => {
-            try {
-              await signInWithRedirect(auth, provider);
-            } catch (redirectError: any) {
-              console.error('❌ Redirect also failed:', redirectError);
-              setError('Sign-up failed. Please try again or check your browser settings.');
-              setLoading(false);
-            }
-          }, 2000);
-        } else {
-          throw popupError;
-        }
-      }
+      await signInWithPopup(auth, provider);
     } catch (err: any) {
-      console.error('❌ Sign-up error:', err);
-      setError(err.message || 'Failed to sign up with Google');
+      console.error('Sign-up error:', err);
+      setError(err?.message || 'Failed to sign up with Google');
+    } finally {
       setLoading(false);
     }
   };

@@ -4,8 +4,105 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { getMwkAmountFromUsd } from '../utils/rates';
 import AdminNotificationBell from '../components/AdminNotificationBell';
 import { getApiBase } from '../lib/getApiBase';
+import {
+  GIFTCARD_ADMIN_MIN_USD,
+  GIFTCARD_ADMIN_MAX_USD,
+  isGiftCardAdminPriceValid,
+} from '../lib/giftCardPricing';
+import PromotionsManager from '../components/admin/PromotionsManager';
+import BlogsManager from '../components/admin/BlogsManager';
+import AbandonedCartsManager from '../components/admin/AbandonedCartsManager';
+import {
+  Home,
+  ShoppingBag,
+  BarChart3,
+  Package,
+  DollarSign,
+  FileText,
+  Repeat,
+  Users,
+  Star,
+  Receipt,
+  Image,
+  MessageSquare,
+  ClipboardList,
+  Megaphone,
+  BookOpen,
+  Bell,
+  Search,
+  ShieldCheck,
+  ShoppingCart,
+  type LucideIcon,
+} from 'lucide-react';
 
 const API_BASE = getApiBase();
+
+type AdminTab =
+  | 'home'
+  | 'orders'
+  | 'products'
+  | 'rates'
+  | 'invoices'
+  | 'users'
+  | 'slides'
+  | 'sales'
+  | 'ttorders'
+  | 'chats'
+  | 'points'
+  | 'receipts'
+  | 'notifications'
+  | 'manualorders'
+  | 'promotions'
+  | 'blogs'
+  | 'carts';
+
+type AdminSection = {
+  id: Exclude<AdminTab, 'home'>;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+type AdminRole = 'superadmin' | 'operations' | 'content' | 'support';
+
+type HomeStats = {
+  totalOrders: number;
+  pendingOrders: number;
+  activePromotions: number;
+};
+
+const ADMIN_SECTIONS: AdminSection[] = [
+  { id: 'orders', label: 'Orders', description: 'Review and process customer orders', icon: ShoppingBag },
+  { id: 'carts', label: 'Saved carts', description: 'Customers with items in cart (for follow-up)', icon: ShoppingCart },
+  { id: 'sales', label: 'Sales Dashboard', description: 'Track revenue and business performance', icon: BarChart3 },
+  { id: 'products', label: 'Products', description: 'Manage products, pricing, and stock', icon: Package },
+  { id: 'rates', label: 'Rates', description: 'Update exchange and payout rates', icon: DollarSign },
+  { id: 'invoices', label: 'Invoices', description: 'Issue and manage invoice records', icon: FileText },
+  { id: 'ttorders', label: 'TT Orders', description: 'Handle telegraphic transfer requests', icon: Repeat },
+  { id: 'users', label: 'Users', description: 'Manage user accounts and access', icon: Users },
+  { id: 'points', label: 'Points Portal', description: 'Administer points balances and rules', icon: Star },
+  { id: 'receipts', label: 'Points Receipts', description: 'Track points redemption receipts', icon: Receipt },
+  { id: 'slides', label: 'Slideshows', description: 'Control homepage slideshow content', icon: Image },
+  { id: 'chats', label: 'Chats', description: 'Respond to live customer conversations', icon: MessageSquare },
+  { id: 'manualorders', label: 'Manual Orders', description: 'Create orders manually for customers', icon: ClipboardList },
+  { id: 'promotions', label: 'Promotions', description: 'Create and manage promo campaigns', icon: Megaphone },
+  { id: 'blogs', label: 'Blogs', description: 'Publish and edit blog content', icon: BookOpen },
+  { id: 'notifications', label: 'Send Notifications', description: 'Send announcements to users', icon: Bell },
+];
+
+const ROLE_LABELS: Record<AdminRole, string> = {
+  superadmin: 'Super Admin',
+  operations: 'Operations',
+  content: 'Content Team',
+  support: 'Support Team',
+};
+
+const ROLE_SECTION_ACCESS: Record<AdminRole, AdminSection['id'][]> = {
+  superadmin: ADMIN_SECTIONS.map((s) => s.id),
+  operations: ['orders', 'carts', 'sales', 'products', 'rates', 'invoices', 'ttorders', 'manualorders', 'promotions'],
+  content: ['products', 'slides', 'promotions', 'blogs', 'notifications'],
+  support: ['orders', 'carts', 'users', 'chats', 'points', 'receipts', 'notifications'],
+};
 
 // Define SalesDashboard before Admin component to satisfy TypeScript
 function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
@@ -13,6 +110,8 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
   const [products, setProducts] = useState<any[]>([]);
   const [reportPeriod, setReportPeriod] = useState<'day' | 'week' | 'month'>('day');
   const [loading, setLoading] = useState(false);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   const load = async () => {
     setLoading(true);
@@ -51,9 +150,27 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       filterDate.setMonth(now.getMonth() - 1);
     }
 
-    const periodOrders = completedOrders.filter(o => 
-      new Date(o.createdAt) >= filterDate
-    );
+    const hasCustomRange = !!startDate || !!endDate;
+
+    const periodOrders = completedOrders.filter(o => {
+      const created = new Date(o.createdAt);
+
+      // If a custom date range is selected, use that and ignore the quick period filter
+      if (hasCustomRange) {
+        if (startDate) {
+          const start = new Date(startDate + 'T00:00:00');
+          if (created < start) return false;
+        }
+        if (endDate) {
+          const end = new Date(endDate + 'T23:59:59');
+          if (created > end) return false;
+        }
+        return true;
+      }
+
+      // Default behaviour: use quick period (Today / Last 7 / Last 30)
+      return created >= filterDate;
+    });
 
     // Revenue by type
     const revenueByType: Record<string, { mwk: number; usd: number; count: number }> = {};
@@ -90,6 +207,7 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       totalRevenueUSD,
       totalOrders,
       pendingOrders,
+      orders: periodOrders,
       revenueByType: Object.entries(revenueByType).map(([type, data]) => ({
         type: type.charAt(0).toUpperCase() + type.slice(1).replace('-', ' '),
         ...data
@@ -98,7 +216,40 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
         new Date(a.date).getTime() - new Date(b.date).getTime()
       )
     };
-  }, [orders, reportPeriod]);
+  }, [orders, reportPeriod, startDate, endDate]);
+
+  const handleExport = () => {
+    if (!salesData.orders || salesData.orders.length === 0) return;
+
+    const headers = ['Order ID', 'Date', 'Status', 'Total USD', 'Total MWK', 'Items'];
+    const rows = salesData.orders.map((o: any) => {
+      const itemsSummary = (o.items || []).map((item: any) => `${item.name} x${item.quantity}`).join('; ');
+      const date = o.createdAt ? new Date(o.createdAt).toISOString() : '';
+      const totalUsd = typeof o.totalUsd === 'number' ? o.totalUsd.toFixed(2) : '';
+      const totalMwk = typeof o.totalMwk === 'number' ? String(o.totalMwk) : '';
+      return [o.id, date, o.status, totalUsd, totalMwk, itemsSummary];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(field => `"${String(field ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\r\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+
+    const rangeLabel =
+      startDate || endDate
+        ? `${startDate || 'start'}_to_${endDate || 'end'}`
+        : reportPeriod;
+
+    link.download = `tconnect-sales-${rangeLabel}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Inventory summary
   const inventorySummary = useMemo(() => {
@@ -150,6 +301,48 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
         >
           Last 30 Days
         </button>
+      </div>
+
+      {/* Custom Date Range & Export */}
+      <div className="flex flex-col md:flex-row md:items-end gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">From date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-dark-surface border border-dark-border rounded px-3 py-2 text-gray-100 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">To date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-dark-surface border border-dark-border rounded px-3 py-2 text-gray-100 text-sm"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setStartDate('');
+              setEndDate('');
+            }}
+            className="px-3 py-2 rounded-lg text-xs md:text-sm bg-dark-surface text-gray-300 border border-dark-border hover:bg-dark-card"
+          >
+            Clear dates
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!salesData.orders || salesData.orders.length === 0}
+            className="px-4 py-2 rounded-lg text-xs md:text-sm font-semibold bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Export to Excel (CSV)
+          </button>
+        </div>
       </div>
 
       {/* Revenue Summary Cards */}
@@ -301,10 +494,18 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
 }
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'rates' | 'invoices' | 'users' | 'slides' | 'sales' | 'ttorders' | 'chats' | 'points' | 'receipts' | 'notifications'>('orders');
+  const [activeTab, setActiveTab] = useState<AdminTab>('home');
   const [adminPass, setAdminPass] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState('');
+  const [adminRole, setAdminRole] = useState<AdminRole>('superadmin');
+  const [homeSearch, setHomeSearch] = useState('');
+  const [homeStats, setHomeStats] = useState<HomeStats>({
+    totalOrders: 0,
+    pendingOrders: 0,
+    activePromotions: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(false);
   const ADMIN_PASSWORD = '09090808pP#';
   
   const handleLogin = (e: React.FormEvent) => {
@@ -334,6 +535,71 @@ const Admin: React.FC = () => {
     }
     return headers;
   };
+
+  const visibleSectionIds = useMemo(
+    () => new Set<AdminSection['id']>(ROLE_SECTION_ACCESS[adminRole]),
+    [adminRole]
+  );
+
+  const visibleSections = useMemo(
+    () => ADMIN_SECTIONS.filter((section) => visibleSectionIds.has(section.id)),
+    [visibleSectionIds]
+  );
+
+  const filteredSections = useMemo(() => {
+    const q = homeSearch.trim().toLowerCase();
+    if (!q) return visibleSections;
+    return visibleSections.filter(
+      (section) =>
+        section.label.toLowerCase().includes(q) ||
+        section.description.toLowerCase().includes(q)
+    );
+  }, [homeSearch, visibleSections]);
+
+  useEffect(() => {
+    if (activeTab !== 'home' && !visibleSectionIds.has(activeTab as AdminSection['id'])) {
+      setActiveTab('home');
+    }
+  }, [activeTab, visibleSectionIds]);
+
+  const loadHomeStats = async () => {
+    if (!isAuthenticated) return;
+    setStatsLoading(true);
+    try {
+      const headers = getAdminHeaders() as HeadersInit;
+      const [ordersRes, promotionsRes] = await Promise.all([
+        fetch(`${API_BASE}/orders`, { headers }),
+        fetch(`${API_BASE}/promotions/all`, { headers }),
+      ]);
+
+      const [ordersData, promotionsData] = await Promise.all([
+        ordersRes.ok ? ordersRes.json() : [],
+        promotionsRes.ok ? promotionsRes.json() : [],
+      ]);
+
+      const orders = Array.isArray(ordersData) ? ordersData : [];
+      const promotions = Array.isArray(promotionsData) ? promotionsData : [];
+
+      setHomeStats({
+        totalOrders: orders.length,
+        pendingOrders: orders.filter((o: any) => o?.status === 'pending').length,
+        activePromotions: promotions.filter((p: any) => p?.active !== false).length,
+      });
+    } catch {
+      setHomeStats({
+        totalOrders: 0,
+        pendingOrders: 0,
+        activePromotions: 0,
+      });
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) loadHomeStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   // Show password gate if not authenticated
   if (!isAuthenticated) {
@@ -374,41 +640,115 @@ const Admin: React.FC = () => {
             <h1 className="text-3xl md:text-5xl font-bold text-white holographic">Admin Dashboard</h1>
             <p className="text-gray-300 mt-2">Manage orders, products, rates, and payments.</p>
           </div>
-          <AdminNotificationBell getAdminHeaders={getAdminHeaders} />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dark-border bg-dark-surface">
+              <ShieldCheck className="w-4 h-4 text-neon-blue" />
+              <select
+                value={adminRole}
+                onChange={(e) => setAdminRole(e.target.value as AdminRole)}
+                className="bg-transparent text-sm text-white focus:outline-none"
+              >
+                {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value} className="bg-dark-surface text-white">
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <AdminNotificationBell getAdminHeaders={getAdminHeaders} />
+          </div>
         </div>
 
         <div className="card-dark p-2 mb-6">
           <div className="flex flex-wrap gap-2">
-            {[
-              { id: 'orders', label: 'Orders' },
-              { id: 'sales', label: 'Sales Dashboard' },
-              { id: 'products', label: 'Products' },
-              { id: 'rates', label: 'Rates' },
-              { id: 'invoices', label: 'Invoices' },
-              { id: 'ttorders', label: 'TT Orders' },
-              { id: 'users', label: 'Users' },
-              { id: 'points', label: 'Points Portal' },
-              { id: 'receipts', label: 'Points Receipts' }, // Receipt tracking tab
-              { id: 'slides', label: 'Slideshows' },
-              { id: 'chats', label: 'Chats' },
-              { id: 'notifications', label: 'Send Notifications' },
-            ].map((t) => (
+            {[{ id: 'home' as AdminTab, label: 'Home', icon: Home }, ...visibleSections].map((t) => {
+              const Icon = t.icon;
+              return (
               <button
                 key={t.id}
-                onClick={() => setActiveTab(t.id as any)}
+                onClick={() => setActiveTab(t.id)}
                 className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                  activeTab === (t.id as any)
+                  activeTab === t.id
                     ? 'bg-neon-blue text-white neon-glow'
                     : 'bg-dark-surface text-gray-300 hover:bg-dark-card border border-dark-border'
                 }`}
               >
-                {t.label}
+                <span className="flex items-center gap-2">
+                  <Icon className="w-4 h-4" />
+                  {t.label}
+                </span>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         <div className="card-dark p-6">
+          {activeTab === 'home' && (
+            <div>
+              <div className="mb-5">
+                <h2 className="text-xl font-bold text-white mb-2">Admin Home</h2>
+                <p className="text-gray-400">Quick access to every section in your dashboard.</p>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                {[
+                  { label: 'Total Orders', value: homeStats.totalOrders, accent: 'text-neon-blue' },
+                  { label: 'Pending Orders', value: homeStats.pendingOrders, accent: 'text-yellow-400' },
+                  { label: 'Active Promos', value: homeStats.activePromotions, accent: 'text-purple-400' },
+                ].map((stat) => (
+                  <div key={stat.label} className="rounded-xl border border-dark-border bg-dark-surface p-4">
+                    <p className="text-xs text-gray-400 mb-1">{stat.label}</p>
+                    <p className={`text-2xl font-bold ${stat.accent}`}>
+                      {statsLoading ? '...' : stat.value.toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    value={homeSearch}
+                    onChange={(e) => setHomeSearch(e.target.value)}
+                    placeholder="Search sections..."
+                    className="w-full bg-dark-surface border border-dark-border rounded-lg pl-10 pr-4 py-2 text-white text-sm focus:border-neon-blue focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={loadHomeStats}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-dark-surface text-gray-200 border border-dark-border hover:border-neon-blue transition-colors"
+                >
+                  Refresh stats
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredSections.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <button
+                      key={section.id}
+                      onClick={() => setActiveTab(section.id)}
+                      className="text-left rounded-xl border border-dark-border bg-dark-surface hover:border-neon-blue hover:shadow-[0_0_12px_rgba(0,221,255,0.18)] transition-all p-4"
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-9 h-9 rounded-lg bg-neon-blue/15 text-neon-blue flex items-center justify-center">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <h3 className="text-white font-semibold">{section.label}</h3>
+                      </div>
+                      <p className="text-sm text-gray-400">{section.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {filteredSections.length === 0 && (
+                <div className="text-sm text-gray-400 mt-4">No section matches that search for this role.</div>
+              )}
+            </div>
+          )}
           {activeTab === 'orders' && (
             <div>
               <h2 className="text-xl font-bold text-white mb-4">Recent Orders</h2>
@@ -475,6 +815,30 @@ const Admin: React.FC = () => {
               <ReceiptsManager getAdminHeaders={getAdminHeaders} />
             </div>
           )}
+          {activeTab === 'manualorders' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">Manual Orders</h2>
+              <ManualOrdersManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
+          {activeTab === 'promotions' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">Promotions</h2>
+              <PromotionsManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
+          {activeTab === 'blogs' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">Blogs</h2>
+              <BlogsManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
+          {activeTab === 'carts' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">Saved carts (abandoned checkout)</h2>
+              <AbandonedCartsManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
           {activeTab === 'notifications' && (
             <div>
               <h2 className="text-xl font-bold text-white mb-4">Send Notifications</h2>
@@ -487,9 +851,216 @@ const Admin: React.FC = () => {
   );
 }
 
+function ManualOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    userId: '',
+    items: [{ name: '', type: 'giftcard', price: '', quantity: 1 }],
+    totalUsd: '',
+    totalMwk: ''
+  });
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/users`, { headers: getAdminHeaders() as HeadersInit });
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(Array.isArray(data) ? data : []);
+        }
+      } catch (e) {
+        console.error('Failed to load users:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadUsers();
+  }, [getAdminHeaders]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.userId) {
+      alert('Please select a user from the list (signed-up members only)');
+      return;
+    }
+    const items = form.items
+      .filter(i => (i.name || '').trim() && (Number(i.price) || 0) > 0 && (Number(i.quantity) || 0) > 0)
+      .map(i => ({ name: (i.name || '').trim(), type: i.type || 'giftcard', category: 'general', price: Number(i.price) || 0, quantity: Number(i.quantity) || 1 }));
+    if (items.length === 0) {
+      alert('Add at least one item with name, price > 0, and quantity > 0');
+      return;
+    }
+    const totalUsd = Number(form.totalUsd);
+    const totalMwk = Number(form.totalMwk);
+    if (!totalUsd || totalUsd <= 0 || !totalMwk || totalMwk <= 0) {
+      alert('Enter valid total USD and total MWK');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() } as HeadersInit,
+        body: JSON.stringify({
+          adminCreateForUser: true,
+          userId: form.userId,
+          items,
+          totalUsd,
+          totalMwk: Math.round(totalMwk)
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err?.error || (res.status === 401 ? 'Unauthorized. Check admin password.' : `Error ${res.status}`);
+        throw new Error(msg);
+      }
+      alert('Order created successfully. It will appear in the user\'s order history.');
+      setForm({ userId: '', items: [{ name: '', type: 'giftcard', price: '', quantity: 1 }], totalUsd: '', totalMwk: '' });
+    } catch (err: any) {
+      alert(err.message || 'Failed to create order');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-gray-400 py-4">Loading users...</div>;
+  }
+
+  return (
+    <div className="card-dark p-6">
+      <h3 className="text-lg font-bold text-white mb-2">Create order for a member</h3>
+      <p className="text-gray-400 text-sm mb-4">Select a user from the list of signed-up members. The order will appear in their order history.</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">Member (signed-up users)</label>
+          <select
+            value={form.userId}
+            onChange={(e) => setForm(prev => ({ ...prev, userId: e.target.value }))}
+            required
+            className="w-full px-4 py-2 bg-dark-bg border border-dark-border rounded-lg text-white"
+          >
+            <option value="">— Select a user —</option>
+            {users.map((u: any) => (
+              <option key={u.id} value={u.id}>
+                {u.email || u.name || u.id} {u.name ? `(${u.name})` : ''}
+              </option>
+            ))}
+          </select>
+          {users.length === 0 && <p className="text-gray-500 text-sm mt-1">No signed-up users yet.</p>}
+        </div>
+        <div>
+          <label className="block text-sm text-gray-300 mb-2">Items</label>
+          {form.items.map((item, idx) => (
+            <div key={idx} className="flex flex-wrap gap-2 mb-2 items-center">
+              <input
+                type="text"
+                value={item.name}
+                onChange={(e) => {
+                  const next = [...form.items];
+                  next[idx] = { ...next[idx], name: e.target.value };
+                  setForm(prev => ({ ...prev, items: next }));
+                }}
+                placeholder="Item name"
+                className="flex-1 min-w-[120px] px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white text-sm"
+              />
+              <select
+                value={item.type}
+                onChange={(e) => {
+                  const next = [...form.items];
+                  next[idx] = { ...next[idx], type: e.target.value };
+                  setForm(prev => ({ ...prev, items: next }));
+                }}
+                className="px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white text-sm"
+              >
+                <option value="giftcard">giftcard</option>
+                <option value="crypto">crypto</option>
+                <option value="wallet">Digital wallet (payments)</option>
+                <option value="virtual-card">Virtual card (payments)</option>
+                <option value="other">other</option>
+              </select>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={item.price}
+                onChange={(e) => {
+                  const next = [...form.items];
+                  next[idx] = { ...next[idx], price: e.target.value };
+                  setForm(prev => ({ ...prev, items: next }));
+                }}
+                placeholder="Price USD"
+                className="w-24 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white text-sm"
+              />
+              <input
+                type="number"
+                min="1"
+                value={item.quantity}
+                onChange={(e) => {
+                  const next = [...form.items];
+                  next[idx] = { ...next[idx], quantity: Number(e.target.value) || 1 };
+                  setForm(prev => ({ ...prev, items: next }));
+                }}
+                className="w-16 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white text-sm"
+              />
+              {form.items.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }))}
+                  className="text-red-400 hover:text-red-300 text-sm"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setForm(prev => ({ ...prev, items: [...prev.items, { name: '', type: 'giftcard', price: '', quantity: 1 }] }))}
+            className="text-sm text-neon-blue hover:text-neon-purple"
+          >
+            + Add item
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Total USD</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.totalUsd}
+              onChange={(e) => setForm(prev => ({ ...prev, totalUsd: e.target.value }))}
+              className="w-32 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">Total MWK</label>
+            <input
+              type="number"
+              min="0"
+              value={form.totalMwk}
+              onChange={(e) => setForm(prev => ({ ...prev, totalMwk: e.target.value }))}
+              className="w-32 px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white"
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="px-4 py-2 rounded-lg bg-neon-purple text-white font-medium disabled:opacity-50"
+        >
+          {submitting ? 'Creating...' : 'Create order for user'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function NotificationManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
   const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [form, setForm] = useState({
     userEmail: '',
@@ -617,11 +1188,11 @@ function NotificationManager({ getAdminHeaders }: { getAdminHeaders: () => Recor
                 value={form.userEmail}
                 onChange={(e) => {
                   const email = e.target.value;
+                  const lower = email.trim().toLowerCase();
                   setForm({ ...form, userEmail: email, userId: '' });
-                  // Auto-select user if email matches
-                  const user = users.find(u => u.email === email);
+                  const user = users.find((u) => u.email.trim().toLowerCase() === lower);
                   if (user) {
-                    setForm(prev => ({ ...prev, userId: user.id }));
+                    setForm((prev) => ({ ...prev, userId: user.id }));
                   }
                 }}
                 placeholder="user@example.com"
@@ -917,7 +1488,17 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [redeemInfo, setRedeemInfo] = useState('');
-  const [form, setForm] = useState({ name: '', category: '', type: 'giftcard', priceUsd: 0, image: '', description: '', inStock: true, featured: false, popular: false });
+  const [form, setForm] = useState({
+    name: '',
+    category: '',
+    type: 'giftcard',
+    priceUsd: GIFTCARD_ADMIN_MIN_USD,
+    image: '',
+    description: '',
+    inStock: true,
+    featured: false,
+    popular: false,
+  });
   
   // Auto-generate gift card description and redemption instructions
   const generateGiftCardContent = (cardName: string, category: string): { description: string; redeemInfo: string } => {
@@ -1076,6 +1657,9 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
     }
   };
 
+  const isSupabaseQuotaError = (msg: string) =>
+    /exceed_cached_egress_quota|restricted.*violation|violations/i.test(msg);
+
   const uploadImage = async (): Promise<string | null> => {
     if (!imageFile) return null;
     setUploading(true);
@@ -1085,7 +1669,9 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       const { data, error } = await supabase.storage.from('products').upload(fileName, imageFile, { upsert: false });
       if (error) {
         console.error('Supabase storage error:', error);
-        if (error.message.includes('Bucket') || error.message.includes('not found')) {
+        if (isSupabaseQuotaError(error.message)) {
+          alert(`Supabase quota exceeded. Upload is temporarily unavailable.\n\nUse "Image URL" below instead: paste a direct image link (e.g. from Imgur, or your own CDN). You can also contact Supabase support: https://supabase.help`);
+        } else if (error.message.includes('Bucket') || error.message.includes('not found')) {
           alert(`Error: The 'products' bucket doesn't exist in Supabase Storage. Please create a public bucket named 'products' in your Supabase dashboard.`);
         } else if (error.message.includes('row-level security') || error.message.includes('RLS')) {
           alert(`Error: Storage policy blocking upload. Go to Supabase Dashboard → Storage → products bucket → Policies → Create a policy allowing INSERT for public or authenticated users.`);
@@ -1097,8 +1683,12 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       const { data: pub } = supabase.storage.from('products').getPublicUrl(data.path);
       return pub.publicUrl;
     } catch (error: any) {
-      console.error('Error uploading image:', error);
-      alert(`Failed to upload image: ${error?.message || 'Unknown error'}. Please check that the 'products' bucket exists in Supabase Storage.`);
+      const msg = error?.message || '';
+      if (isSupabaseQuotaError(msg)) {
+        alert(`Supabase quota exceeded. Use "Image URL" in the form instead of uploading, or contact Supabase: https://supabase.help`);
+      } else {
+        alert(`Failed to upload image: ${msg || 'Unknown error'}. You can use "Image URL" instead of uploading.`);
+      }
       return null;
     } finally {
       setUploading(false);
@@ -1117,32 +1707,41 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
         alert('Please fill in all required fields: Name and Category');
         return;
       }
-      // Image required for giftcards and virtual cards
-      if ((form.type === 'giftcard' || form.type === 'virtual-card') && !imageFile) {
-        alert('Please select an image file');
+      // Image required for giftcards and virtual cards: either file upload OR image URL
+      const hasImageUrl = form.image && String(form.image).trim().startsWith('http');
+      if ((form.type === 'giftcard' || form.type === 'virtual-card') && !imageFile && !hasImageUrl) {
+        alert('Please add an image: upload a file OR paste an Image URL (e.g. direct link to an image).');
         return;
       }
     }
     
-    // Price not required for crypto (prices fluctuate)
-    if (form.type !== 'crypto' && form.priceUsd <= 0) {
+    // Price validation: crypto has no catalog USD; gift cards use $1–$1000 suggested default only
+    if (form.type === 'giftcard') {
+      if (!isGiftCardAdminPriceValid(form.priceUsd)) {
+        alert(
+          `For gift cards, enter a suggested default USD amount between $${GIFTCARD_ADMIN_MIN_USD} and $${GIFTCARD_ADMIN_MAX_USD}. Customers choose their own denomination (up to $1000) on the storefront.`
+        );
+        return;
+      }
+    } else if (form.type !== 'crypto' && form.priceUsd <= 0) {
       alert('Please enter a valid price');
       return;
     }
     setUploading(true);
     try {
-      let imageUrl = form.image || '';
+      let imageUrl = (form.image && String(form.image).trim().startsWith('http') ? form.image.trim() : '') || '';
       
-      // Upload image only for giftcards and virtual cards
+      // Upload image only when user selected a file (not when using Image URL)
       if ((form.type === 'giftcard' || form.type === 'virtual-card') && imageFile) {
         console.log('Starting image upload...');
-        imageUrl = await uploadImage() || '';
+        const uploaded = await uploadImage();
+        if (uploaded) imageUrl = uploaded;
         if (!imageUrl) {
           console.error('Image upload failed');
           setUploading(false);
           return;
         }
-        console.log('Image uploaded successfully:', imageUrl);
+        if (uploaded) console.log('Image uploaded successfully:', imageUrl);
       }
       
       // For crypto, set name to coin symbol if not set
@@ -1198,7 +1797,17 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       console.log('Product created successfully:', result);
       alert('Product created successfully!');
       
-      setForm({ name: '', category: '', type: form.type, priceUsd: 0, image: '', description: '', inStock: true, featured: false, popular: false });
+      setForm({
+        name: '',
+        category: '',
+        type: form.type,
+        priceUsd: form.type === 'giftcard' ? GIFTCARD_ADMIN_MIN_USD : 0,
+        image: '',
+        description: '',
+        inStock: true,
+        featured: false,
+        popular: false,
+      });
       setImageFile(null);
       setImagePreview('');
       setRedeemInfo('');
@@ -1259,11 +1868,24 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, category: '', name: '' })} className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white">
+        <select
+          value={form.type}
+          onChange={(e) => {
+            const t = e.target.value;
+            setForm((prev) => ({
+              ...prev,
+              type: t,
+              category: '',
+              name: '',
+              priceUsd: t === 'giftcard' && (!prev.priceUsd || prev.priceUsd < GIFTCARD_ADMIN_MIN_USD) ? GIFTCARD_ADMIN_MIN_USD : prev.priceUsd,
+            }));
+          }}
+          className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+        >
           <option value="giftcard">Gift Card</option>
           <option value="crypto">Crypto</option>
-          <option value="wallet">Wallet</option>
-          <option value="virtual-card">Virtual Card</option>
+          <option value="wallet">Digital wallets (payments)</option>
+          <option value="virtual-card">Virtual cards (payments)</option>
         </select>
         
         {form.type === 'crypto' ? (
@@ -1286,21 +1908,45 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
         )}
         
         {form.type !== 'crypto' && (
-          <input type="number" value={form.priceUsd} onChange={(e) => setForm({ ...form, priceUsd: parseFloat(e.target.value) || 0 })} placeholder="Price USD" className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white" />
+          <div className="flex flex-col gap-1">
+            <span className="text-gray-400 text-xs">
+              {form.type === 'giftcard'
+                ? `Suggested default (USD): $${GIFTCARD_ADMIN_MIN_USD}–$${GIFTCARD_ADMIN_MAX_USD} · Customers pick any checkout amount $0–$1000 (> $0)`
+                : 'Price USD'}
+            </span>
+            <input
+              type="number"
+              min={form.type === 'giftcard' ? GIFTCARD_ADMIN_MIN_USD : undefined}
+              max={form.type === 'giftcard' ? GIFTCARD_ADMIN_MAX_USD : undefined}
+              step={form.type === 'giftcard' ? 0.01 : 1}
+              value={form.priceUsd || ''}
+              onChange={(e) => setForm({ ...form, priceUsd: parseFloat(e.target.value) || 0 })}
+              placeholder={form.type === 'giftcard' ? 'Default amount (USD)' : 'Price USD'}
+              className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+            />
+          </div>
         )}
         
         {requiresImage && (
-          <div className="md:col-span-2">
-            <label className="block text-white text-sm mb-2">Product Image (Required)</label>
+          <div className="md:col-span-2 space-y-3">
+            <label className="block text-white text-sm font-medium">Product Image (required: upload file OR paste URL)</label>
+            <input 
+              type="url" 
+              value={form.image} 
+              onChange={(e) => setForm({ ...form, image: e.target.value })} 
+              placeholder="Image URL (e.g. https://... if upload is unavailable)"
+              className="block w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white placeholder-gray-500"
+            />
+            <div className="text-gray-400 text-xs">Or upload a file:</div>
             <input 
               type="file" 
               accept="image/*" 
               onChange={handleImageChange}
               className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-neon-blue file:text-white hover:file:bg-neon-blue/80 file:cursor-pointer" 
             />
-            {imagePreview && (
+            {(imagePreview || (form.image && form.image.trim().startsWith('http'))) && (
               <div className="mt-3">
-                <img src={imagePreview} alt="Preview" className="h-24 w-auto rounded-lg border border-dark-border" />
+                <img src={imagePreview || form.image} alt="Preview" className="h-24 w-auto rounded-lg border border-dark-border object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               </div>
             )}
           </div>
@@ -1336,8 +1982,8 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       </div>
       <button 
         onClick={create} 
-        disabled={uploading || (requiresImage && !imageFile)} 
-        className={`btn-cyber text-white px-6 py-3 rounded-lg ${(uploading || (requiresImage && !imageFile)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+        disabled={uploading || (requiresImage && !imageFile && !(form.image && String(form.image).trim().startsWith('http')))} 
+        className={`btn-cyber text-white px-6 py-3 rounded-lg ${(uploading || (requiresImage && !imageFile && !(form.image && String(form.image).trim().startsWith('http')))) ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         {uploading ? 'Uploading...' : 'Create Product'}
       </button>
@@ -1360,7 +2006,9 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
                 <div className="flex-1">
                   <div className="text-white font-semibold">{p.name || 'Unnamed Product'}</div>
                   <div className="text-gray-400 text-sm">
-                    {p.type || 'unknown'} • {p.category || 'uncategorized'} • ${p.priceUsd || 0}
+                    {p.type === 'giftcard'
+                      ? `${p.type || 'unknown'} • ${p.category || 'uncategorized'} • ref. default $${p.priceUsd ?? 0} · buyer chooses $0–1000`
+                      : `${p.type || 'unknown'} • ${p.category || 'uncategorized'} • $${p.priceUsd || 0}`}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1402,14 +2050,13 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
   const [type, setType] = useState('giftcard');
   const [saving, setSaving] = useState(false);
   const [rates, setRates] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadRates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadRates = async () => {
-    setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/rates`, { headers: getAdminHeaders() as HeadersInit });
       if (res.ok) {
@@ -1419,7 +2066,6 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
     } catch (error) {
       console.error('Failed to load rates:', error);
     } finally {
-      setLoading(false);
     }
   };
 
@@ -1510,7 +2156,7 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
           <select value={type} onChange={(e) => setType(e.target.value)} className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white">
             <option value="giftcard">Gift Card</option>
             <option value="crypto">Cryptocurrency</option>
-            <option value="wallet">Digital Wallet</option>
+            <option value="wallet">Payments (digital wallets + virtual cards)</option>
           </select>
           <input type="number" value={value || ''} onChange={(e) => setValue(parseInt(e.target.value || '0', 10))} placeholder="MWK per USD" className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white" />
           <button disabled={saving} onClick={save} className="btn-cyber text-white px-6 py-3 rounded-lg">{saving ? 'Saving...' : 'Save Rate'}</button>
@@ -1529,7 +2175,7 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
           <div className="text-2xl font-bold text-white">{getCurrentRate('crypto').toLocaleString()} MWK/$1</div>
         </div>
         <div className="card-dark p-4 rounded-xl">
-          <div className="text-sm text-gray-400 mb-1">Digital Wallets</div>
+          <div className="text-sm text-gray-400 mb-1">Payments (digital wallets + virtual cards)</div>
           <div className="text-2xl font-bold text-white">{getCurrentRate('wallet').toLocaleString()} MWK/$1</div>
         </div>
       </div>
@@ -1577,7 +2223,7 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
                 dataKey="wallet" 
                 stroke="#3b82f6" 
                 strokeWidth={2}
-                name="Digital Wallets"
+                name="Payments (wallets)"
                 dot={{ fill: '#3b82f6', r: 4 }}
               />
             </LineChart>
@@ -1596,7 +2242,7 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [giftCardCodes, setGiftCardCodes] = useState<Array<{ serialNumber?: string; redeemCode?: string; activationLink?: string }>>([]);
-  
+
   const load = async () => {
     setLoading(true);
     try {
@@ -1837,18 +2483,46 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                           <div className="mt-2 ml-3 p-2 bg-dark-bg rounded border border-neon-blue/30">
                             <div className="text-neon-blue font-bold mb-1">Crypto Order Details:</div>
                             <div className="space-y-1">
-                              {metadata.coin && <div><strong>Coin:</strong> {metadata.coin}</div>}
-                              {metadata.exchange && <div><strong>Exchange:</strong> {metadata.exchange}</div>}
-                              {metadata.network && <div><strong>Network:</strong> {metadata.network}</div>}
-                              {metadata.walletAddress && (
+                              {metadata.coin && <div><strong>Coin:</strong> {String(metadata.coin)}</div>}
+                              {metadata.amountUsd !== undefined && metadata.amountUsd !== null && (
+                                <div><strong>Amount:</strong> ${metadata.amountUsd} USD</div>
+                              )}
+                              {metadata.deliveryMethod === 'binance_id' && metadata.binanceId && (
+                                <div><strong>Delivery:</strong> Binance ID — {String(metadata.binanceId)}</div>
+                              )}
+                              {metadata.deliveryMethod === 'binance_email' && metadata.binanceEmail && (
+                                <div><strong>Delivery:</strong> Binance email — {String(metadata.binanceEmail)}</div>
+                              )}
+                              {metadata.deliveryMethod === 'wallet' && (
+                                <>
+                                  {metadata.network && <div><strong>Network:</strong> {String(metadata.network)}</div>}
+                                  {metadata.walletAddress && (
+                                    <div className="break-all">
+                                      <strong>Wallet:</strong> <span className="text-neon-blue">{String(metadata.walletAddress)}</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {/* Legacy orders (exchange picker) */}
+                              {!metadata.deliveryMethod && metadata.exchange && (
+                                <div><strong>Exchange (legacy):</strong> {String(metadata.exchange)}</div>
+                              )}
+                              {!metadata.deliveryMethod && metadata.network && (
+                                <div><strong>Network (legacy):</strong> {String(metadata.network)}</div>
+                              )}
+                              {!metadata.deliveryMethod && metadata.walletAddress && (
                                 <div className="break-all">
-                                  <strong>Wallet Address:</strong> <span className="text-neon-blue">{metadata.walletAddress}</span>
+                                  <strong>Wallet (legacy):</strong>{' '}
+                                  <span className="text-neon-blue">{String(metadata.walletAddress)}</span>
                                 </div>
                               )}
-                              {metadata.email && <div><strong>Email:</strong> {metadata.email}</div>}
-                              {metadata.exchangeId && <div><strong>Exchange ID:</strong> {metadata.exchangeId}</div>}
-                              {metadata.notes && <div><strong>Notes:</strong> {metadata.notes}</div>}
-                              {metadata.amountUsd && <div><strong>Amount:</strong> ${metadata.amountUsd} USD</div>}
+                              {!metadata.deliveryMethod && metadata.email && (
+                                <div><strong>Email (legacy):</strong> {String(metadata.email)}</div>
+                              )}
+                              {!metadata.deliveryMethod && metadata.exchangeId && (
+                                <div><strong>Exchange ID (legacy):</strong> {String(metadata.exchangeId)}</div>
+                              )}
+                              {metadata.notes && <div><strong>Notes:</strong> {String(metadata.notes)}</div>}
                             </div>
                           </div>
                         )}
@@ -2412,8 +3086,8 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
             >
               <option value="giftcard">Gift Card</option>
               <option value="crypto">Cryptocurrency</option>
-              <option value="wallet">Digital Wallet</option>
-              <option value="virtual-card">Virtual Card</option>
+            <option value="wallet">Digital wallet (payments rate)</option>
+            <option value="virtual-card">Virtual card (payments rate)</option>
               <option value="payment-transfer">Payment Transfer</option>
             </select>
           </div>

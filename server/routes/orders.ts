@@ -7,9 +7,69 @@ import { sendOrderApprovedEmail, sendOrderRejectedEmail, sendOrderFulfilledEmail
 const router = Router();
 
 // Create order with items and optional payment submission (auth optional for now)
+// Card payments: agent creates the order manually in admin after customer pays and sends POP in live chat
 router.post('/', async (req: any, res) => {
   try {
-    const { items, totalUsd, totalMwk, payment, userId, userEmail, pointsUsed, paymentMethod, pointsReceiptUrl, pointsReceiptId } = req.body;
+    const { items, totalUsd, totalMwk, payment, userId, userEmail, pointsUsed, paymentMethod, pointsReceiptUrl, pointsReceiptId, adminCreateForUser } = req.body;
+
+    // Admin: create order for a specific user (same path POST /orders to avoid 404 routing issues)
+    if (adminCreateForUser === true && (userId || userEmail)) {
+      const adminAuth = (req: any) => {
+        const xAdminPass = req.headers['x-admin-password'];
+        const authHeader = req.headers.authorization || '';
+        const ADMIN_PASS = process.env.ADMIN_PASS || '09090808pP#';
+        if (xAdminPass === ADMIN_PASS) return true;
+        if (typeof authHeader === 'string' && authHeader.startsWith('Basic ')) {
+          try {
+            const decoded = Buffer.from(authHeader.replace('Basic ', ''), 'base64').toString('utf8');
+            if (decoded === ADMIN_PASS) return true;
+          } catch (_) {}
+        }
+        return false;
+      };
+      if (!adminAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
+      if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'At least one item is required' });
+      const numUsd = Number(totalUsd);
+      const numMwk = Number(totalMwk);
+      if (!Number.isFinite(numUsd) || numUsd <= 0 || !Number.isFinite(numMwk) || numMwk <= 0) {
+        return res.status(400).json({ error: 'Valid totalUsd and totalMwk are required' });
+      }
+      let targetUserId: string;
+      if (userId) {
+        const u = await prisma.user.findUnique({ where: { id: userId } });
+        if (!u) return res.status(404).json({ error: 'User not found' });
+        targetUserId = u.id;
+      } else {
+        const email = String(userEmail).trim();
+        const users = await prisma.user.findMany({ where: { email: { equals: email, mode: 'insensitive' } }, take: 1 });
+        const u = users[0] ?? null;
+        if (!u) return res.status(404).json({ error: 'User not found for that email' });
+        targetUserId = u.id;
+      }
+      const order = await prisma.order.create({
+        data: {
+          userId: targetUserId,
+          status: 'pending',
+          totalUsd: numUsd,
+          totalMwk: Math.round(numMwk),
+          items: {
+            create: items.map((i: any) => ({
+              name: String(i.name || 'Item').trim() || 'Item',
+              type: String(i.type || 'other'),
+              category: String(i.category || 'general'),
+              image: i.image != null ? String(i.image) : null,
+              priceUsd: Number(i.price) || 0,
+              quantity: Math.max(1, Math.round(Number(i.quantity) || 1)),
+              metadata: i.metadata != null ? JSON.stringify(i.metadata) : null
+            }))
+          }
+        },
+        include: { items: true, payment: true, user: true }
+      });
+      console.log('✅ [Orders] Manual order created for user:', { orderId: order.id, userId: targetUserId, userEmail: order.user?.email });
+      return res.json(order);
+    }
+
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'No items' });
     }
@@ -59,8 +119,21 @@ router.post('/', async (req: any, res) => {
           senderName: payment.senderName
         }
       };
+    } else if (paymentMethod === 'paypal' && payment) {
+      paymentData = {
+        create: {
+          method: 'paypal',
+          bankName: 'PayPal',
+          accountName: payment.accountName || 'PayPal Account',
+          accountNumber: null,
+          transactionId: payment.transactionId || null,
+          popUrl: null,
+          senderName: payment.senderName || userEmail || 'PayPal User',
+        }
+      };
     }
-    
+    // paymentMethod === 'card' → no payment submission; admin will send link via chat
+
     const order = await prisma.order.create({
       data: {
         userId: finalUserId || (await prisma.user.upsert({ where: { email: userEmail || 'guest@unknown.local' }, update: {}, create: { email: userEmail || `guest+${Date.now()}@unknown.local`, name: 'Guest', password: '' } })).id,
@@ -134,31 +207,122 @@ router.get('/me', async (req: any, res) => {
       return res.json([]);
     }
     
-    const email = String(req.query.email);
+    const email = String(req.query.email).trim();
+    if (!email) return res.json([]);
     console.log('📦 [Orders] Fetching orders for email:', email);
     
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      console.log('⚠️ [Orders] User not found for email:', email);
-      return res.json([]);
+    // Case-insensitive: find ALL users with this email (handles duplicate rows from different casing)
+    const users = await prisma.user.findMany({
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true }
+    });
+    const userIds = users.map((u: { id: string }) => u.id);
+    if (userIds.length === 0) {
+      console.log('⚠️ [Orders] User not found for email:', email, '- ask user to sign out and sign back in');
+      return res.status(200).json({ orders: [], userNotFound: true });
+    }
+    if (userIds.length > 1) {
+      console.log('⚠️ [Orders] Multiple users for same email (merge recommended):', email, 'ids:', userIds);
     }
     
     const orders = await prisma.order.findMany({ 
-      where: { userId: user.id }, 
+      where: { userId: { in: userIds } }, 
       include: { 
         items: {
-          orderBy: { id: 'asc' } // OrderItem doesn't have createdAt, use id instead
+          orderBy: { id: 'asc' }
         }, 
         payment: true 
       }, 
       orderBy: { createdAt: 'desc' } 
     });
+
+    const EXPIRY_HOURS = 1;
+    const ordersWithExpiry = orders.map((o: any) => {
+      const createdAt = new Date(o.createdAt).getTime();
+      const expiresAt = createdAt + EXPIRY_HOURS * 60 * 60 * 1000;
+      const isExpired = o.status === 'pending' && Date.now() > expiresAt;
+      return { ...o, expiresAt: new Date(expiresAt).toISOString(), isExpired };
+    });
     
-    console.log('✅ [Orders] Found', orders.length, 'orders for user:', email);
-    res.json(orders);
+    console.log('✅ [Orders] Found', orders.length, 'orders for user:', email, 'userIds:', userIds);
+    res.json(Array.isArray(ordersWithExpiry) ? ordersWithExpiry : []);
   } catch (error: any) {
     console.error('❌ [Orders] Error fetching user orders:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch orders' });
+  }
+});
+
+// Submit proof of payment for an existing card order (explicit path – must be before /:id)
+router.post('/submit-payment/:orderId', async (req: any, res) => {
+  try {
+    const orderId = req.params.orderId;
+    const { method, transactionId, popUrl, senderName } = req.body;
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true }
+    });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (order.payment) {
+      return res.status(400).json({ error: 'Order already has payment submission' });
+    }
+    if (method !== 'card') {
+      return res.status(400).json({ error: 'Expected method: card' });
+    }
+    const name = (senderName && String(senderName).trim()) ? String(senderName).trim() : 'Customer';
+    await prisma.paymentSubmission.create({
+      data: {
+        orderId,
+        method: 'card',
+        bankName: 'Card Payment',
+        accountName: 'Card',
+        accountNumber: null,
+        transactionId: transactionId != null ? String(transactionId) : null,
+        popUrl: popUrl != null && String(popUrl).trim() ? String(popUrl).trim() : null,
+        senderName: name
+      }
+    });
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error('Submit payment error:', e);
+    res.status(500).json({ error: e.message || 'Failed to submit payment' });
+  }
+});
+
+// Get single order by id (e.g. for card-chat to read totalUsd when choosing currency)
+router.get('/:id', async (req: any, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { items: true, payment: true }
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json(order);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to fetch order' });
+  }
+});
+
+// Update card order totalUsd when customer chooses USD (18% fee) – only if order has no payment yet
+router.patch('/:id/card-currency', async (req: any, res) => {
+  try {
+    const orderId = req.params.id;
+    const { totalUsd } = req.body;
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true }
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.payment) return res.status(400).json({ error: 'Order already has payment' });
+    if (typeof totalUsd !== 'number' || totalUsd <= 0) return res.status(400).json({ error: 'Invalid totalUsd' });
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { totalUsd }
+    });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Failed to update' });
   }
 });
 

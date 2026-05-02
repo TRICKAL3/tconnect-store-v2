@@ -4,7 +4,8 @@ import { getApiBase } from '../lib/getApiBase';
 
 const API_BASE = getApiBase();
 
-const Payments: React.FC = () => {
+/** TT transfers & bulk business orders (standalone page — storefront “Payments” is virtual cards + digital wallets). */
+const TtOrders: React.FC = () => {
   const [formData, setFormData] = useState({
     customerName: '',
     email: '',
@@ -12,13 +13,13 @@ const Payments: React.FC = () => {
     orderType: 'TT Transfer',
     amount: '',
     currency: 'USD',
-    details: ''
+    details: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.customerName || !formData.email || !formData.details) {
       alert('Please fill in customer name, email, and order details');
       return;
@@ -36,8 +37,8 @@ const Payments: React.FC = () => {
           orderType: formData.orderType,
           amount: formData.amount ? parseFloat(formData.amount) : null,
           currency: formData.currency || null,
-          details: formData.details
-        })
+          details: formData.details,
+        }),
       });
 
       if (!response.ok) {
@@ -53,7 +54,7 @@ const Payments: React.FC = () => {
         orderType: 'TT Transfer',
         amount: '',
         currency: 'USD',
-        details: ''
+        details: '',
       });
     } catch (error: any) {
       console.error('Error submitting TT order:', error);
@@ -67,9 +68,10 @@ const Payments: React.FC = () => {
     <div className="min-h-screen bg-dark-bg">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 holographic">Payments & TT Orders</h1>
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 holographic">TT transfers & bulk orders</h1>
           <p className="text-base md:text-lg text-gray-300 max-w-3xl mx-auto">
-            Place bulk requests for TT transfers, supplier payments, or currency purchases (USD, ZAR, CNY), vehicle purchases, and more.
+            Place requests for TT transfers, supplier payments, currency purchases (USD, ZAR, CNY), vehicle payments, and
+            more — separate from virtual cards & digital wallets.
           </p>
         </div>
 
@@ -178,6 +180,4 @@ const Payments: React.FC = () => {
   );
 };
 
-export default Payments;
-
-
+export default TtOrders;

@@ -49,6 +49,11 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
+                <Link to="/payments" className="text-gray-300 hover:text-white transition-colors duration-200">
+                  Payments (wallets + virtual cards)
+                </Link>
+              </li>
+              <li>
                 <Link to="/cart" className="text-gray-300 hover:text-white transition-colors duration-200">
                   Shopping Cart
                 </Link>
@@ -63,6 +68,11 @@ const Footer: React.FC = () => {
                 >
                   Live Chat
                 </button>
+              </li>
+              <li>
+                <Link to="/blog" className="text-gray-300 hover:text-white transition-colors duration-200">
+                  Blog
+                </Link>
               </li>
             </ul>
           </div>
@@ -123,6 +133,10 @@ const Footer: React.FC = () => {
                 <li className="flex items-center space-x-2 text-gray-300 text-sm">
                   <CreditCard className="w-4 h-4 text-purple-400" />
                   <span>Bank Card</span>
+                </li>
+                <li className="flex items-center space-x-2 text-gray-300 text-sm">
+                  <CreditCard className="w-4 h-4 text-blue-400" />
+                  <span>PayPal</span>
                 </li>
               </ul>
             </div>

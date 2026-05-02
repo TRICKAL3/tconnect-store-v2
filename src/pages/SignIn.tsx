@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getApiBase } from '../lib/getApiBase';
 import { auth } from '../lib/firebaseClient';
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logoImage from '../assets/tconnect_logo.png';
@@ -11,24 +10,17 @@ const SignIn: React.FC = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isOAuthReturn = false; // Using popup now; no redirect return
 
   // Redirect if already signed in
   useEffect(() => {
-    if (user) {
-      console.log('User already signed in, redirecting from SignIn page');
-      navigate('/', { replace: true });
-    }
+    if (user) navigate('/', { replace: true });
   }, [user, navigate]);
 
-  // Also check Firebase auth state directly
+  // When Firebase user appears (e.g. after popup), redirect to home
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        console.log('Firebase user detected on SignIn page, redirecting');
-        setTimeout(() => {
-          navigate('/', { replace: true });
-        }, 500);
-      }
+      if (firebaseUser) navigate('/', { replace: true });
     });
     return () => unsubscribe();
   }, [navigate]);
@@ -40,59 +32,28 @@ const SignIn: React.FC = () => {
       const provider = new GoogleAuthProvider();
       provider.addScope('profile');
       provider.addScope('email');
-      
-      console.log('🟢 Attempting popup-based sign-in...');
-      
-      // Try popup first (no redirect URI config needed)
-      try {
-        const result = await signInWithPopup(auth, provider);
-        console.log('✅ Popup sign-in successful:', result.user.email);
-        
-        // Upsert user to backend
-        const email = result.user.email;
-        const displayName = result.user.displayName || email?.split('@')[0] || 'User';
-        const photoURL = result.user.photoURL || undefined;
-        
-        try {
-          const API_BASE = getApiBase();
-          await fetch(`${API_BASE}/users/upsert`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, name: displayName, avatarUrl: photoURL })
-          });
-        } catch (upsertError) {
-          console.error('Failed to upsert user:', upsertError);
-        }
-        
-        // Redirect to home
-        navigate('/', { replace: true });
-        setLoading(false);
-      } catch (popupError: any) {
-        // If popup is blocked, fall back to redirect
-        if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/popup-closed-by-user') {
-          console.log('⚠️ Popup blocked, falling back to redirect...');
-          setError('Popup was blocked. Please allow popups and try again, or the page will redirect...');
-          
-          // Fallback to redirect after a short delay
-          setTimeout(async () => {
-            try {
-              await signInWithRedirect(auth, provider);
-            } catch (redirectError: any) {
-              console.error('❌ Redirect also failed:', redirectError);
-              setError('Sign-in failed. Please try again or check your browser settings.');
-              setLoading(false);
-            }
-          }, 2000);
-        } else {
-          throw popupError;
-        }
-      }
+      await signInWithPopup(auth, provider);
+      // Popup closes; onAuthStateChanged will fire and we redirect
     } catch (err: any) {
-      console.error('❌ Sign-in error:', err);
-      setError(err.message || 'Failed to sign in with Google');
+      console.error('Sign-in error:', err);
+      setError(err?.message || 'Failed to sign in with Google');
+    } finally {
       setLoading(false);
     }
   };
+
+  // After OAuth redirect: show "Signing you in..." until Firebase sets user and we redirect
+  if (isOAuthReturn) {
+    return (
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4">
+        <div className="text-center text-white">
+          <div className="animate-spin w-12 h-12 border-4 border-neon-blue border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-lg font-medium">Signing you in...</p>
+          <p className="text-sm text-gray-400 mt-2">You’ll be redirected in a moment.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-dark-bg flex items-center justify-center px-4">

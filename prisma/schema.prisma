@@ -20,7 +20,19 @@ model User {
   pointsTransactions PointsTransaction[]
   pointsReceipts PointsReceipt[]
   wallets      Wallet[]
+  cartSnapshot UserCartSnapshot?
   createdAt    DateTime            @default(now())
+}
+
+/// Latest cart for logged-in users (synced from storefront; cleared after order).
+model UserCartSnapshot {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemsJson String   @map("items_json")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("user_cart_snapshots")
 }
 
 model Product {
@@ -224,6 +236,22 @@ model Promotion {
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   @@map("promotions")
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  summary     String?
+  content     String
+  imageUrl1   String   @map("image_url_1")
+  imageUrl2   String   @map("image_url_2")
+  imageUrl3   String?  @map("image_url_3")
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("blog_posts")
 }
 
 model Wallet {

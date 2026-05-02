@@ -12,7 +12,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0a0a0a;
+  background-color: #0b1120;
   color: #ffffff;
 }
 
@@ -39,9 +39,9 @@ code {
   background: #a8a8a8;
 }
 
-/* Smooth transitions */
-* {
-  transition: all 0.2s ease-in-out;
+/* Light transitions - only on interactive elements to avoid heavy repaints */
+a, button, input, select, textarea, [role="button"] {
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
 
 /* Custom button styles */
@@ -235,12 +235,13 @@ code {
   @apply text-2xl md:text-3xl font-light text-white/90;
 }
 
-/* Dark Theme Styles - SEAGM Inspired */
+/* Dark Theme Styles - dark blue with mesh */
 :root {
-  --dark-bg: #0a0a0a;
-  --dark-surface: #111111;
-  --dark-card: #1a1a1a;
-  --dark-border: #2a2a2a;
+  --dark-bg: #0b1120;
+  --dark-bg-mesh: #0f172a;
+  --dark-surface: #111827;
+  --dark-card: #1e293b;
+  --dark-border: #334155;
   --accent-blue: #00d4ff;
   --accent-purple: #8b5cf6;
   --accent-green: #10b981;
@@ -311,19 +312,29 @@ code {
   transform: translateY(-4px);
 }
 
-/* Gaming grid pattern */
+/* Gaming grid pattern - subtle blue mesh */
 .gaming-grid {
   background-image: 
-    linear-gradient(rgba(0, 212, 255, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
-  background-size: 20px 20px;
+    linear-gradient(rgba(30, 58, 138, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 58, 138, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-/* Animated background */
+/* Dark blue mesh background - not total dark */
+.app-bg {
+  background-color: var(--dark-bg);
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(30, 58, 138, 0.25), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(59, 130, 246, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 0% 80%, rgba(88, 28, 135, 0.08), transparent);
+  background-attachment: fixed;
+}
+
+/* Animated background - subtle, dark blue */
 .animated-bg {
-  background: linear-gradient(-45deg, #0a0a0a, #111111, #1a1a1a, #0a0a0a);
+  background: linear-gradient(-45deg, #0b1120, #0f172a, #1e293b, #0b1120);
   background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
+  animation: gradientShift 20s ease infinite;
 }
 
 @keyframes gradientShift {
@@ -519,4 +530,32 @@ html {
 .fade-in-on-scroll.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Hero rotating word animation */
+@keyframes heroWordSwap {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-word-wrapper {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  min-width: 7rem;
+}
+
+.hero-word {
+  display: inline-block;
+  animation: heroWordSwap 0.5s ease-out;
 }

@@ -1,32 +1,41 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, CreditCard, Coins } from 'lucide-react';
-import { useCart } from '../context/CartContext';
+import { useCart, cartLineKey } from '../context/CartContext';
+import { getAbsoluteImageUrl } from '../lib/getApiBase';
+import { calculatePromotionResult, fetchActivePromotions, Promotion } from '../lib/promotions';
 
 const Cart: React.FC = () => {
-  const { state, dispatch } = useCart();
+  const { state, dispatch, clearPersistedCart } = useCart();
   const navigate = useNavigate();
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
 
-  const updateQuantity = (id: string, quantity: number) => {
+  const updateQuantity = (lineId: string, quantity: number) => {
     if (quantity <= 0) {
-      dispatch({ type: 'REMOVE_ITEM', payload: id });
+      dispatch({ type: 'REMOVE_ITEM', payload: lineId });
     } else {
-      dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
+      dispatch({ type: 'UPDATE_QUANTITY', payload: { id: lineId, quantity } });
     }
   };
 
-  const removeItem = (id: string) => {
-    dispatch({ type: 'REMOVE_ITEM', payload: id });
+  const removeItem = (lineId: string) => {
+    dispatch({ type: 'REMOVE_ITEM', payload: lineId });
   };
 
   const clearCart = () => {
-    dispatch({ type: 'CLEAR_CART' });
+    clearPersistedCart();
   };
 
   const proceedToCheckout = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     navigate('/checkout');
   };
+
+  useEffect(() => {
+    fetchActivePromotions().then(setPromotions).catch(() => setPromotions([]));
+  }, []);
+
+  const promoResult = useMemo(() => calculatePromotionResult(state.items, promotions), [state.items, promotions]);
 
   if (state.items.length === 0) {
     return (
@@ -95,13 +104,13 @@ const Cart: React.FC = () => {
               </div>
               <div className="divide-y divide-dark-border">
                 {state.items.map((item) => (
-                  <div key={item.id} className="p-3 md:p-6">
+                  <div key={cartLineKey(item)} className="p-3 md:p-6">
                     <div className="flex items-start space-x-3 md:space-x-4">
                       {/* Item Image */}
                       <div className="flex-shrink-0">
-                        {item.image && (item.image.startsWith('http') || item.image.startsWith('/')) ? (
+                        {getAbsoluteImageUrl(item.image) ? (
                           <img 
-                            src={item.image} 
+                            src={getAbsoluteImageUrl(item.image)} 
                             alt={item.name}
                             className="w-14 h-14 md:w-16 md:h-16 rounded-lg object-cover"
                             onError={(e) => {
@@ -110,7 +119,7 @@ const Cart: React.FC = () => {
                             }}
                           />
                         ) : null}
-                        <div className={`w-14 h-14 md:w-16 md:h-16 bg-dark-surface rounded-lg flex items-center justify-center ${item.image && (item.image.startsWith('http') || item.image.startsWith('/')) ? 'hidden' : ''}`}>
+                        <div className={`w-14 h-14 md:w-16 md:h-16 bg-dark-surface rounded-lg flex items-center justify-center ${getAbsoluteImageUrl(item.image) ? 'hidden' : ''}`}>
                           <span className="text-xl md:text-2xl">{item.name.charAt(0).toUpperCase()}</span>
                         </div>
                       </div>
@@ -121,11 +130,17 @@ const Cart: React.FC = () => {
                           {item.name}
                         </h3>
                         <p className="text-xs md:text-sm text-gray-400">
-                          {item.category} • {item.type === 'giftcard' ? 'Gift Card' : 'Cryptocurrency'}
+                          {item.category} •{' '}
+                          {item.type === 'giftcard'
+                            ? 'Gift Card'
+                            : item.type === 'wallet'
+                              ? 'Payments'
+                              : 'Cryptocurrency'}
                         </p>
                         <div className="mt-1 md:mt-2 flex items-center space-x-2 md:space-x-4 flex-wrap">
                           <div className="text-sm md:text-lg font-semibold text-neon-blue">
                             ${item.price.toFixed(2)}
+                            {item.type === 'giftcard' ? <span className="text-xs font-normal text-gray-500"> /card</span> : null}
                           </div>
                           {item.type === 'crypto' && (
                             <div className="text-xs md:text-sm text-gray-400">
@@ -138,7 +153,7 @@ const Cart: React.FC = () => {
                         <div className="mt-2 md:mt-0 flex items-center justify-between md:hidden">
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(cartLineKey(item), item.quantity - 1)}
                               className="p-1.5 rounded-full hover:bg-neon-blue/20 active:scale-95 transition-all"
                             >
                               <Minus className="w-4 h-4 text-gray-300" />
@@ -147,7 +162,7 @@ const Cart: React.FC = () => {
                               {item.quantity}
                             </span>
                             <button
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(cartLineKey(item), item.quantity + 1)}
                               className="p-1.5 rounded-full hover:bg-neon-blue/20 active:scale-95 transition-all"
                             >
                               <Plus className="w-4 h-4 text-gray-300" />
@@ -158,7 +173,7 @@ const Cart: React.FC = () => {
                               ${(item.price * item.quantity).toFixed(2)}
                             </div>
                             <button
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => removeItem(cartLineKey(item))}
                               className="p-2 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-full active:scale-95 transition-all"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -170,7 +185,7 @@ const Cart: React.FC = () => {
                       {/* Desktop: Quantity Controls */}
                       <div className="hidden md:flex items-center space-x-2">
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          onClick={() => updateQuantity(cartLineKey(item), item.quantity - 1)}
                           className="p-1 rounded-full hover:bg-neon-blue/20 transition-colors duration-200"
                         >
                           <Minus className="w-4 h-4 text-gray-300" />
@@ -179,7 +194,7 @@ const Cart: React.FC = () => {
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(cartLineKey(item), item.quantity + 1)}
                           className="p-1 rounded-full hover:bg-neon-blue/20 transition-colors duration-200"
                         >
                           <Plus className="w-4 h-4 text-gray-300" />
@@ -195,7 +210,7 @@ const Cart: React.FC = () => {
 
                       {/* Desktop: Remove Button */}
                       <button
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => removeItem(cartLineKey(item))}
                         className="hidden md:block p-2 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-full transition-colors duration-200"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -219,6 +234,12 @@ const Cart: React.FC = () => {
                   <span className="text-gray-400">Subtotal</span>
                   <span className="font-medium text-white">${state.total.toFixed(2)}</span>
                 </div>
+                {promoResult.totalDiscountUsd > 0 && (
+                  <div className="flex justify-between text-xs md:text-sm">
+                    <span className="text-gray-400">Promotion Discount</span>
+                    <span className="font-medium text-neon-green">-${promoResult.totalDiscountUsd.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-gray-400">Processing Fee</span>
                   <span className="font-medium text-white">$0.00</span>
@@ -230,9 +251,16 @@ const Cart: React.FC = () => {
                 <div className="border-t border-dark-border pt-2 md:pt-3">
                   <div className="flex justify-between text-base md:text-lg font-semibold">
                     <span className="text-white">Total</span>
-                    <span className="text-neon-blue">${state.total.toFixed(2)}</span>
+                    <span className="text-neon-blue">${promoResult.finalTotalUsd.toFixed(2)}</span>
                   </div>
                 </div>
+                {promoResult.appliedPromotions.length > 0 && (
+                  <div className="pt-1">
+                    {promoResult.appliedPromotions.map((line) => (
+                      <div key={line.id} className="text-xs text-neon-green/90">Applied: {line.name}</div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Desktop: Buttons */}
@@ -278,7 +306,7 @@ const Cart: React.FC = () => {
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-400">Total:</span>
-              <span className="text-lg font-bold text-neon-blue">${state.total.toFixed(2)}</span>
+              <span className="text-lg font-bold text-neon-blue">${promoResult.finalTotalUsd.toFixed(2)}</span>
             </div>
             <button
               onClick={proceedToCheckout}

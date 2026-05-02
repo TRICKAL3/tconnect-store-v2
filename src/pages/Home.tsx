@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Gift, Shield, Zap, CreditCard, TrendingUp, CheckCircle, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getApiBase } from '../lib/getApiBase';
+import { getApiBase, getAbsoluteImageUrl, GIFT_CARD_PLACEHOLDER } from '../lib/getApiBase';
+import { GIFTCARD_BUYER_MAX_USD } from '../lib/giftCardPricing';
 import paypalLogo from '../assets/paypal.jpg';
 import skrillLogo from '../assets/skrill.jpg';
 import netellerLogo from '../assets/neteller.jpg';
@@ -61,16 +62,62 @@ const sampleSlides = [
   }
 ];
 
+const HERO_WORDS = ['Gift Cards', 'Crypto', 'Software'];
+
 const Home: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [slides, setSlides] = useState<any[]>([]);
   const navigate = useNavigate();
   const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
+  const [heroWordIndex, setHeroWordIndex] = useState(0);
 
-  // Use sample slides with s1, s2, s3 images
+  // Use default slides and append active promotions
   useEffect(() => {
-    console.log('📸 Using sample slides with s1, s2, s3:', sampleSlides.length);
-    setSlides(sampleSlides);
+    const loadSlides = async () => {
+      const fallback = [...sampleSlides];
+      try {
+        const API_BASE = getApiBase();
+        const res = await fetch(`${API_BASE}/promotions`);
+        if (!res.ok) {
+          setSlides(fallback);
+          return;
+        }
+        const promotions = await res.json();
+        if (!Array.isArray(promotions) || promotions.length === 0) {
+          setSlides(fallback);
+          return;
+        }
+        const promoSlides = promotions.slice(0, 5).map((promo: any, idx: number) => {
+          const discountText = promo.discountPercent
+            ? `${promo.discountPercent}% OFF`
+            : promo.discountUsd
+            ? `$${Number(promo.discountUsd).toFixed(0)} OFF`
+            : 'SPECIAL OFFER';
+          return {
+            id: `promo-${promo.id || idx}`,
+            title: discountText,
+            subtitle: promo.name || 'Limited time promotion',
+            description: promo.description || 'Save now on selected products.',
+            image: '🔥',
+            cta: 'Shop Promo',
+            ctaLink: '/giftcards',
+            active: true,
+          };
+        });
+        setSlides([...promoSlides, ...fallback]);
+      } catch {
+        setSlides(fallback);
+      }
+    };
+    loadSlides();
+  }, []);
+
+  // Rotate hero keywords (gift cards, crypto, software)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeroWordIndex((prev) => (prev + 1) % HERO_WORDS.length);
+    }, 2200);
+    return () => clearInterval(interval);
   }, []);
 
   // Intersection Observer for scroll animations
@@ -85,13 +132,9 @@ const Home: React.FC = () => {
       },
       { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
     );
-
     const elements = document.querySelectorAll('.fade-in-on-scroll');
     elements.forEach((el) => observer.observe(el));
-
-    return () => {
-      elements.forEach((el) => observer.unobserve(el));
-    };
+    return () => elements.forEach((el) => observer.unobserve(el));
   }, []);
 
   const categories = [
@@ -159,24 +202,26 @@ const Home: React.FC = () => {
         
         console.log('📊 [Home] Featured cards:', featured.length, 'Popular cards:', popular.length);
         
-        setFeaturedCards(featured.map((p: any) => ({ 
-          id: p.id, 
-          name: p.name, 
-          description: p.description, 
-          price: `$${p.priceUsd.toFixed(2)}`, 
-          image: p.image, 
-          badge: 'Featured', 
-          badgeColor: 'bg-neon-blue' 
+        setFeaturedCards(featured.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          priceLabel: `You choose · $0–${GIFTCARD_BUYER_MAX_USD}`,
+          image: p.image,
+          badge: 'Featured',
+          badgeColor: 'bg-neon-blue',
         })));
-        setPopularCards(popular.map((p: any) => ({ 
-          id: p.id, 
-          name: p.name, 
-          price: `$${p.priceUsd.toFixed(2)}`, 
-          originalPrice: '', 
-          discount: '', 
-          image: p.image, 
-          rating: 5 
-        })));
+        setPopularCards(
+          popular.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            priceLabel: `You choose · $0–${GIFTCARD_BUYER_MAX_USD}`,
+            originalPrice: '',
+            discount: '',
+            image: p.image,
+            rating: 5,
+          }))
+        );
       } catch (error: any) {
         console.error('❌ [Home] Failed to load products:', error);
         // Set empty arrays on error so UI doesn't break
@@ -296,8 +341,6 @@ const Home: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-dark-bg">
-      {/* Gaming Grid Background */}
-      <div className="fixed inset-0 gaming-grid opacity-10 pointer-events-none"></div>
       
       {/* Hero Section with Slogan and Slideshow */}
       <section className="relative py-12 md:py-16 lg:py-20 bg-dark-gradient text-white overflow-hidden">
@@ -310,11 +353,19 @@ const Home: React.FC = () => {
                   Premium Gift Cards
                 </h1>
                 <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-light text-neon-blue">
-                  Your One-Stop Digital Store
+                  Your One-Stop Digital Store for{' '}
+                  <span className="hero-word-wrapper">
+                    <span
+                      key={HERO_WORDS[heroWordIndex]}
+                      className="hero-word font-semibold"
+                    >
+                      {HERO_WORDS[heroWordIndex]}
+                    </span>
+                  </span>
                 </h2>
                 <p className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-300 max-w-xl mx-auto md:mx-0 leading-relaxed">
-                  Discover premium gift cards for all your favorite brands. 
-                  Easy to purchase, instant to deliver, and perfect for any occasion.
+                  Discover premium gift cards, leading cryptocurrencies, and top software licenses in one secure digital store.
+                  Easy to purchase, instant to deliver, and perfect for every occasion.
                 </p>
               </div>
               
@@ -458,8 +509,72 @@ const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* Trust strip */}
+      <section className="py-4 bg-dark-bg/80 border-y border-dark-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap justify-center gap-6 md:gap-10 text-sm text-gray-300">
+            <span className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-neon-green" />
+              200+ users registered
+            </span>
+            <span className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-neon-purple" />
+              1000+ orders processed
+            </span>
+            <span className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-amber-400" />
+              Instant delivery
+            </span>
+            <span className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-neon-green" />
+              Secure payment
+            </span>
+            <span className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-neon-blue" />
+              Worldwide
+            </span>
+            <a href="#how-it-works" className="flex items-center gap-2 text-neon-blue hover:text-white transition-colors">
+              How it works
+            </a>
+            <a href="#featured" className="flex items-center gap-2 text-neon-blue hover:text-white transition-colors">
+              Featured cards
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works - early for trust */}
+      <section id="how-it-works" className="py-12 md:py-16 bg-dark-surface">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10 md:mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-3 holographic">
+              How It Works
+            </h2>
+            <p className="text-base text-gray-300 max-w-2xl mx-auto">
+              Getting your favorite gift cards has never been easier
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
+            {howItWorks.map((step, index) => (
+              <div key={step.step} className="text-center card-dark p-4 md:p-6 rounded-xl md:rounded-2xl border border-dark-border hover:border-neon-blue/50">
+                <div className="relative inline-flex mb-3">
+                  <div className="w-12 h-12 md:w-14 md:h-14 bg-neon-blue/20 rounded-lg md:rounded-xl flex items-center justify-center text-neon-blue">
+                    {step.icon}
+                  </div>
+                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 md:w-6 md:h-6 bg-neon-blue rounded-full flex items-center justify-center text-white font-bold text-[10px] md:text-xs">
+                    {step.step}
+                  </span>
+                </div>
+                <h3 className="text-base md:text-lg font-bold text-white mb-1 md:mb-2">{step.title}</h3>
+                <p className="text-gray-300 text-xs md:text-sm leading-relaxed">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Shop by Category Section */}
-      <section className="py-12 md:py-20 bg-dark-bg">
+      <section id="categories" className="py-12 md:py-20 bg-dark-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className={`text-center mb-8 md:mb-16 fade-in-on-scroll ${visibleElements.has('category-header') ? 'visible' : ''}`} id="category-header">
             <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 md:mb-4 holographic">
@@ -474,27 +589,27 @@ const Home: React.FC = () => {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-8">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-6">
             {categories.map((category, index) => (
               <Link
                 key={category.name}
                 to={category.link}
                 id={`category-${index}`}
-                className={`group card-dark p-4 md:p-8 rounded-xl md:rounded-2xl hover:border-neon-blue/50 transition-all duration-300 transform active:scale-95 md:hover:-translate-y-2 fade-in-on-scroll ${visibleElements.has(`category-${index}`) ? 'visible' : ''}`}
+                className={`group card-dark p-3 md:p-6 rounded-lg md:rounded-xl hover:border-neon-blue/50 active:scale-[0.98] md:hover:-translate-y-1 fade-in-on-scroll ${visibleElements.has(`category-${index}`) ? 'visible' : ''}`}
               >
                 <div className="text-center">
-                  <div className="text-4xl md:text-6xl mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <div className="text-2xl sm:text-3xl md:text-5xl mb-2 md:mb-3 group-hover:scale-105">
                     {category.icon}
                   </div>
-                  <h3 className="text-base md:text-xl font-bold text-white mb-2 group-hover:text-neon-blue transition-colors duration-300">
+                  <h3 className="text-sm md:text-lg font-bold text-white mb-1 md:mb-2 group-hover:text-neon-blue">
                     {category.name}
                   </h3>
-                  <p className="text-xs md:text-sm text-gray-300 mb-3 md:mb-4 leading-relaxed">
+                  <p className="text-[10px] sm:text-xs md:text-sm text-gray-300 mb-2 md:mb-3 leading-relaxed line-clamp-2">
                     {category.description}
                   </p>
-                  <div className="flex items-center justify-center text-neon-blue group-hover:text-neon-purple transition-colors duration-300">
-                    <span className="text-xs md:text-sm font-semibold">Explore</span>
-                    <ArrowRight className="ml-2 w-3 h-3 md:w-4 md:h-4" />
+                  <div className="flex items-center justify-center text-neon-blue group-hover:text-neon-purple">
+                    <span className="text-[10px] sm:text-xs font-semibold">Explore</span>
+                    <ArrowRight className="ml-1 w-3 h-3" />
                   </div>
                 </div>
               </Link>
@@ -504,7 +619,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* Featured Gift Cards Section */}
-      <section className="py-12 md:py-20 bg-dark-surface">
+      <section id="featured" className="py-12 md:py-20 bg-dark-surface">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 md:mb-16">
             <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 md:mb-4 holographic">
@@ -527,36 +642,35 @@ const Home: React.FC = () => {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               {featuredCards.map((card) => (
               <Link
                 key={card.id}
-                to="/giftcards"
-                className="group card-dark rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden border border-dark-border hover:border-neon-blue/50"
+                to={`/giftcard/${card.id}`}
+                className="group card-dark rounded-lg md:rounded-xl overflow-hidden border border-dark-border hover:border-neon-blue/50 active:scale-[0.98] md:hover:-translate-y-0.5"
               >
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="relative">
-                    <div className={`absolute -top-1 -right-1 px-2 py-1 rounded-full text-xs font-bold text-white ${card.badgeColor}`}>
+                    <div className={`absolute top-0 right-0 px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold text-white ${card.badgeColor}`}>
                       {card.badge}
                     </div>
                     <div className="text-center">
-                      <div className="w-full h-32 mb-3 group-hover:scale-105 transition-transform duration-300 rounded-lg overflow-hidden">
+                      <div className="w-full h-20 sm:h-24 md:h-28 mb-2 rounded-md overflow-hidden">
                         <img 
-                          src={card.image} 
+                          src={getAbsoluteImageUrl(card.image) || GIFT_CARD_PLACEHOLDER} 
                           alt={card.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105"
                           onError={(e) => {
-                            e.currentTarget.src = `https://via.placeholder.com/160x128/1a1a1a/ffffff?text=${card.name.charAt(0)}`;
+                            e.currentTarget.src = GIFT_CARD_PLACEHOLDER;
                           }}
                         />
                       </div>
-                      <h3 className="text-sm font-bold text-white mb-2 group-hover:text-neon-blue transition-colors duration-300 line-clamp-2">
+                      <h3 className="text-xs sm:text-sm font-bold text-white mb-1 line-clamp-2 group-hover:text-neon-blue">
                         {card.name}
                       </h3>
-                      <div className="text-base font-bold text-neon-blue mb-1">
-                        {card.price}
+                      <div className="text-xs sm:text-sm md:text-base font-semibold text-neon-blue leading-tight">
+                        {card.priceLabel}
                       </div>
-                      
                     </div>
                   </div>
                 </div>
@@ -568,7 +682,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* Most Popular Gift Cards Section */}
-      <section className="py-12 md:py-20 bg-dark-bg">
+      <section id="popular" className="py-12 md:py-20 bg-dark-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 md:mb-16 gap-4">
             <div>
@@ -596,38 +710,41 @@ const Home: React.FC = () => {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               {popularCards.map((card) => (
               <Link
                 key={card.id}
-                to="/giftcards"
-                className="group card-dark rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden border border-dark-border hover:border-neon-blue/50"
+                to={`/giftcard/${card.id}`}
+                className="group card-dark rounded-lg md:rounded-xl overflow-hidden border border-dark-border hover:border-neon-blue/50 active:scale-[0.98] md:hover:-translate-y-0.5"
               >
-                <div className="p-4">
+                <div className="p-2 sm:p-3 md:p-4">
                   <div className="text-center">
-                    <div className="w-full h-32 mb-3 group-hover:scale-105 transition-transform duration-300 rounded-lg overflow-hidden">
+                    <div className="w-full h-20 sm:h-24 md:h-28 mb-2 rounded-md overflow-hidden">
                       <img 
-                        src={card.image} 
+                        src={getAbsoluteImageUrl(card.image) || GIFT_CARD_PLACEHOLDER} 
                         alt={card.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105"
                         onError={(e) => {
-                          e.currentTarget.src = `https://via.placeholder.com/160x128/1a1a1a/ffffff?text=${card.name.charAt(0)}`;
+                          e.currentTarget.src = GIFT_CARD_PLACEHOLDER;
                         }}
                       />
                     </div>
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="bg-neon-green text-white px-2 py-1 rounded text-xs font-bold mr-1">
-                        {card.discount}
-                      </div>
-                      <h3 className="text-sm font-bold text-white group-hover:text-neon-blue transition-colors duration-300 line-clamp-1">
+                    <div className="flex items-center justify-center gap-1 mb-1 flex-wrap">
+                      {card.discount && (
+                        <span className="bg-neon-green text-white px-1.5 py-0.5 rounded text-[10px] font-bold">
+                          {card.discount}
+                        </span>
+                      )}
+                      <h3 className="text-xs sm:text-sm font-bold text-white line-clamp-1 group-hover:text-neon-blue">
                         {card.name}
                       </h3>
                     </div>
-                    <div className="flex items-center justify-center space-x-1 mb-1">
-                      <span className="text-base font-bold text-neon-blue">{card.price}</span>
-                      <span className="text-sm text-gray-500 line-through">{card.originalPrice}</span>
+                    <div className="flex items-center justify-center space-x-1">
+                      <span className="text-xs sm:text-sm md:text-base font-semibold text-neon-blue leading-tight text-center">
+                        {card.priceLabel}
+                      </span>
+                      {card.originalPrice && <span className="text-xs text-gray-500 line-through">{card.originalPrice}</span>}
                     </div>
-                    
                   </div>
                 </div>
               </Link>
@@ -638,7 +755,7 @@ const Home: React.FC = () => {
       </section>
 
       {/* Buy Cryptocurrency Section */}
-      <section className="py-12 md:py-20 bg-dark-surface">
+      <section id="crypto" className="py-12 md:py-20 bg-dark-surface">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 md:mb-16">
             <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 md:mb-4 holographic">
@@ -673,16 +790,16 @@ const Home: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
             {cryptoCoins.map((coin) => (
-              <div key={coin.id} className="group card-dark p-6 rounded-2xl hover:border-neon-blue/50 transition-all duration-300 transform hover:-translate-y-2 text-center">
-                <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">{coin.image}</div>
-                <h3 className="text-xl font-bold text-white mb-1 group-hover:text-neon-blue transition-colors duration-300">{coin.name}</h3>
-                <p className="text-sm text-gray-400 mb-3">{coin.symbol}</p>
-                <p className="text-gray-300 text-sm mb-4 leading-relaxed">{coin.description}</p>
+              <div key={coin.id} className="group card-dark p-4 md:p-6 rounded-xl md:rounded-2xl hover:border-neon-blue/50 text-center active:scale-[0.98] md:hover:-translate-y-1">
+                <div className="text-4xl md:text-5xl mb-2 md:mb-3 group-hover:scale-105">{coin.image}</div>
+                <h3 className="text-base md:text-lg font-bold text-white mb-0.5 group-hover:text-neon-blue">{coin.name}</h3>
+                <p className="text-xs text-gray-400 mb-2">{coin.symbol}</p>
+                <p className="text-gray-300 text-xs mb-3 leading-relaxed line-clamp-2 hidden sm:block">{coin.description}</p>
                 <button
                   onClick={() => navigate('/crypto')}
-                  className="w-full btn-cyber text-white py-2 px-4 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105"
+                  className="w-full btn-cyber text-white py-1.5 md:py-2 px-3 rounded-lg font-bold text-xs md:text-sm"
                 >
                   Buy {coin.symbol}
                 </button>
@@ -698,16 +815,22 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Digital Wallets & Virtual Cards Section */}
-      <section className="py-12 md:py-20 bg-dark-bg">
+      {/* Payments: virtual cards + digital wallets */}
+      <section id="payments" className="py-12 md:py-20 bg-dark-bg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 md:mb-16">
             <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 md:mb-4 holographic">
-              Digital Wallets & Virtual Cards
+              Payments
             </h2>
-            <p className="text-sm md:text-base text-gray-300 max-w-2xl mx-auto mb-6 md:mb-8">
-              Secure payment solutions for the digital age
+            <p className="text-sm md:text-base text-gray-300 max-w-2xl mx-auto mb-2 md:mb-3">
+              Virtual cards and digital wallets — top up or order in one place.
             </p>
+            <Link
+              to="/payments"
+              className="inline-flex text-neon-blue hover:text-neon-purple text-sm font-semibold mb-6 md:mb-8"
+            >
+              Browse all payment products →
+            </Link>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-8 md:mb-16">
               <div className="text-center">
@@ -736,30 +859,33 @@ const Home: React.FC = () => {
 
           <div className="mb-16">
             <h3 className="text-2xl font-bold text-white mb-8 text-center">Digital Wallets</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {walletServices.map((wallet) => (
                 <div
                   key={wallet.id}
-                  className="group card-dark p-6 rounded-2xl hover:border-neon-blue/50 transition-all duration-300 transform hover:-translate-y-2"
+                  className="group card-dark p-4 md:p-6 rounded-xl md:rounded-2xl hover:border-neon-blue/50 active:scale-[0.98] md:hover:-translate-y-1"
                 >
                   <div className="text-center">
-                    <div className="relative mb-4 flex justify-center">
-                      <div className="h-20 w-auto group-hover:scale-110 transition-transform duration-300">
-                        <img src={wallet.image} alt={wallet.name} className="h-full w-auto object-contain mx-auto" />
+                    <div className="relative mb-2 md:mb-4 flex justify-center">
+                      <div className="h-12 md:h-16 group-hover:scale-105">
+                        <img src={getAbsoluteImageUrl(wallet.image)} alt={wallet.name} className="h-full w-auto object-contain mx-auto" />
                       </div>
-                      <div className={`absolute -top-2 -right-2 px-2 py-1 rounded text-xs font-bold text-white ${wallet.badgeColor}`}>
+                      <div className={`absolute -top-1 right-0 px-1.5 py-0.5 rounded text-[10px] font-bold text-white ${wallet.badgeColor}`}>
                         {wallet.badge}
                       </div>
                     </div>
-                    <h4 className="text-lg font-bold text-white mb-2 group-hover:text-neon-blue transition-colors duration-300">
+                    <h4 className="text-sm md:text-base font-bold text-white mb-1 group-hover:text-neon-blue">
                       {wallet.name}
                     </h4>
-                    <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+                    <p className="text-gray-300 text-xs mb-2 md:mb-3 leading-relaxed line-clamp-2">
                       {wallet.description}
                     </p>
-                    <button className="w-full cyber-border text-white py-2 px-4 rounded-xl font-bold transition-all duration-300 hover:scale-105 hover:neon-glow">
-                      Get Started
-                    </button>
+                    <Link
+                      to="/payments"
+                      className="block w-full text-center cyber-border text-white py-1.5 md:py-2 px-3 rounded-lg font-bold text-xs"
+                    >
+                      Get started
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -767,26 +893,29 @@ const Home: React.FC = () => {
           </div>
 
           <div>
-            <h3 className="text-2xl font-bold text-white mb-8 text-center">Virtual Cards</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <h3 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 text-center">Virtual Cards</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
               {virtualCards.map((card) => (
                 <div
                   key={card.id}
-                  className="group card-dark p-6 rounded-2xl hover:border-neon-blue/50 transition-all duration-300 transform hover:-translate-y-2"
+                  className="group card-dark p-4 md:p-6 rounded-xl md:rounded-2xl hover:border-neon-blue/50 active:scale-[0.98] md:hover:-translate-y-1"
                 >
                   <div className="text-center">
-                    <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <div className="text-3xl md:text-4xl mb-2 md:mb-3 group-hover:scale-105">
                       {card.image}
                     </div>
-                    <h4 className="text-lg font-bold text-white mb-2 group-hover:text-neon-blue transition-colors duration-300">
+                    <h4 className="text-sm md:text-base font-bold text-white mb-1 group-hover:text-neon-blue">
                       {card.name}
                     </h4>
-                    <p className="text-gray-300 text-sm mb-4 leading-relaxed">
+                    <p className="text-gray-300 text-xs mb-2 md:mb-3 leading-relaxed line-clamp-2">
                       {card.description}
                     </p>
-                    <button className="w-full cyber-border text-white py-2 px-4 rounded-xl font-bold transition-all duration-300 hover:scale-105 hover:neon-glow">
-                      Order Card
-                    </button>
+                    <Link
+                      to="/payments"
+                      className="block w-full text-center cyber-border text-white py-1.5 md:py-2 px-3 rounded-lg font-bold text-xs"
+                    >
+                      Order card
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -795,51 +924,17 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section className="py-20 bg-dark-surface">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 holographic">
-              How It Works
-            </h2>
-            <p className="text-base text-gray-300 max-w-2xl mx-auto">
-              Getting your favorite gift cards has never been easier
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {howItWorks.map((step, index) => (
-              <div key={step.step} className="text-center">
-                <div className="relative mb-6">
-                  <div className="w-20 h-20 bg-neon-blue/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <div className="text-neon-blue">
-                      {step.icon}
-                    </div>
-                  </div>
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-neon-blue rounded-full flex items-center justify-center text-white font-bold text-sm">
-                    {step.step}
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-white mb-4">
-                  {step.title}
-                </h3>
-                <p className="text-gray-300 leading-relaxed">
-                  {step.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Bulk Payments / Orders Section */}
-      <section id="payments" className="py-20 bg-dark-bg">
+      {/* TT & bulk orders (separate from store Payments catalog) */}
+      <section id="tt-orders" className="py-20 bg-dark-bg">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 holographic">Payments & TT Orders</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 holographic">TT transfers & bulk orders</h2>
             <p className="text-base text-gray-300 max-w-2xl mx-auto">
-              Place bulk requests for TT transfers, business payments, or currency purchases (USD, ZAR, CNY).
+              Business TT transfers, supplier payments, currency blocks (USD, ZAR, CNY), vehicles, and more.
             </p>
+            <Link to="/tt-orders" className="inline-flex mt-4 text-neon-blue hover:text-neon-purple text-sm font-semibold">
+              Open full TT order form →
+            </Link>
           </div>
 
           <div className="card-dark p-6 rounded-2xl">

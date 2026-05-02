@@ -15,14 +15,9 @@ const router = Router();
 
 router.get('/', async (_req, res) => {
   try {
-    const now = new Date();
     const promotions = await prisma.promotion.findMany({
       where: {
         active: true,
-        AND: [
-          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-          { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
-        ],
       },
       orderBy: { priority: 'desc' },
     });

@@ -40,6 +40,59 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Admin: list all chats — MUST be before /:id (otherwise "all" is treated as an id).
+router.get('/all', basicAdminAuth, async (_req, res) => {
+  try {
+    const chats = await prisma.chat.findMany({
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: { messages: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    res.json(chats);
+  } catch (error: any) {
+    console.error('Failed to get chats:', error);
+    res.status(500).json({ error: error.message || 'Failed to get chats' });
+  }
+});
+
+// Customer: chats for a user — MUST be before /:id ('user' matched as id breaks this path).
+router.get('/user/:identifier', async (req, res) => {
+  try {
+    let { identifier } = req.params;
+    try {
+      identifier = decodeURIComponent(identifier);
+    } catch {
+      /* use raw */
+    }
+    const chats = await prisma.chat.findMany({
+      where: {
+        OR: [{ userId: identifier }, { userEmail: identifier }],
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: { messages: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    res.json(chats);
+  } catch (error: any) {
+    console.error('Failed to get user chats:', error);
+    res.status(500).json({ error: error.message || 'Failed to get user chats' });
+  }
+});
+
 // Get a chat by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -153,29 +206,6 @@ router.post('/:id/messages', async (req, res) => {
   } catch (error: any) {
     console.error('Failed to send message:', error);
     res.status(500).json({ error: error.message || 'Failed to send message' });
-  }
-});
-
-// Admin: Get all chats
-router.get('/', basicAdminAuth, async (_req, res) => {
-  try {
-    const chats = await prisma.chat.findMany({
-      include: {
-        messages: {
-          orderBy: { createdAt: 'desc' },
-          take: 1 // Get only the latest message for preview
-        },
-        _count: {
-          select: { messages: true }
-        }
-      },
-      orderBy: { updatedAt: 'desc' }
-    });
-
-    res.json(chats);
-  } catch (error: any) {
-    console.error('Failed to get chats:', error);
-    res.status(500).json({ error: error.message || 'Failed to get chats' });
   }
 });
 

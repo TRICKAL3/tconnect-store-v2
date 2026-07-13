@@ -22,8 +22,14 @@ const DigitalWallets = lazy(() => import('./pages/DigitalWallets'));
 const TtOrders = lazy(() => import('./pages/TtOrders'));
 const Cart = lazy(() => import('./pages/Cart'));
 const Checkout = lazy(() => import('./pages/Checkout'));
+const WalletPage = lazy(() => import('./pages/Wallet'));
 const CheckoutCardChat = lazy(() => import('./pages/CheckoutCardChat'));
 const Admin = lazy(() => import('./pages/Admin'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminMarketing = lazy(() => import('./pages/AdminMarketing'));
+const AdminManager = lazy(() => import('./pages/AdminManager'));
+const AdminReloadly = lazy(() => import('./pages/AdminReloadly'));
+const AdminCards = lazy(() => import('./pages/AdminCards'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Profile = lazy(() => import('./pages/Profile'));
 const MyPromotions = lazy(() => import('./pages/MyPromotions'));
@@ -38,6 +44,8 @@ const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 const RefundPolicy = lazy(() => import('./pages/RefundPolicy'));
 const AMLPolicy = lazy(() => import('./pages/AMLPolicy'));
 const Rates = lazy(() => import('./pages/Rates'));
+const Spin = lazy(() => import('./pages/Spin'));
+const UtilityBills = lazy(() => import('./pages/UtilityBills'));
 
 function PageLoader() {
   return <AppLoader />;
@@ -47,7 +55,8 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = location.pathname === '/admin';
+  const isAdmin =
+    location.pathname === '/admin' || location.pathname.startsWith('/admin/');
 
   // Scroll to top on route change (instant so lazy-loaded pages don’t leave the viewport mid-page/footer)
   useEffect(() => {
@@ -198,7 +207,14 @@ function AppContent() {
             <Route path="/tt-orders" element={<TtOrders />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/utility-bills" element={<UtilityBills />} />
+            <Route path="/wallet" element={<WalletPage />} />
             <Route path="/checkout/card-chat" element={<CheckoutCardChat />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/marketing" element={<AdminMarketing />} />
+            <Route path="/admin/manager" element={<AdminManager />} />
+            <Route path="/admin/reloadly" element={<AdminReloadly />} />
+            <Route path="/admin/cards" element={<AdminCards />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
@@ -207,6 +223,7 @@ function AppContent() {
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/rates" element={<Rates />} />
+            <Route path="/spin" element={<Spin />} />
             <Route path="/notifications/:id" element={<NotificationDetail />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />

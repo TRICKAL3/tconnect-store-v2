@@ -1,14 +1,21 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getMwkAmountFromUsd } from '../utils/rates';
 import AdminNotificationBell from '../components/AdminNotificationBell';
 import { getApiBase } from '../lib/getApiBase';
+import { fetchAdminUsers } from '../lib/adminUsers';
 import {
   GIFTCARD_ADMIN_MIN_USD,
   GIFTCARD_ADMIN_MAX_USD,
   isGiftCardAdminPriceValid,
 } from '../lib/giftCardPricing';
+import {
+  isVirtualCardOrderItem,
+  normalizeVirtualCardFromStored,
+  orderItemHasVirtualCardDetails,
+} from '../lib/virtualCardCodes';
 import PromotionsManager from '../components/admin/PromotionsManager';
 import BlogsManager from '../components/admin/BlogsManager';
 import AbandonedCartsManager from '../components/admin/AbandonedCartsManager';
@@ -30,12 +37,15 @@ import {
   BookOpen,
   Bell,
   Search,
+  MapPin,
   ShieldCheck,
   ShoppingCart,
+  Sparkles,
+  Wallet,
+  Plug,
+  CreditCard,
   type LucideIcon,
 } from 'lucide-react';
-
-const API_BASE = getApiBase();
 
 type AdminTab =
   | 'home'
@@ -44,11 +54,13 @@ type AdminTab =
   | 'rates'
   | 'invoices'
   | 'users'
+  | 'signins'
   | 'slides'
   | 'sales'
   | 'ttorders'
   | 'chats'
   | 'points'
+  | 'spin'
   | 'receipts'
   | 'notifications'
   | 'manualorders'
@@ -80,7 +92,9 @@ const ADMIN_SECTIONS: AdminSection[] = [
   { id: 'invoices', label: 'Invoices', description: 'Issue and manage invoice records', icon: FileText },
   { id: 'ttorders', label: 'TT Orders', description: 'Handle telegraphic transfer requests', icon: Repeat },
   { id: 'users', label: 'Users', description: 'Manage user accounts and access', icon: Users },
+  { id: 'signins', label: 'Recent Sign-ins', description: 'All users with locations — recent logins on top', icon: MapPin },
   { id: 'points', label: 'Points Portal', description: 'Administer points balances and rules', icon: Star },
+  { id: 'spin', label: 'Spin Control', description: 'Spin history, stats, and bonus spins for users', icon: Sparkles },
   { id: 'receipts', label: 'Points Receipts', description: 'Track points redemption receipts', icon: Receipt },
   { id: 'slides', label: 'Slideshows', description: 'Control homepage slideshow content', icon: Image },
   { id: 'chats', label: 'Chats', description: 'Respond to live customer conversations', icon: MessageSquare },
@@ -99,9 +113,9 @@ const ROLE_LABELS: Record<AdminRole, string> = {
 
 const ROLE_SECTION_ACCESS: Record<AdminRole, AdminSection['id'][]> = {
   superadmin: ADMIN_SECTIONS.map((s) => s.id),
-  operations: ['orders', 'carts', 'sales', 'products', 'rates', 'invoices', 'ttorders', 'manualorders', 'promotions'],
+  operations: ['orders', 'carts', 'sales', 'products', 'rates', 'invoices', 'ttorders', 'manualorders', 'promotions', 'spin'],
   content: ['products', 'slides', 'promotions', 'blogs', 'notifications'],
-  support: ['orders', 'carts', 'users', 'chats', 'points', 'receipts', 'notifications'],
+  support: ['orders', 'carts', 'users', 'signins', 'chats', 'points', 'spin', 'receipts', 'notifications'],
 };
 
 // Define SalesDashboard before Admin component to satisfy TypeScript
@@ -117,8 +131,8 @@ function SalesDashboard({ getAdminHeaders }: { getAdminHeaders: () => Record<str
     setLoading(true);
     try {
       const [ordersRes, productsRes] = await Promise.all([
-        fetch(`${API_BASE}/orders`, { headers: getAdminHeaders() as HeadersInit }),
-        fetch(`${API_BASE}/products`, { headers: getAdminHeaders() as HeadersInit })
+        fetch(`${getApiBase()}/orders`, { headers: getAdminHeaders() as HeadersInit }),
+        fetch(`${getApiBase()}/products`, { headers: getAdminHeaders() as HeadersInit })
       ]);
       const ordersData = await ordersRes.json();
       const productsData = await productsRes.json();
@@ -568,8 +582,8 @@ const Admin: React.FC = () => {
     try {
       const headers = getAdminHeaders() as HeadersInit;
       const [ordersRes, promotionsRes] = await Promise.all([
-        fetch(`${API_BASE}/orders`, { headers }),
-        fetch(`${API_BASE}/promotions/all`, { headers }),
+        fetch(`${getApiBase()}/orders`, { headers }),
+        fetch(`${getApiBase()}/promotions/all`, { headers }),
       ]);
 
       const [ordersData, promotionsData] = await Promise.all([
@@ -706,6 +720,57 @@ const Admin: React.FC = () => {
                 ))}
               </div>
 
+              <div className="mb-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <Link
+                  to="/admin/dashboard"
+                  className="flex items-center gap-3 p-4 rounded-xl border-2 border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+                >
+                  <Package className="w-8 h-8 text-amber-400 shrink-0" />
+                  <div>
+                    <p className="font-bold text-white">TConnect Dashboard</p>
+                    <p className="text-sm text-gray-400">
+                      USDT inventory & MWK expense tracking — /admin/dashboard
+                    </p>
+                  </div>
+                </Link>
+                <Link
+                  to="/admin/marketing"
+                  className="flex items-center gap-3 p-4 rounded-xl border-2 border-purple-400/40 bg-purple-500/10 hover:bg-purple-500/20 transition-colors"
+                >
+                  <Megaphone className="w-8 h-8 text-purple-400 shrink-0" />
+                  <div>
+                    <p className="font-bold text-white">Marketing Funds</p>
+                    <p className="text-sm text-gray-400">
+                      Request & track marketing disbursements — /admin/marketing
+                    </p>
+                  </div>
+                </Link>
+                <Link
+                  to="/admin/cards"
+                  className="flex items-center gap-3 p-4 rounded-xl border-2 border-neon-blue/40 bg-neon-blue/10 hover:bg-neon-blue/20 transition-colors"
+                >
+                  <CreditCard className="w-8 h-8 text-neon-blue shrink-0" />
+                  <div>
+                    <p className="font-bold text-white">Card Updates</p>
+                    <p className="text-sm text-gray-400">
+                      Fulfill customer card refresh requests — /admin/cards
+                    </p>
+                  </div>
+                </Link>
+                <Link
+                  to="/admin/reloadly"
+                  className="flex items-center gap-3 p-4 rounded-xl border-2 border-cyan-400/40 bg-cyan-500/10 hover:bg-cyan-500/20 transition-colors"
+                >
+                  <Plug className="w-8 h-8 text-cyan-400 shrink-0" />
+                  <div>
+                    <p className="font-bold text-white">Reloadly</p>
+                    <p className="text-sm text-gray-400">
+                      Test gift cards & airtime API — /admin/reloadly
+                    </p>
+                  </div>
+                </Link>
+              </div>
+
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -779,6 +844,12 @@ const Admin: React.FC = () => {
               <UsersManager getAdminHeaders={getAdminHeaders} />
             </div>
           )}
+          {activeTab === 'signins' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">Recent Sign-ins</h2>
+              <RecentSignInsManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
           {activeTab === 'slides' && (
             <div>
               <h2 className="text-xl font-bold text-white mb-4">Slideshows</h2>
@@ -807,6 +878,12 @@ const Admin: React.FC = () => {
             <div>
               <h2 className="text-xl font-bold text-white mb-4">TConnect Points Portal</h2>
               <PointsManager getAdminHeaders={getAdminHeaders} />
+            </div>
+          )}
+          {activeTab === 'spin' && (
+            <div>
+              <h2 className="text-xl font-bold text-white mb-4">Spin Control</h2>
+              <SpinAdminManager getAdminHeaders={getAdminHeaders} />
             </div>
           )}
           {activeTab === 'receipts' && (
@@ -853,8 +930,11 @@ const Admin: React.FC = () => {
 
 function ManualOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
   const [users, setUsers] = useState<any[]>([]);
+  const [userSearch, setUserSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [customerSummary, setCustomerSummary] = useState<any | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [form, setForm] = useState({
     userId: '',
     items: [{ name: '', type: 'giftcard', price: '', quantity: 1 }],
@@ -863,21 +943,53 @@ function ManualOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Recor
   });
 
   useEffect(() => {
-    const loadUsers = async () => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
       try {
-        const res = await fetch(`${API_BASE}/users`, { headers: getAdminHeaders() as HeadersInit });
-        if (res.ok) {
-          const data = await res.json();
-          setUsers(Array.isArray(data) ? data : []);
-        }
+        const data = await fetchAdminUsers(getAdminHeaders, {
+          search: userSearch.trim() || undefined,
+          limit: userSearch.trim() ? 100 : 5000,
+        });
+        if (!cancelled) setUsers(data);
       } catch (e) {
         console.error('Failed to load users:', e);
+        if (!cancelled) setUsers([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
+    }, userSearch.trim() ? 300 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
     };
-    loadUsers();
-  }, [getAdminHeaders]);
+  }, [getAdminHeaders, userSearch]);
+
+  useEffect(() => {
+    if (!form.userId) {
+      setCustomerSummary(null);
+      return;
+    }
+    let cancelled = false;
+    setSummaryLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/users/admin/summary/${form.userId}`, {
+          headers: getAdminHeaders() as HeadersInit,
+        });
+        if (!res.ok) throw new Error('Failed to load customer');
+        const data = await res.json();
+        if (!cancelled) setCustomerSummary(data);
+      } catch {
+        if (!cancelled) setCustomerSummary(null);
+      } finally {
+        if (!cancelled) setSummaryLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [form.userId, getAdminHeaders]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -900,7 +1012,7 @@ function ManualOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Recor
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/orders`, {
+      const res = await fetch(`${getApiBase()}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() } as HeadersInit,
         body: JSON.stringify({
@@ -936,6 +1048,13 @@ function ManualOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Recor
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm text-gray-300 mb-2">Member (signed-up users)</label>
+          <input
+            type="text"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            placeholder="Search by email, phone, or username…"
+            className="w-full px-4 py-2 mb-2 bg-dark-bg border border-dark-border rounded-lg text-white"
+          />
           <select
             value={form.userId}
             onChange={(e) => setForm(prev => ({ ...prev, userId: e.target.value }))}
@@ -945,11 +1064,53 @@ function ManualOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Recor
             <option value="">— Select a user —</option>
             {users.map((u: any) => (
               <option key={u.id} value={u.id}>
-                {u.email || u.name || u.id} {u.name ? `(${u.name})` : ''}
+                {u.name || u.email || u.id}
+                {u.email ? ` · ${u.email}` : ''}
+                {u.phone ? ` · ${u.phone}` : ''}
               </option>
             ))}
           </select>
-          {users.length === 0 && <p className="text-gray-500 text-sm mt-1">No signed-up users yet.</p>}
+          {summaryLoading && form.userId && (
+            <p className="text-gray-500 text-sm mt-2">Loading customer details…</p>
+          )}
+          {customerSummary && (
+            <div className="mt-3 p-3 rounded-lg border border-neon-blue/30 bg-dark-bg text-sm space-y-1">
+              <div className="text-white font-semibold">{customerSummary.name || 'Customer'}</div>
+              <div className="text-neon-blue">{customerSummary.email}</div>
+              {customerSummary.phone && <div className="text-gray-300">Phone: {customerSummary.phone}</div>}
+              <div className="text-gray-300">
+                Wallet: <span className="text-amber-300">${Number(customerSummary.walletBalanceUsd || 0).toFixed(2)}</span>
+                {' · '}
+                Points: {(customerSummary.pointsBalance ?? 0).toLocaleString()}
+                {' · '}
+                Orders: {customerSummary.orderCount ?? 0}
+              </div>
+              {(customerSummary.city || customerSummary.country) && (
+                <div className="text-gray-400 text-xs">
+                  Location: {[customerSummary.city, customerSummary.region, customerSummary.country].filter(Boolean).join(', ')}
+                </div>
+              )}
+              {Array.isArray(customerSummary.recentOrders) && customerSummary.recentOrders.length > 0 && (
+                <div className="pt-2 border-t border-dark-border mt-2">
+                  <div className="text-gray-400 text-xs mb-1">Recent orders</div>
+                  {customerSummary.recentOrders.map((o: any) => (
+                    <div key={o.id} className="text-xs text-gray-300">
+                      #{o.id.slice(0, 8)} · {o.status} · ${Number(o.totalUsd || 0).toFixed(2)} ·{' '}
+                      {new Date(o.createdAt).toLocaleDateString()}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {users.length === 0 && !loading && (
+            <p className="text-gray-500 text-sm mt-1">
+              {userSearch.trim() ? 'No users match your search.' : 'No signed-up users yet.'}
+            </p>
+          )}
+          {!userSearch.trim() && users.length >= 5000 && (
+            <p className="text-amber-300 text-xs mt-1">Showing first 5,000 users — search to find others.</p>
+          )}
         </div>
         <div>
           <label className="block text-sm text-gray-300 mb-2">Items</label>
@@ -1075,11 +1236,8 @@ function NotificationManager({ getAdminHeaders }: { getAdminHeaders: () => Recor
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const res = await fetch(`${API_BASE}/users`, { headers: getAdminHeaders() as HeadersInit });
-        if (res.ok) {
-          const data = await res.json();
-          setUsers(Array.isArray(data) ? data : []);
-        }
+        const data = await fetchAdminUsers(getAdminHeaders, { limit: 5000 });
+        setUsers(data);
       } catch (error) {
         console.error('Failed to load users:', error);
       }
@@ -1115,7 +1273,7 @@ function NotificationManager({ getAdminHeaders }: { getAdminHeaders: () => Recor
         payload.userEmail = form.userEmail;
       }
 
-      const res = await fetch(`${API_BASE}/notifications`, {
+      const res = await fetch(`${getApiBase()}/notifications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1329,6 +1487,696 @@ function NotificationManager({ getAdminHeaders }: { getAdminHeaders: () => Recor
   );
 }
 
+
+type SpinHistoryRow = {
+  id: string;
+  userId: string | null;
+  type: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  user: { id: string; email: string; name: string } | null;
+};
+
+type SpinPrizeAdmin = {
+  id: string;
+  label: string;
+  rewardType: string;
+  points: number;
+  productId: string | null;
+  prizeAmountUsd?: number | null;
+  weight: number;
+  sortOrder: number;
+  active: boolean;
+  segmentKind?: 'no_win' | 'points_fixed' | 'custom';
+  editable?: boolean;
+  locked?: boolean;
+  product?: { id: string; name: string; type: string; category: string; priceUsd: number } | null;
+};
+
+function spinPrizeMeaningLabel(p: SpinPrizeAdmin): string {
+  if (p.rewardType === 'no_win') return 'No win';
+  if (p.rewardType === 'points') return `${p.points} TConnect points`;
+  if (p.rewardType === 'product' && p.product?.name) {
+    const usd = p.prizeAmountUsd;
+    if (usd != null && Number(usd) > 0) return `${p.product.name} ($${Number(usd)} USD)`;
+    return p.product.name;
+  }
+  return 'Prize';
+}
+
+type SpinProductWinRow = {
+  id: string;
+  userId: string;
+  productId: string;
+  prizeLabel: string;
+  status: string;
+  orderId?: string | null;
+  createdAt: string;
+  user: { id: string; email: string; name: string };
+  product: { id: string; name: string; type: string; category: string; priceUsd: number };
+};
+
+function SpinAdminManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
+  const [items, setItems] = useState<SpinHistoryRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [grantUserId, setGrantUserId] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [adminUsers, setAdminUsers] = useState<Array<{ id: string; email: string; name: string | null }>>([]);
+  const [grantCount, setGrantCount] = useState(1);
+  const [filter, setFilter] = useState('');
+  const [prizes, setPrizes] = useState<SpinPrizeAdmin[]>([]);
+  const [products, setProducts] = useState<Array<{ id: string; name: string; type: string; category: string; priceUsd: number }>>([]);
+  const [pendingWins, setPendingWins] = useState<SpinProductWinRow[]>([]);
+  const [prizesLoading, setPrizesLoading] = useState(false);
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${getApiBase()}/spin/admin/history?limit=300`, {
+        headers: getAdminHeaders() as HeadersInit,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Failed to load spin history (${res.status})`);
+      setItems(Array.isArray(data.items) ? data.items : []);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load spin history');
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const data = await fetchAdminUsers(getAdminHeaders, { limit: 5000 });
+      setAdminUsers(data);
+    } catch {
+      setAdminUsers([]);
+    }
+  };
+
+  const loadPrizes = async () => {
+    setPrizesLoading(true);
+    try {
+      const res = await fetch(`${getApiBase()}/spin/admin/prizes`, { headers: getAdminHeaders() as HeadersInit });
+      const data = await res.json().catch(() => []);
+      if (res.ok) setPrizes(Array.isArray(data) ? data : []);
+    } catch {
+      setPrizes([]);
+    } finally {
+      setPrizesLoading(false);
+    }
+  };
+
+  const loadProducts = async () => {
+    try {
+      const res = await fetch(`${getApiBase()}/products`, { headers: getAdminHeaders() as HeadersInit });
+      const data = await res.json().catch(() => []);
+      if (res.ok) setProducts(Array.isArray(data) ? data : []);
+    } catch {
+      setProducts([]);
+    }
+  };
+
+  const loadPendingWins = async () => {
+    try {
+      const res = await fetch(`${getApiBase()}/spin/admin/product-wins?status=pending&limit=100`, {
+        headers: getAdminHeaders() as HeadersInit,
+      });
+      const data = await res.json().catch(() => []);
+      if (res.ok) setPendingWins(Array.isArray(data) ? data : []);
+    } catch {
+      setPendingWins([]);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    loadUsers();
+    loadPrizes();
+    loadProducts();
+    loadPendingWins();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return adminUsers;
+    return adminUsers.filter(
+      (u) =>
+        u.email.toLowerCase().includes(q) ||
+        (u.name || '').toLowerCase().includes(q)
+    );
+  }, [adminUsers, userSearch]);
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (r) =>
+        r.message.toLowerCase().includes(q) ||
+        r.user?.email?.toLowerCase().includes(q) ||
+        r.user?.name?.toLowerCase().includes(q) ||
+        r.type.toLowerCase().includes(q)
+    );
+  }, [items, filter]);
+
+  const activeWheelPrizes = useMemo(
+    () => [...prizes.filter((p) => p.active)].sort((a, b) => a.sortOrder - b.sortOrder),
+    [prizes]
+  );
+  const wheelReady =
+    activeWheelPrizes.length === 9 &&
+    activeWheelPrizes.filter((p) => p.segmentKind === 'no_win' || p.rewardType === 'no_win').length === 2 &&
+    activeWheelPrizes.filter((p) => p.segmentKind === 'points_fixed').length === 5 &&
+    activeWheelPrizes.filter((p) => p.segmentKind === 'custom').length === 2;
+  const noWinSlices = useMemo(
+    () => activeWheelPrizes.filter((p) => p.segmentKind === 'no_win' || p.rewardType === 'no_win'),
+    [activeWheelPrizes]
+  );
+  const fixedSlices = useMemo(
+    () => activeWheelPrizes.filter((p) => p.segmentKind === 'points_fixed'),
+    [activeWheelPrizes]
+  );
+  const customSlices = useMemo(
+    () => activeWheelPrizes.filter((p) => p.segmentKind === 'custom'),
+    [activeWheelPrizes]
+  );
+
+  const stats = useMemo(() => {
+    const spins = items.filter((i) => i.type === 'spin_attempt');
+    const grants = items.filter((i) => i.type === 'spin_grant' || i.type === 'spin_bonus');
+    const uniqueSpinners = new Set(spins.map((s) => s.userId).filter(Boolean)).size;
+    const pointsWon = spins.reduce((sum, row) => {
+      const m = row.message.match(/(\d+)\s+points/i);
+      return sum + (m ? Number(m[1]) : 0);
+    }, 0);
+    return {
+      spinRows: spins.length,
+      grantRows: grants.length,
+      uniqueSpinners,
+      pointsWon,
+    };
+  }, [items]);
+
+  const grantBonusSpins = async () => {
+    if (!grantUserId) {
+      alert('Select a user from the list.');
+      return;
+    }
+    const spins = Math.min(5, Math.max(1, Math.floor(Number(grantCount))));
+    if (!Number.isFinite(spins)) {
+      alert('Spins must be between 1 and 5.');
+      return;
+    }
+    try {
+      const res = await fetch(`${getApiBase()}/spin/admin/grant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() } as HeadersInit,
+        body: JSON.stringify({ userId: grantUserId, spins }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Failed to grant spins (${res.status})`);
+      alert(`Granted ${spins} extra spin${spins > 1 ? 's' : ''}. The user was notified in-app.`);
+      setGrantUserId('');
+      await load();
+      await loadUsers();
+    } catch (err: any) {
+      alert(err?.message || 'Failed to grant spins');
+    }
+  };
+
+  const savePrize = async (p: SpinPrizeAdmin) => {
+    try {
+      const res = await fetch(`${getApiBase()}/spin/admin/prizes/${p.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() } as HeadersInit,
+        body: JSON.stringify({
+          label: p.rewardType === 'no_win' ? '' : p.label,
+          rewardType: p.rewardType,
+          points: p.points,
+          productId: p.productId,
+          prizeAmountUsd: p.rewardType === 'product' ? p.prizeAmountUsd : null,
+          weight: p.weight,
+          sortOrder: p.sortOrder,
+          active: p.active,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Save failed');
+      await loadPrizes();
+    } catch (e: any) {
+      alert(e?.message || 'Failed to save prize');
+    }
+  };
+
+  const reshuffleWheel = async () => {
+    if (!window.confirm('Reshuffle wheel? Green positions and prize letters change. Your 2 custom prizes stay.')) return;
+    try {
+      const res = await fetch(`${getApiBase()}/spin/admin/apply-nine-wheel`, {
+        method: 'POST',
+        headers: getAdminHeaders() as HeadersInit,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed');
+      alert('Wheel reshuffled. Users will see the new layout.');
+      await loadPrizes();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed');
+    }
+  };
+
+  const fulfillWin = async (id: string) => {
+    try {
+      const res = await fetch(`${getApiBase()}/spin/admin/product-wins/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() } as HeadersInit,
+        body: JSON.stringify({ status: 'fulfilled' }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Update failed');
+      }
+      await loadPendingWins();
+      await load();
+    } catch (e: any) {
+      alert(e?.message || 'Failed to mark fulfilled');
+    }
+  };
+
+  const rowKind = (type: string) => {
+    if (type === 'spin_grant' || type === 'spin_bonus') return 'Bonus grant';
+    if (type === 'spin_attempt') return 'Spin';
+    return type;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-lg border border-dark-border bg-dark-surface p-4">
+          <p className="text-xs text-gray-400 mb-1">Spins in list</p>
+          <p className="text-2xl font-bold text-white">{stats.spinRows}</p>
+        </div>
+        <div className="rounded-lg border border-dark-border bg-dark-surface p-4">
+          <p className="text-xs text-gray-400 mb-1">Unique players</p>
+          <p className="text-2xl font-bold text-neon-blue">{stats.uniqueSpinners}</p>
+        </div>
+        <div className="rounded-lg border border-dark-border bg-dark-surface p-4">
+          <p className="text-xs text-gray-400 mb-1">Points won (from messages)</p>
+          <p className="text-2xl font-bold text-green-400">{stats.pointsWon}</p>
+        </div>
+        <div className="rounded-lg border border-dark-border bg-dark-surface p-4">
+          <p className="text-xs text-gray-400 mb-1">Bonus grant events</p>
+          <p className="text-2xl font-bold text-purple-300">{stats.grantRows}</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-dark-border bg-dark-surface p-4 space-y-3">
+        <h3 className="text-white font-semibold">Grant extra spins (today)</h3>
+        <p className="text-sm text-gray-400">
+          Base limit is 1 spin per day. Choose a user below and grant up to 5 bonus spins â€” they receive an in-app notification immediately.
+        </p>
+        <input
+          value={userSearch}
+          onChange={(e) => setUserSearch(e.target.value)}
+          placeholder="Search users by email or nameâ€¦"
+          className="w-full max-w-md px-3 py-2 rounded-lg bg-dark-bg border border-dark-border text-white text-sm focus:border-neon-blue focus:outline-none"
+        />
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+          <div className="flex-1 min-w-0">
+            <label className="block text-xs text-gray-400 mb-1">Select user</label>
+            <select
+              value={grantUserId}
+              onChange={(e) => setGrantUserId(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-dark-bg border border-dark-border text-white text-sm focus:border-neon-blue focus:outline-none"
+            >
+              <option value="">â€” Choose user â€”</option>
+              {filteredUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.email} {u.name ? `(${u.name})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="w-full sm:w-28">
+            <label className="block text-xs text-gray-400 mb-1">Spins (1â€“5)</label>
+            <input
+              type="number"
+              min={1}
+              max={5}
+              value={grantCount}
+              onChange={(e) => setGrantCount(Number(e.target.value))}
+              className="w-full px-3 py-2 rounded-lg bg-dark-bg border border-dark-border text-white text-sm focus:border-neon-blue focus:outline-none"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={grantBonusSpins}
+            className="px-4 py-2 rounded-lg bg-neon-blue text-white font-semibold hover:opacity-90"
+          >
+            Grant spins
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-neon-blue/30 bg-dark-surface p-4 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-white font-semibold">Wheel prizes</h3>
+          <button
+            type="button"
+            onClick={() => {
+              loadPrizes();
+              loadProducts();
+            }}
+            disabled={prizesLoading}
+            className="text-sm cyber-border text-neon-blue px-3 py-1 rounded"
+          >
+            {prizesLoading ? 'Loadingâ€¦' : 'Reload'}
+          </button>
+        </div>
+        <p className="text-sm text-gray-400">
+          <strong className="text-gray-300">9 slices:</strong> 2 green no-win (no letter, random spots), 5 fixed points
+          (325, 162, 82, 1, 10), 2 prizes you edit below.
+        </p>
+        {!wheelReady && <p className="text-sm text-amber-300">Wheel not ready — click Reshuffle.</p>}
+        <button
+          type="button"
+          onClick={reshuffleWheel}
+          className="text-sm px-4 py-2 rounded-lg bg-amber-600/30 border border-amber-500/50 text-amber-200 font-semibold"
+        >
+          Reshuffle wheel (green spots + letters)
+        </button>
+
+        <div className="rounded-lg border border-green-600/40 bg-green-950/20 p-3">
+          <h4 className="text-green-400 text-sm font-semibold mb-2">Green — No win (locked)</h4>
+          <ul className="text-xs text-gray-300 space-y-1">
+            {noWinSlices.map((p) => (
+              <li key={p.id}>Position #{p.sortOrder + 1} · weight {p.weight}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="rounded-lg border border-dark-border bg-dark-bg/40 p-3">
+          <h4 className="text-gray-300 text-sm font-semibold mb-2">Fixed points (locked)</h4>
+          <table className="w-full text-xs">
+            <tbody>
+              {fixedSlices.map((p) => (
+                <tr key={p.id}>
+                  <td className="py-1 pr-3 text-gray-400">#{p.sortOrder + 1}</td>
+                  <td className="py-1 pr-3 font-black text-amber-300">{p.label}</td>
+                  <td className="py-1 text-white">{p.points} pts</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="rounded-lg border border-neon-blue/40 p-3">
+          <h4 className="text-neon-blue text-sm font-semibold mb-2">Your 2 prizes (edit + Save)</h4>
+          <div className="overflow-x-auto rounded-lg border border-dark-border">
+          <table className="w-full text-sm">
+            <thead className="bg-dark-bg text-gray-400 text-xs text-left">
+              <tr>
+                <th className="px-2 py-2">#</th>
+                <th className="px-2 py-2">Letter</th>
+                <th className="px-2 py-2">Type</th>
+                <th className="px-2 py-2">Prize</th>
+                <th className="px-2 py-2">Weight</th>
+                <th className="px-2 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-dark-border">
+              {customSlices.map((p) => (
+                <tr key={p.id} className="bg-dark-bg/40">
+                  <td className="px-2 py-2 text-gray-400 text-xs">{p.sortOrder + 1}</td>
+                  <td className="px-2 py-2">
+                    <input
+                      value={p.label}
+                      maxLength={2}
+                      onChange={(e) =>
+                        setPrizes((prev) =>
+                          prev.map((x) =>
+                            x.id === p.id
+                              ? {
+                                  ...x,
+                                  label: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2),
+                                }
+                              : x
+                          )
+                        )
+                      }
+                      className="w-12 px-2 py-1 rounded bg-dark-bg border border-dark-border text-white text-xs text-center font-black"
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={p.rewardType}
+                      onChange={(e) => {
+                        const rt = e.target.value;
+                        setPrizes((prev) =>
+                          prev.map((x) =>
+                            x.id === p.id
+                              ? {
+                                  ...x,
+                                  rewardType: rt,
+                                  points: rt === 'points' ? x.points || 25 : 0,
+                                  productId: rt === 'product' ? x.productId : null,
+                                }
+                              : x
+                          )
+                        );
+                      }}
+                      className="max-w-[120px] px-2 py-1 rounded bg-dark-bg border border-dark-border text-white text-xs"
+                    >
+                      <option value="points">Points</option>
+                      <option value="product">Product</option>
+                    </select>
+                  </td>
+                  <td className="px-2 py-2">
+                    {p.rewardType === 'points' && (
+                      <input
+                        type="number"
+                        min={1}
+                        value={p.points || 0}
+                        onChange={(e) =>
+                          setPrizes((prev) =>
+                            prev.map((x) =>
+                              x.id === p.id ? { ...x, points: Math.max(0, Number(e.target.value)) } : x
+                            )
+                          )
+                        }
+                        className="w-20 px-2 py-1 rounded bg-dark-bg border border-dark-border text-white text-xs"
+                      />
+                    )}
+                    {p.rewardType === 'product' && (
+                      <div className="flex flex-wrap gap-1 items-center">
+                        <select
+                          value={p.productId || ''}
+                          onChange={(e) =>
+                            setPrizes((prev) =>
+                              prev.map((x) =>
+                                x.id === p.id ? { ...x, productId: e.target.value || null } : x
+                              )
+                            )
+                          }
+                          className="max-w-[160px] px-2 py-1 rounded bg-dark-bg border border-dark-border text-white text-xs"
+                        >
+                          <option value="">— product —</option>
+                          {products.map((pr) => (
+                            <option key={pr.id} value={pr.id}>
+                              {pr.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min={0.01}
+                          step={0.01}
+                          title="Prize amount in USD"
+                          value={p.prizeAmountUsd ?? ''}
+                          onChange={(e) =>
+                            setPrizes((prev) =>
+                              prev.map((x) =>
+                                x.id === p.id
+                                  ? {
+                                      ...x,
+                                      prizeAmountUsd:
+                                        e.target.value === '' ? null : Math.max(0, Number(e.target.value)),
+                                    }
+                                  : x
+                              )
+                            )
+                          }
+                          placeholder="USD"
+                          className="w-16 px-2 py-1 rounded bg-dark-bg border border-amber-500/40 text-amber-100 text-xs"
+                        />
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-2 py-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={p.weight}
+                      onChange={(e) =>
+                        setPrizes((prev) =>
+                          prev.map((x) =>
+                            x.id === p.id ? { ...x, weight: Math.max(0, Number(e.target.value)) } : x
+                          )
+                        )
+                      }
+                      className="w-14 px-2 py-1 rounded bg-dark-bg border border-dark-border text-white text-xs"
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <button type="button" onClick={() => savePrize(p)} className="text-xs text-neon-blue font-semibold">
+                      Save
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-dark-border bg-dark-surface p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-white font-semibold">Pending product prizes</h3>
+          <button type="button" onClick={loadPendingWins} className="text-sm cyber-border text-gray-300 px-3 py-1 rounded">
+            Refresh
+          </button>
+        </div>
+        <p className="text-sm text-gray-400">
+          Product wins also create a <strong className="text-gray-300">pending order</strong> in Orders (when claimed or instant).
+          Fulfill the order there (codes / card details). Use this list for spin-only tracking.
+        </p>
+        {pendingWins.length === 0 ? (
+          <p className="text-gray-500 text-sm">No pending product wins.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-dark-border">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-dark-bg text-gray-400 text-xs">
+                <tr>
+                  <th className="px-3 py-2">When</th>
+                  <th className="px-3 py-2">User</th>
+                  <th className="px-3 py-2">Product</th>
+                  <th className="px-3 py-2">Prize label</th>
+                  <th className="px-3 py-2">Order</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-dark-border">
+                {pendingWins.map((w) => (
+                  <tr key={w.id} className="bg-dark-bg/30">
+                    <td className="px-3 py-2 text-gray-300 whitespace-nowrap">
+                      {new Date(w.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="text-white">{w.user.email}</div>
+                      <div className="text-xs text-gray-500">{w.user.name}</div>
+                    </td>
+                    <td className="px-3 py-2 text-gray-200">
+                      {w.product.name}{' '}
+                      <span className="text-gray-500 text-xs">
+                        ({w.product.type})
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-gray-300">{w.prizeLabel}</td>
+                    <td className="px-3 py-2 text-xs font-mono text-sky-300">
+                      {w.orderId ? `#${w.orderId.slice(0, 8)}` : 'Awaiting claim'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => fulfillWin(w.id)}
+                        className="text-xs px-2 py-1 rounded bg-green-600/30 text-green-300 border border-green-500/40"
+                      >
+                        Mark fulfilled
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Search email, name, or message..."
+          className="w-full sm:max-w-md px-3 py-2 rounded-lg bg-dark-surface border border-dark-border text-white text-sm focus:border-neon-blue focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="cyber-border text-neon-blue px-4 py-2 rounded-lg text-sm hover:bg-neon-blue/10 disabled:opacity-50"
+        >
+          {loading ? 'Refreshingâ€¦' : 'Refresh history'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-400/20 border border-red-400/50 rounded-lg p-3 text-red-400 text-sm">{error}</div>
+      )}
+
+      {loading && items.length === 0 ? (
+        <p className="text-gray-400 text-center py-8">Loading spin activityâ€¦</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-gray-400 text-center py-8">No spin activity loaded yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-dark-border">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-dark-bg text-gray-400 text-xs uppercase">
+              <tr>
+                <th className="px-4 py-3">When</th>
+                <th className="px-4 py-3">User</th>
+                <th className="px-4 py-3">Activity</th>
+                <th className="px-4 py-3">Detail</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-dark-border">
+              {filtered.map((row) => (
+                <tr key={row.id} className="bg-dark-surface/80 hover:bg-dark-card/60">
+                  <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                    {new Date(row.createdAt).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="text-white font-medium">{row.user?.email || 'â€”'}</div>
+                    {row.user?.name && <div className="text-gray-500 text-xs">{row.user.name}</div>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${
+                        row.type === 'spin_grant'
+                          ? 'bg-purple-500/20 text-purple-300'
+                          : 'bg-cyan-500/20 text-cyan-300'
+                      }`}
+                    >
+                      {rowKind(row.type)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-300 max-w-md">{row.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-xs text-gray-500">
+        Showing up to 300 recent events (spins, bonus grants, and notifications). Bonus spins from admin send one in-app notification per grant.
+      </p>
+    </div>
+  );
+}
+
 function ReceiptsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
   const [receipts, setReceipts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1340,8 +2188,11 @@ function ReceiptsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`${API_BASE}/users/receipts`, { headers: getAdminHeaders() as HeadersInit });
-        if (!res.ok) throw new Error('Failed to fetch receipts');
+        const res = await fetch(`${getApiBase()}/users/receipts`, { headers: getAdminHeaders() as HeadersInit });
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(text || `Failed to fetch receipts (${res.status})`);
+        }
         const data = await res.json();
         setReceipts(Array.isArray(data) ? data : []);
       } catch (err: any) {
@@ -1368,7 +2219,7 @@ function ReceiptsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
 
   const handleVerify = async (receiptId: string, verified: boolean) => {
     try {
-      const res = await fetch(`${API_BASE}/users/receipts/${receiptId}/verify`, {
+      const res = await fetch(`${getApiBase()}/users/receipts/${receiptId}/verify`, {
         method: 'PATCH',
         headers: { ...getAdminHeaders(), 'Content-Type': 'application/json' } as HeadersInit,
         body: JSON.stringify({ verified })
@@ -1535,7 +2386,7 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
     } else if (isEntertainment || isSoftware) {
       redeemInstructions = `How to Redeem Your ${cardName} Gift Card:\n\n1. Visit the ${cardName} website or open the ${cardName} app.\n2. Sign in to your account or create a new account.\n3. Go to "Account Settings" or "Payment Methods" section.\n4. Select "Redeem Gift Card" or "Add Gift Card".\n5. Enter the gift card code provided after your purchase.\n6. Click "Apply" or "Redeem" to add the balance to your account.\n7. Your credit will be instantly available for subscriptions or purchases.\n\nNote: Gift card codes are delivered immediately after payment confirmation. Codes can only be used once and are subject to ${cardName}'s terms of service.`;
     } else if (isRetail) {
-      redeemInstructions = `How to Redeem Your ${cardName} Gift Card:\n\n1. Log in to your ${cardName} account or create a new account.\n2. Go to "Your Account" → "Gift Cards" or "Payment Methods".\n3. Click on "Redeem a Gift Card" or "Apply Gift Card Balance".\n4. Enter the gift card code you received after purchase.\n5. Click "Apply to Your Balance" or "Add to Account".\n6. Your gift card balance will be added to your account instantly.\n7. You can use this balance during checkout for any purchase on ${cardName}.\n\nNote: Gift card codes are delivered instantly via email after payment confirmation. You can check your balance anytime in your account settings.`;
+      redeemInstructions = `How to Redeem Your ${cardName} Gift Card:\n\n1. Log in to your ${cardName} account or create a new account.\n2. Go to "Your Account" â†’ "Gift Cards" or "Payment Methods".\n3. Click on "Redeem a Gift Card" or "Apply Gift Card Balance".\n4. Enter the gift card code you received after purchase.\n5. Click "Apply to Your Balance" or "Add to Account".\n6. Your gift card balance will be added to your account instantly.\n7. You can use this balance during checkout for any purchase on ${cardName}.\n\nNote: Gift card codes are delivered instantly via email after payment confirmation. You can check your balance anytime in your account settings.`;
     } else if (isFood) {
       redeemInstructions = `How to Redeem Your ${cardName} Gift Card:\n\n1. Open the ${cardName} app or visit their website.\n2. Sign in or create a new account.\n3. Go to "Payment" or "Gift Cards" in your account settings.\n4. Select "Add Gift Card" or "Redeem Code".\n5. Enter the gift card code received after purchase.\n6. Tap "Add" or "Redeem" to apply the balance.\n7. Your credit will be immediately available for orders and deliveries.\n\nNote: Gift card codes are delivered instantly after payment. You can use the balance for orders, delivery fees, and tips.`;
     } else {
@@ -1598,25 +2449,25 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
   const load = async () => {
     setLoading(true);
     try {
-      console.log('📦 [Admin] Loading products from:', `${API_BASE}/products`);
-      const res = await fetch(`${API_BASE}/products`);
-      console.log('📥 [Admin] Products response status:', res.status);
+      console.log('ðŸ“¦ [Admin] Loading products from:', `${getApiBase()}/products`);
+      const res = await fetch(`${getApiBase()}/products`);
+      console.log('ðŸ“¥ [Admin] Products response status:', res.status);
       
       if (!res.ok) {
         throw new Error(`Failed to fetch products: ${res.status} ${res.statusText}`);
       }
       
       const data = await res.json();
-      console.log('✅ [Admin] Products loaded:', Array.isArray(data) ? data.length : 'not an array', data);
+      console.log('âœ… [Admin] Products loaded:', Array.isArray(data) ? data.length : 'not an array', data);
       
       if (Array.isArray(data)) {
         setProducts(data);
       } else {
-        console.error('❌ [Admin] Products data is not an array:', data);
+        console.error('âŒ [Admin] Products data is not an array:', data);
         setProducts([]);
       }
     } catch (error: any) {
-      console.error('❌ [Admin] Error loading products:', error);
+      console.error('âŒ [Admin] Error loading products:', error);
       setProducts([]);
       alert(`Failed to load products: ${error.message}`);
     } finally {
@@ -1674,7 +2525,7 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
         } else if (error.message.includes('Bucket') || error.message.includes('not found')) {
           alert(`Error: The 'products' bucket doesn't exist in Supabase Storage. Please create a public bucket named 'products' in your Supabase dashboard.`);
         } else if (error.message.includes('row-level security') || error.message.includes('RLS')) {
-          alert(`Error: Storage policy blocking upload. Go to Supabase Dashboard → Storage → products bucket → Policies → Create a policy allowing INSERT for public or authenticated users.`);
+          alert(`Error: Storage policy blocking upload. Go to Supabase Dashboard â†’ Storage â†’ products bucket â†’ Policies â†’ Create a policy allowing INSERT for public or authenticated users.`);
         } else {
           alert(`Failed to upload image: ${error.message}`);
         }
@@ -1715,11 +2566,11 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
       }
     }
     
-    // Price validation: crypto has no catalog USD; gift cards use $1–$1000 suggested default only
-    if (form.type === 'giftcard') {
+    // Price validation: crypto has no catalog USD; gift cards & virtual cards use $1–$1000 suggested default
+    if (form.type === 'giftcard' || form.type === 'virtual-card') {
       if (!isGiftCardAdminPriceValid(form.priceUsd)) {
         alert(
-          `For gift cards, enter a suggested default USD amount between $${GIFTCARD_ADMIN_MIN_USD} and $${GIFTCARD_ADMIN_MAX_USD}. Customers choose their own denomination (up to $1000) on the storefront.`
+          `For ${form.type === 'virtual-card' ? 'virtual cards' : 'gift cards'}, enter a suggested default USD amount between $${GIFTCARD_ADMIN_MIN_USD} and $${GIFTCARD_ADMIN_MAX_USD}. Customers choose their own amount ($1–$1000) at checkout.`
         );
         return;
       }
@@ -1839,7 +2690,7 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
   const deleteProduct = async (id: string) => {
     try {
       const headers = getHeaders();
-      const res = await fetch(`${API_BASE}/products/${id}`, {
+      const res = await fetch(`${getApiBase()}/products/${id}`, {
         method: 'DELETE',
         headers: headers as HeadersInit
       });
@@ -1857,7 +2708,7 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
 
   const toggle = async (p: any, field: 'inStock'|'featured'|'popular') => {
     const body = { [field]: !p[field] } as any;
-    await fetch(`${API_BASE}/products/${p.id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(body) });
+    await fetch(`${getApiBase()}/products/${p.id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(body) });
     await load();
   };
 
@@ -1867,6 +2718,17 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="px-4 py-2 rounded-lg bg-neon-blue text-white font-medium text-sm disabled:opacity-50"
+        >
+          {loading ? 'Refreshing…' : 'Refresh Products'}
+        </button>
+        <span className="text-sm text-gray-400">{products.length} product(s) loaded</span>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <select
           value={form.type}
@@ -1877,7 +2739,11 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
               type: t,
               category: '',
               name: '',
-              priceUsd: t === 'giftcard' && (!prev.priceUsd || prev.priceUsd < GIFTCARD_ADMIN_MIN_USD) ? GIFTCARD_ADMIN_MIN_USD : prev.priceUsd,
+              priceUsd:
+                (t === 'giftcard' || t === 'virtual-card') &&
+                (!prev.priceUsd || prev.priceUsd < GIFTCARD_ADMIN_MIN_USD)
+                  ? GIFTCARD_ADMIN_MIN_USD
+                  : prev.priceUsd,
             }));
           }}
           className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
@@ -1910,18 +2776,20 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
         {form.type !== 'crypto' && (
           <div className="flex flex-col gap-1">
             <span className="text-gray-400 text-xs">
-              {form.type === 'giftcard'
-                ? `Suggested default (USD): $${GIFTCARD_ADMIN_MIN_USD}–$${GIFTCARD_ADMIN_MAX_USD} · Customers pick any checkout amount $0–$1000 (> $0)`
+              {form.type === 'giftcard' || form.type === 'virtual-card'
+                ? `Suggested default (USD): $${GIFTCARD_ADMIN_MIN_USD}–$${GIFTCARD_ADMIN_MAX_USD} · Customers pick $1–$1000 at checkout`
                 : 'Price USD'}
             </span>
             <input
               type="number"
-              min={form.type === 'giftcard' ? GIFTCARD_ADMIN_MIN_USD : undefined}
-              max={form.type === 'giftcard' ? GIFTCARD_ADMIN_MAX_USD : undefined}
-              step={form.type === 'giftcard' ? 0.01 : 1}
+              min={form.type === 'giftcard' || form.type === 'virtual-card' ? GIFTCARD_ADMIN_MIN_USD : undefined}
+              max={form.type === 'giftcard' || form.type === 'virtual-card' ? GIFTCARD_ADMIN_MAX_USD : undefined}
+              step={form.type === 'giftcard' || form.type === 'virtual-card' ? 0.01 : 1}
               value={form.priceUsd || ''}
               onChange={(e) => setForm({ ...form, priceUsd: parseFloat(e.target.value) || 0 })}
-              placeholder={form.type === 'giftcard' ? 'Default amount (USD)' : 'Price USD'}
+              placeholder={
+                form.type === 'giftcard' || form.type === 'virtual-card' ? 'Default amount (USD)' : 'Price USD'
+              }
               className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
             />
           </div>
@@ -2007,8 +2875,8 @@ function ProductManager({ getAdminHeaders }: { getAdminHeaders: () => Record<str
                   <div className="text-white font-semibold">{p.name || 'Unnamed Product'}</div>
                   <div className="text-gray-400 text-sm">
                     {p.type === 'giftcard'
-                      ? `${p.type || 'unknown'} • ${p.category || 'uncategorized'} • ref. default $${p.priceUsd ?? 0} · buyer chooses $0–1000`
-                      : `${p.type || 'unknown'} • ${p.category || 'uncategorized'} • $${p.priceUsd || 0}`}
+                      ? `${p.type || 'unknown'} â€¢ ${p.category || 'uncategorized'} â€¢ ref. default $${p.priceUsd ?? 0} Â· buyer chooses $0â€“1000`
+                      : `${p.type || 'unknown'} â€¢ ${p.category || 'uncategorized'} â€¢ $${p.priceUsd || 0}`}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -2058,7 +2926,7 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
 
   const loadRates = async () => {
     try {
-      const res = await fetch(`${API_BASE}/rates`, { headers: getAdminHeaders() as HeadersInit });
+      const res = await fetch(`${getApiBase()}/rates`, { headers: getAdminHeaders() as HeadersInit });
       if (res.ok) {
         const data = await res.json();
         setRates(data);
@@ -2072,7 +2940,7 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/rates`, { 
+      const res = await fetch(`${getApiBase()}/rates`, { 
         method: 'POST', 
         headers: { ...{'Content-Type': 'application/json'}, ...getAdminHeaders() }, 
         body: JSON.stringify({ type, value: Math.round(value) }) 
@@ -2098,15 +2966,15 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
 
   // Prepare chart data
   const prepareChartData = () => {
-    const dateMap: Record<string, { giftcard?: number; crypto?: number; wallet?: number }> = {};
+    const dateMap: Record<string, { giftcard?: number; crypto?: number; wallet?: number; store_wallet?: number }> = {};
     
     rates.forEach((rate: any) => {
       const date = new Date(rate.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       if (!dateMap[date]) {
         dateMap[date] = {};
       }
-      const rateType = rate.type as 'giftcard' | 'crypto' | 'wallet';
-      if (rateType === 'giftcard' || rateType === 'crypto' || rateType === 'wallet') {
+      const rateType = rate.type as 'giftcard' | 'crypto' | 'wallet' | 'store_wallet';
+      if (rateType === 'giftcard' || rateType === 'crypto' || rateType === 'wallet' || rateType === 'store_wallet') {
         dateMap[date][rateType] = rate.value;
       }
     });
@@ -2119,18 +2987,21 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
     let lastGiftcard: number | null = null;
     let lastCrypto: number | null = null;
     let lastWallet: number | null = null;
+    let lastStoreWallet: number | null = null;
 
     sortedDates.forEach(date => {
       const dayData = dateMap[date];
       lastGiftcard = dayData.giftcard ?? lastGiftcard;
       lastCrypto = dayData.crypto ?? lastCrypto;
       lastWallet = dayData.wallet ?? lastWallet;
+      lastStoreWallet = dayData.store_wallet ?? lastStoreWallet;
 
       chartData.push({
         date,
         giftcard: lastGiftcard,
         crypto: lastCrypto,
-        wallet: lastWallet
+        wallet: lastWallet,
+        store_wallet: lastStoreWallet,
       });
     });
 
@@ -2157,6 +3028,7 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
             <option value="giftcard">Gift Card</option>
             <option value="crypto">Cryptocurrency</option>
             <option value="wallet">Payments (digital wallets + virtual cards)</option>
+            <option value="store_wallet">Store Wallet (top-up & balance MWK)</option>
           </select>
           <input type="number" value={value || ''} onChange={(e) => setValue(parseInt(e.target.value || '0', 10))} placeholder="MWK per USD" className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white" />
           <button disabled={saving} onClick={save} className="btn-cyber text-white px-6 py-3 rounded-lg">{saving ? 'Saving...' : 'Save Rate'}</button>
@@ -2165,7 +3037,7 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
       </div>
 
       {/* Current Rates */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card-dark p-4 rounded-xl">
           <div className="text-sm text-gray-400 mb-1">Gift Cards</div>
           <div className="text-2xl font-bold text-white">{getCurrentRate('giftcard').toLocaleString()} MWK/$1</div>
@@ -2177,6 +3049,11 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
         <div className="card-dark p-4 rounded-xl">
           <div className="text-sm text-gray-400 mb-1">Payments (digital wallets + virtual cards)</div>
           <div className="text-2xl font-bold text-white">{getCurrentRate('wallet').toLocaleString()} MWK/$1</div>
+        </div>
+        <div className="card-dark p-4 rounded-xl border border-amber-500/30">
+          <div className="text-sm text-amber-200/90 mb-1">Store Wallet (account top-up)</div>
+          <div className="text-2xl font-bold text-amber-300">{getCurrentRate('store_wallet').toLocaleString()} MWK/$1</div>
+          <p className="text-xs text-gray-500 mt-1">Lower rate = cheaper top-up for customers</p>
         </div>
       </div>
 
@@ -2226,6 +3103,14 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
                 name="Payments (wallets)"
                 dot={{ fill: '#3b82f6', r: 4 }}
               />
+              <Line 
+                type="monotone" 
+                dataKey="store_wallet" 
+                stroke="#f59e0b" 
+                strokeWidth={2}
+                name="Store Wallet"
+                dot={{ fill: '#f59e0b', r: 4 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -2234,81 +3119,239 @@ function RatesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
   );
 }
 
+function adminOrderItemMeta(item: any): Record<string, any> {
+  if (!item?.metadata) return {};
+  try {
+    const m = typeof item.metadata === 'string' ? JSON.parse(item.metadata) : item.metadata;
+    return m && typeof m === 'object' && !Array.isArray(m) ? m : {};
+  } catch {
+    return {};
+  }
+}
+
+function adminOrderItemHasCodes(item: any): boolean {
+  if (!item?.giftCardCodes) return false;
+  try {
+    const c = typeof item.giftCardCodes === 'string' ? JSON.parse(item.giftCardCodes) : item.giftCardCodes;
+    return Array.isArray(c) && c.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function itemIsGiftOrVirtual(item: any): boolean {
+  const t = String(item?.type || '').trim().toLowerCase();
+  return t === 'giftcard' || t === 'virtual-card' || t === 'gift-card' || t === 'gift card';
+}
+
+function isGiftCardOrderItem(item: any): boolean {
+  return itemIsGiftOrVirtual(item) && !isVirtualCardOrderItem(item);
+}
+
+function parseOrderItemCodes(item: any): any[] {
+  if (!item?.giftCardCodes) return [];
+  try {
+    const c = typeof item.giftCardCodes === 'string' ? JSON.parse(item.giftCardCodes) : item.giftCardCodes;
+    return Array.isArray(c) ? c : [];
+  } catch {
+    return [];
+  }
+}
+
+function itemNeedsGiftCodesOrVirtualLinks(item: any) {
+  if (isVirtualCardOrderItem(item)) return !orderItemHasVirtualCardDetails(item);
+  if (isGiftCardOrderItem(item)) return !adminOrderItemHasCodes(item);
+  return false;
+}
+
+function itemNeedsCryptoConfirm(item: any) {
+  if (item?.type !== 'crypto') return false;
+  const meta = adminOrderItemMeta(item);
+  if (meta.adminDeliveryConfirmed) return false;
+  return true;
+}
+
+function itemNeedsWalletConfirm(item: any) {
+  return item?.type === 'wallet' && !adminOrderItemMeta(item).adminDeliveryConfirmed;
+}
+
+function orderLinesFulfillmentReady(order: any) {
+  const items = order?.items || [];
+  return items.every(
+    (it: any) =>
+      !itemNeedsGiftCodesOrVirtualLinks(it) && !itemNeedsCryptoConfirm(it) && !itemNeedsWalletConfirm(it)
+  );
+}
+
 function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
   const [orders, setOrders] = useState<any[]>([]);
-  const [orderView, setOrderView] = useState<'new' | 'completed' | 'rejected'>('new');
+  const [orderView, setOrderView] = useState<'new' | 'awaiting' | 'completed' | 'rejected'>('new');
+  const [visibleOrdersCount, setVisibleOrdersCount] = useState(40);
   const [loading, setLoading] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [giftCardCodes, setGiftCardCodes] = useState<Array<{ serialNumber?: string; redeemCode?: string; activationLink?: string }>>([]);
+  const [giftCardCodes, setGiftCardCodes] = useState<
+    Array<{
+      serialNumber?: string;
+      redeemCode?: string;
+      cardNumber?: string;
+      expireDate?: string;
+      cvv?: string;
+    }>
+  >([]);
 
-  const load = async () => {
+  const reconcileAwaitingPawapay = async (orderList: any[]) => {
+    const stuck = orderList.filter(
+      (o) => o.status === 'awaiting_pawapay' && o.payment?.method === 'pawapay'
+    );
+    if (stuck.length === 0) return orderList;
+    const headers = { 'Content-Type': 'application/json', ...getAdminHeaders() };
+    for (const o of stuck) {
+      try {
+        await fetch(`${getApiBase()}/payments/pawapay/reconcile`, {
+          method: 'POST',
+          headers: headers as HeadersInit,
+          body: JSON.stringify({ orderId: o.id }),
+        });
+      } catch {
+        /* ignore per-order */
+      }
+    }
+    const res = await fetch(`${getApiBase()}/orders`, { headers: getAdminHeaders() as HeadersInit });
+    const data = await res.json();
+    return Array.isArray(data) ? data : orderList;
+  };
+
+  const load = async (): Promise<any[]> => {
     setLoading(true);
     try {
       const headers = getAdminHeaders();
-      const res = await fetch(`${API_BASE}/orders`, { headers: headers as HeadersInit });
+      const res = await fetch(`${getApiBase()}/orders`, { headers: headers as HeadersInit });
       const data = await res.json();
-      setOrders(Array.isArray(data) ? data : []);
+      let arr = Array.isArray(data) ? data : [];
+      arr = await reconcileAwaitingPawapay(arr);
+      setOrders(arr);
+      return arr;
     } catch (error) {
       console.error('Failed to load orders:', error);
       setOrders([]);
+      return [];
     } finally {
       setLoading(false);
     }
   };
-  
+
+  const confirmPawapayPayment = async (orderId: string) => {
+    const headers = { 'Content-Type': 'application/json', ...getAdminHeaders() };
+    try {
+      const res = await fetch(`${getApiBase()}/payments/pawapay/reconcile`, {
+        method: 'POST',
+        headers: headers as HeadersInit,
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.error || 'Payment not confirmed yet. Customer may still be paying.');
+        return;
+      }
+      await load();
+      setOrderView('new');
+      alert('PawaPay payment confirmed — order is now in New Orders.');
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to confirm payment');
+    }
+  };
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
-  
+
   const setStatus = async (id: string, status: string) => {
     const headers = { 'Content-Type': 'application/json', ...getAdminHeaders() };
     try {
-      await fetch(`${API_BASE}/orders/${id}/status`, { method: 'PATCH', headers: headers as HeadersInit, body: JSON.stringify({ status }) });
+      const res = await fetch(`${getApiBase()}/orders/${id}/status`, {
+        method: 'PATCH',
+        headers: headers as HeadersInit,
+        body: JSON.stringify({ status }),
+      });
+      let data: Record<string, unknown> = {};
+      try {
+        data = (await res.json()) as Record<string, unknown>;
+      } catch {
+        /* empty */
+      }
+      if (!res.ok) {
+        alert(typeof data.error === 'string' ? data.error : `Failed to update order status (${res.status})`);
+        return;
+      }
       await load();
+      if (status === 'approved') {
+        alert('Order approved.');
+      }
     } catch (error) {
       console.error('Failed to update order status:', error);
       alert('Failed to update order status');
     }
   };
 
-  const handleFulfill = (order: any) => {
-    // Check if order has gift card items without codes
-    const giftCardItems = order.items?.filter((item: any) => item.type === 'giftcard' && !item.giftCardCodes);
-    // Check if order has virtual card items without activation links
-    const virtualCardItems = order.items?.filter((item: any) => item.type === 'virtual-card' && !item.giftCardCodes);
-    
-    if (giftCardItems && giftCardItems.length > 0) {
-      // Show code entry modal for each gift card item
-      setSelectedOrder(order);
-      setSelectedItem(giftCardItems[0]);
-      setGiftCardCodes(new Array(giftCardItems[0].quantity).fill(null).map(() => ({ serialNumber: '', redeemCode: '' })));
-      setShowCodeModal(true);
-    } else if (virtualCardItems && virtualCardItems.length > 0) {
-      // Show activation link entry modal for each virtual card item
-      setSelectedOrder(order);
-      setSelectedItem(virtualCardItems[0]);
-      setGiftCardCodes(new Array(virtualCardItems[0].quantity).fill(null).map(() => ({ activationLink: '' })));
-      setShowCodeModal(true);
-    } else {
-      // No gift cards/virtual cards or all have codes/links, just fulfill
-      setStatus(order.id, 'fulfilled');
+  const openCodesModalForItem = (order: any, item: any) => {
+    setSelectedOrder(order);
+    setSelectedItem(item);
+    const qty = Math.max(1, Number(item.quantity) || 1);
+    const isVirtual = isVirtualCardOrderItem(item);
+    const existing = parseOrderItemCodes(item);
+    const initial = new Array(qty).fill(null).map((_, idx) => {
+      const prev = existing[idx];
+      if (isVirtual) {
+        const normalized = normalizeVirtualCardFromStored(prev);
+        return normalized
+          ? { cardNumber: normalized.cardNumber, expireDate: normalized.expireDate, cvv: normalized.cvv }
+          : { cardNumber: '', expireDate: '', cvv: '' };
+      }
+      if (prev && typeof prev === 'object') {
+        return {
+          serialNumber: String((prev as any).serialNumber || ''),
+          redeemCode: String((prev as any).redeemCode || ''),
+        };
+      }
+      return { serialNumber: '', redeemCode: '' };
+    });
+    setGiftCardCodes(initial);
+    setShowCodeModal(true);
+  };
+
+  const mergeItemDeliveryMeta = async (orderId: string, itemId: string) => {
+    const headers = { 'Content-Type': 'application/json', ...getAdminHeaders() };
+    const res = await fetch(`${getApiBase()}/orders/${orderId}/items/${itemId}/metadata`, {
+      method: 'PATCH',
+      headers: headers as HeadersInit,
+      body: JSON.stringify({
+        merge: { adminDeliveryConfirmed: true, adminDeliveryConfirmedAt: new Date().toISOString() },
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || `Failed (${res.status})`);
     }
+    await load();
   };
 
   const saveCodes = async () => {
     if (!selectedOrder || !selectedItem) return;
-    
-    const isVirtualCard = selectedItem.type === 'virtual-card';
-    
-    // Validate all codes/links are filled
+
+    const isVirtualCard = isVirtualCardOrderItem(selectedItem);
+
     if (isVirtualCard) {
-      if (giftCardCodes.some(item => !item.activationLink || !item.activationLink.trim())) {
-        alert('Please fill in all activation links');
+      if (
+        giftCardCodes.some(
+          (item) => !item.cardNumber?.trim() || !item.expireDate?.trim() || !item.cvv?.trim()
+        )
+      ) {
+        alert('Please fill in card number, expiry date, and CVV for each virtual card');
         return;
       }
     } else {
-      if (giftCardCodes.some(item => !item.serialNumber?.trim() || !item.redeemCode?.trim())) {
+      if (giftCardCodes.some((item) => !item.serialNumber?.trim() || !item.redeemCode?.trim())) {
         alert('Please fill in all serial numbers and redeem codes');
         return;
       }
@@ -2316,62 +3359,88 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
 
     const headers = { 'Content-Type': 'application/json', ...getAdminHeaders() };
     try {
-      await fetch(`${API_BASE}/orders/${selectedOrder.id}/items/${selectedItem.id}/codes`, {
+      const patchRes = await fetch(`${getApiBase()}/orders/${selectedOrder.id}/items/${selectedItem.id}/codes`, {
         method: 'PATCH',
         headers: headers as HeadersInit,
-        body: JSON.stringify({ 
-          codes: isVirtualCard 
-            ? giftCardCodes.map(c => ({ activationLink: (c.activationLink || '').trim() }))
-            : giftCardCodes.map(c => ({ 
-                serialNumber: (c.serialNumber || '').trim(), 
-                redeemCode: (c.redeemCode || '').trim() 
+        body: JSON.stringify({
+          codes: isVirtualCard
+            ? giftCardCodes.map((c) => ({
+                cardNumber: (c.cardNumber || '').trim(),
+                expireDate: (c.expireDate || '').trim(),
+                cvv: (c.cvv || '').trim(),
               }))
-        })
+            : giftCardCodes.map((c) => ({
+                serialNumber: (c.serialNumber || '').trim(),
+                redeemCode: (c.redeemCode || '').trim(),
+              })),
+        }),
       });
+      if (!patchRes.ok) {
+        const err = await patchRes.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to save codes');
+      }
 
-      // Check if there are more items without codes/links
-      const remainingItems = selectedOrder.items?.filter((item: any) => 
-        ((item.type === 'giftcard' || item.type === 'virtual-card') && 
-        item.id !== selectedItem.id && 
-        !item.giftCardCodes)
+      const all = await load();
+      const orderFresh = all.find((x) => x.id === selectedOrder.id);
+      const next = orderFresh?.items?.find(
+        (item: any) =>
+          itemIsGiftOrVirtual(item) &&
+          item.id !== selectedItem.id &&
+          !adminOrderItemHasCodes(item)
       );
 
-      if (remainingItems && remainingItems.length > 0) {
-        // Move to next item
-        setSelectedItem(remainingItems[0]);
-        const isNextVirtualCard = remainingItems[0].type === 'virtual-card';
-        setGiftCardCodes(new Array(remainingItems[0].quantity).fill(null).map(() => 
-          isNextVirtualCard 
-            ? { activationLink: '' }
-            : { serialNumber: '', redeemCode: '' }
-        ));
+      if (next) {
+        setSelectedOrder(orderFresh);
+        setSelectedItem(next);
+        const isNextV = isVirtualCardOrderItem(next);
+        const q = Math.max(1, Number(next.quantity) || 1);
+        setGiftCardCodes(
+          new Array(q).fill(null).map(() =>
+            isNextV ? { cardNumber: '', expireDate: '', cvv: '' } : { serialNumber: '', redeemCode: '' }
+          )
+        );
       } else {
-        // All codes/links entered, fulfill order
         setShowCodeModal(false);
         setSelectedOrder(null);
         setSelectedItem(null);
-        await setStatus(selectedOrder.id, 'fulfilled');
-        await load();
+        setGiftCardCodes([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save codes/links:', error);
-      alert('Failed to save codes/links');
+      alert(error?.message || 'Failed to save codes/links');
     }
   };
 
   const filteredOrders = orders.filter(o => {
     if (orderView === 'new') return o.status === 'pending';
+    if (orderView === 'awaiting') return o.status === 'awaiting_pawapay';
     if (orderView === 'completed') return o.status === 'approved' || o.status === 'fulfilled' || o.status === 'done';
     if (orderView === 'rejected') return o.status === 'rejected' || o.status === 'denied' || o.status === 'fail';
     return true;
   });
+  const visibleOrders = filteredOrders.slice(0, visibleOrdersCount);
+
+  useEffect(() => {
+    setVisibleOrdersCount(40);
+  }, [orderView]);
 
   const newOrdersCount = orders.filter(o => o.status === 'pending').length;
+  const awaitingPawapayCount = orders.filter(o => o.status === 'awaiting_pawapay').length;
   const completedOrdersCount = orders.filter(o => o.status === 'approved' || o.status === 'fulfilled' || o.status === 'done').length;
   const rejectedOrdersCount = orders.filter(o => o.status === 'rejected' || o.status === 'denied' || o.status === 'fail').length;
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          className="px-4 py-2 rounded-lg bg-neon-blue text-white font-medium text-sm disabled:opacity-50"
+        >
+          {loading ? 'Refreshing…' : 'Refresh Orders'}
+        </button>
+      </div>
       {/* Order View Tabs */}
       <div className="flex gap-2 border-b border-dark-border pb-2">
         <button
@@ -2384,6 +3453,18 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
         >
           New Orders ({newOrdersCount})
         </button>
+        {awaitingPawapayCount > 0 && (
+          <button
+            onClick={() => setOrderView('awaiting')}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+              orderView === 'awaiting'
+                ? 'bg-amber-500 text-white'
+                : 'bg-dark-surface text-gray-300 hover:bg-dark-card'
+            }`}
+          >
+            Awaiting PawaPay ({awaitingPawapayCount})
+          </button>
+        )}
         <button
           onClick={() => setOrderView('completed')}
           className={`px-4 py-2 rounded-lg font-semibold transition-all ${
@@ -2411,11 +3492,28 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
         <div className="text-gray-400 text-center py-8">Loading orders...</div>
       ) : filteredOrders.length > 0 ? (
         <div className="space-y-3">
-          {filteredOrders.map(o => (
+          <div className="text-xs text-gray-500">
+            Showing {visibleOrders.length} of {filteredOrders.length} orders
+          </div>
+          {visibleOrders.map(o => (
             <div key={o.id} className="p-4 border border-dark-border rounded-lg bg-dark-surface">
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="text-white font-semibold">Order #{o.id.slice(0, 8)}</div>
+                  <div className="text-gray-300 text-sm mt-1">
+                    <span className="text-white">{o.user?.name || 'Customer'}</span>
+                    {o.user?.email && (
+                      <>
+                        {' · '}
+                        <a href={`mailto:${o.user.email}`} className="text-neon-blue hover:underline">
+                          {o.user.email}
+                        </a>
+                      </>
+                    )}
+                    {o.user?.phone && (
+                      <span className="text-gray-400"> · {o.user.phone}</span>
+                    )}
+                  </div>
                   <div className="text-gray-400 text-sm">
                     {new Date(o.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </div>
@@ -2431,20 +3529,21 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                 <div className="space-y-2">
                   {o.items?.map((item: any, idx: number) => {
                     let metadata = null;
-                    let codes = null;
                     try {
                       metadata = item.metadata ? (typeof item.metadata === 'string' ? JSON.parse(item.metadata) : item.metadata) : null;
-                      codes = item.giftCardCodes ? (typeof item.giftCardCodes === 'string' ? JSON.parse(item.giftCardCodes) : item.giftCardCodes) : null;
                     } catch (e) {
                       console.error('Failed to parse metadata/codes:', e);
                     }
+                    const codes = parseOrderItemCodes(item);
+                    const isGiftLike = itemIsGiftOrVirtual(item);
+                    const isVirtual = isVirtualCardOrderItem(item);
                     
                     return (
-                      <div key={idx} className="text-gray-400 text-xs pl-3 border-l-2 border-dark-border">
-                        <div className="font-semibold text-white">• {item.name} ({item.type}) x{item.quantity} - ${item.priceUsd?.toFixed(2)}</div>
+                      <div key={item.id || `${idx}-${item.name || 'item'}`} className="text-gray-400 text-xs pl-3 border-l-2 border-dark-border">
+                        <div className="font-semibold text-white">â€¢ {item.name} ({item.type}) x{item.quantity} - ${item.priceUsd?.toFixed(2)}</div>
                         
                         {/* Gift Card Codes */}
-                        {item.type === 'giftcard' && codes && codes.length > 0 && (
+                        {isGiftCardOrderItem(item) && codes.length > 0 && (
                           <div className="mt-2 ml-3 p-2 bg-dark-bg rounded border border-yellow-400/30">
                             <div className="text-yellow-400 font-bold mb-1">Gift Card Codes:</div>
                             <div className="space-y-2">
@@ -2459,18 +3558,17 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                           </div>
                         )}
                         
-                        {/* Virtual Card Activation Links */}
-                        {item.type === 'virtual-card' && codes && codes.length > 0 && (
+                        {/* Virtual Card Details */}
+                        {isVirtual && codes.length > 0 && (
                           <div className="mt-2 ml-3 p-2 bg-dark-bg rounded border border-blue-400/30">
-                            <div className="text-blue-400 font-bold mb-1">Activation Links:</div>
+                            <div className="text-blue-400 font-bold mb-1">Card details:</div>
                             <div className="space-y-2">
-                              {codes.map((link: any, linkIdx: number) => {
-                                const activationLink = typeof link === 'object' ? link.activationLink : link;
+                              {codes.map((raw: any, linkIdx: number) => {
+                                const card = normalizeVirtualCardFromStored(raw);
+                                if (!card) return null;
                                 return (
-                                  <div key={linkIdx} className="text-xs">
-                                    <div className="font-mono text-blue-300 break-all">
-                                      <strong>#{linkIdx + 1}</strong> <a href={activationLink} target="_blank" rel="noopener noreferrer" className="hover:underline">{activationLink}</a>
-                                    </div>
+                                  <div key={linkIdx} className="text-xs font-mono text-blue-300">
+                                    <strong>#{linkIdx + 1}</strong> {card.cardNumber} · exp {card.expireDate} · CVV {card.cvv}
                                   </div>
                                 );
                               })}
@@ -2542,6 +3640,62 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                             </div>
                           </div>
                         )}
+
+                        {orderView === 'new' && (
+                          <div className="mt-3 ml-3 flex flex-wrap gap-2 items-center">
+                            {isGiftLike && (
+                              <button
+                                type="button"
+                                onClick={() => openCodesModalForItem(o, item)}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-yellow-500/20 border border-yellow-400/50 text-yellow-200 hover:bg-yellow-500/30 font-semibold"
+                              >
+                                {itemNeedsGiftCodesOrVirtualLinks(item)
+                                  ? isVirtualCardOrderItem(item)
+                                    ? 'Enter card details (this line)'
+                                    : 'Enter codes (this line)'
+                                  : isVirtualCardOrderItem(item)
+                                    ? 'View / edit card details'
+                                    : 'View / edit codes (this line)'}
+                              </button>
+                            )}
+                            {itemNeedsCryptoConfirm(item) && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await mergeItemDeliveryMeta(o.id, item.id);
+                                  } catch (e: any) {
+                                    alert(e?.message || 'Failed to update');
+                                  }
+                                }}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-neon-blue/20 border border-neon-blue/50 text-sky-200 hover:bg-neon-blue/30 font-semibold"
+                              >
+                                Confirm crypto sent (this line)
+                              </button>
+                            )}
+                            {itemNeedsWalletConfirm(item) && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await mergeItemDeliveryMeta(o.id, item.id);
+                                  } catch (e: any) {
+                                    alert(e?.message || 'Failed to update');
+                                  }
+                                }}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-400/50 text-green-200 hover:bg-green-500/30 font-semibold"
+                              >
+                                Confirm wallet top-up (this line)
+                              </button>
+                            )}
+                            {item.type === 'crypto' && adminOrderItemMeta(item).adminDeliveryConfirmed && (
+                              <span className="text-[11px] uppercase tracking-wide text-green-400 font-semibold">Crypto line âœ“</span>
+                            )}
+                            {item.type === 'wallet' && adminOrderItemMeta(item).adminDeliveryConfirmed && (
+                              <span className="text-[11px] uppercase tracking-wide text-green-400 font-semibold">Wallet line âœ“</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -2550,9 +3704,31 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
 
               {o.payment && (
                 <div className="mb-3 p-2 bg-dark-bg rounded text-xs text-gray-400">
+                  <div className="mb-1">
+                    <span className="text-gray-500">Payment: </span>
+                    {o.payment.method === 'pawapay' ? (
+                      <span className="text-emerald-400 font-semibold">
+                        PawaPay (mobile money)
+                        {o.payment.popUrl?.includes('pawapayVerified') ? ' — paid ✓' : ''}
+                      </span>
+                    ) : o.payment.method === 'bank' ? (
+                      <span className="text-neon-blue font-medium">Bank transfer</span>
+                    ) : o.payment.method === 'points' ? (
+                      <span className="text-purple-300 font-medium">TConnect Points</span>
+                    ) : o.payment.method === 'paypal' ? (
+                      <span className="text-sky-300 font-medium">PayPal</span>
+                    ) : (
+                      <span className="text-white">{o.payment.method || '—'}</span>
+                    )}
+                  </div>
                   <div>Sender: {o.payment.senderName}</div>
-                  {o.payment.transactionId && <div>Transaction ID: {o.payment.transactionId}</div>}
-                  {o.payment.popUrl && (
+                  {o.payment.transactionId && (
+                    <div>
+                      {o.payment.method === 'pawapay' ? 'PawaPay ref' : 'Transaction ID'}:{' '}
+                      {String(o.payment.transactionId).split('|')[0]}
+                    </div>
+                  )}
+                  {o.payment.popUrl && o.payment.method !== 'pawapay' && o.payment.popUrl.startsWith('http') && (
                     <a href={o.payment.popUrl} target="_blank" rel="noreferrer" className="text-neon-blue hover:underline inline-block mt-1">
                       View Proof of Payment
                     </a>
@@ -2560,30 +3736,77 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                 </div>
               )}
 
+              {orderView === 'awaiting' && o.payment?.method === 'pawapay' && (
+                <div className="mt-3 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10">
+                  <p className="text-amber-200 text-sm mb-2">
+                    Customer paid via PawaPay but this order has not been sent to New Orders yet. Click to check payment and release it to admin.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => confirmPawapayPayment(o.id)}
+                    className="text-sm px-4 py-2 rounded-lg bg-amber-500 text-black font-semibold hover:bg-amber-400"
+                  >
+                    Confirm PawaPay payment
+                  </button>
+                </div>
+              )}
+
               {orderView === 'new' && (
-                <div className="mt-3 flex gap-2">
-                  <button 
-                    onClick={() => setStatus(o.id, 'approved')} 
-                    className="cyber-border text-green-400 px-4 py-2 rounded hover:bg-green-400/10 font-semibold"
-                  >
-                    ✓ Approve
-                  </button>
-                  <button 
-                    onClick={() => setStatus(o.id, 'rejected')} 
-                    className="cyber-border text-red-400 px-4 py-2 rounded hover:bg-red-400/10 font-semibold"
-                  >
-                    ✗ Reject
-                  </button>
-                  <button 
-                    onClick={() => handleFulfill(o)} 
-                    className="cyber-border text-neon-blue px-4 py-2 rounded hover:bg-neon-blue/10 font-semibold"
-                  >
-                    ✓ Fulfill
-                  </button>
+                <div className="mt-3 space-y-2">
+                  <p className="text-gray-500 text-xs">
+                    Use the buttons on each line: gift cards need codes (each product separately), crypto and wallet each need their own confirmation.
+                    When every line is done, mark the order fulfilled.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setStatus(o.id, 'approved')}
+                      className="cyber-border text-green-400 px-4 py-2 rounded hover:bg-green-400/10 font-semibold"
+                    >
+                      âœ“ Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStatus(o.id, 'rejected')}
+                      className="cyber-border text-red-400 px-4 py-2 rounded hover:bg-red-400/10 font-semibold"
+                    >
+                      âœ— Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!orderLinesFulfillmentReady(o)}
+                      title={
+                        orderLinesFulfillmentReady(o)
+                          ? 'All lines fulfilled'
+                          : 'Complete every line first (codes / crypto / wallet confirmations)'
+                      }
+                      onClick={() => {
+                        if (orderLinesFulfillmentReady(o)) setStatus(o.id, 'fulfilled');
+                      }}
+                      className={`cyber-border px-4 py-2 rounded font-semibold ${
+                        orderLinesFulfillmentReady(o)
+                          ? 'text-neon-blue hover:bg-neon-blue/10'
+                          : 'text-gray-600 border-gray-700 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      Mark order fulfilled
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           ))}
+          {visibleOrders.length < filteredOrders.length && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setVisibleOrdersCount((n) => n + 40)}
+                className="w-full px-4 py-2 rounded-lg border border-dark-border bg-dark-surface text-gray-200 hover:bg-dark-card"
+              >
+                Load 40 more orders
+              </button>
+            </div>
+          )}
         </div>
         ) : (
           <div className="text-gray-400 text-center py-8">
@@ -2598,55 +3821,120 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
           <div className="bg-dark-bg border border-neon-blue rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h3 className="text-white font-bold text-lg mb-4">
-              Enter Gift Card Codes - {selectedItem.name}
+              {isVirtualCardOrderItem(selectedItem) ? 'Enter virtual card details' : 'Enter gift card codes'} —{' '}
+              {selectedItem.name}
             </h3>
             <p className="text-gray-300 text-sm mb-4">
-              Please enter {selectedItem.quantity} gift card code{selectedItem.quantity > 1 ? 's' : ''} for {selectedItem.name}
+              {isVirtualCardOrderItem(selectedItem)
+                ? `Add card number, expiry date, and CVV for each unit (${selectedItem.quantity}).`
+                : `Add serial + redeem for each unit (${selectedItem.quantity}) of this gift card — other products use their own buttons on the order.`}
             </p>
             <div className="space-y-4">
               {giftCardCodes.map((codeItem, idx) => (
                 <div key={idx} className="p-3 bg-dark-surface rounded-lg border border-dark-border">
-                  <div className="text-yellow-400 font-semibold mb-3">Gift Card #{idx + 1}</div>
+                  <div className={`font-semibold mb-3 ${isVirtualCardOrderItem(selectedItem) ? 'text-blue-400' : 'text-yellow-400'}`}>
+                    {isVirtualCardOrderItem(selectedItem) ? `Virtual card #${idx + 1}` : `Gift card unit #${idx + 1}`}
+                  </div>
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-gray-300 text-sm mb-1">Serial Number:</label>
-                      <input
-                        type="text"
-                        value={codeItem.serialNumber}
-                        onChange={(e) => {
-                          const newCodes = [...giftCardCodes];
-                          newCodes[idx] = { ...newCodes[idx], serialNumber: e.target.value };
-                          setGiftCardCodes(newCodes);
-                        }}
-                        placeholder={`Enter serial number ${idx + 1}`}
-                        className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-gray-300 text-sm mb-1">Redeem Code:</label>
-                      <input
-                        type="text"
-                        value={codeItem.redeemCode}
-                        onChange={(e) => {
-                          const newCodes = [...giftCardCodes];
-                          newCodes[idx] = { ...newCodes[idx], redeemCode: e.target.value };
-                          setGiftCardCodes(newCodes);
-                        }}
-                        placeholder={`Enter redeem code ${idx + 1}`}
-                        className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none font-mono"
-                      />
-                    </div>
+                    {isVirtualCardOrderItem(selectedItem) ? (
+                      <>
+                        <div>
+                          <label className="block text-gray-300 text-sm mb-1">Card number</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            value={codeItem.cardNumber || ''}
+                            onChange={(e) => {
+                              const newCodes = [...giftCardCodes];
+                              newCodes[idx] = { ...newCodes[idx], cardNumber: e.target.value };
+                              setGiftCardCodes(newCodes);
+                            }}
+                            placeholder="4111 1111 1111 1111"
+                            className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none font-mono text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-300 text-sm mb-1">Expire date</label>
+                          <input
+                            type="text"
+                            value={codeItem.expireDate || ''}
+                            onChange={(e) => {
+                              const newCodes = [...giftCardCodes];
+                              newCodes[idx] = { ...newCodes[idx], expireDate: e.target.value };
+                              setGiftCardCodes(newCodes);
+                            }}
+                            placeholder="MM/YY"
+                            className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none font-mono text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-300 text-sm mb-1">CVV</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            value={codeItem.cvv || ''}
+                            onChange={(e) => {
+                              const newCodes = [...giftCardCodes];
+                              newCodes[idx] = { ...newCodes[idx], cvv: e.target.value };
+                              setGiftCardCodes(newCodes);
+                            }}
+                            placeholder="123"
+                            className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none font-mono text-sm"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-gray-300 text-sm mb-1">Serial Number:</label>
+                          <input
+                            type="text"
+                            value={codeItem.serialNumber || ''}
+                            onChange={(e) => {
+                              const newCodes = [...giftCardCodes];
+                              newCodes[idx] = { ...newCodes[idx], serialNumber: e.target.value };
+                              setGiftCardCodes(newCodes);
+                            }}
+                            placeholder={`Serial ${idx + 1}`}
+                            className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-300 text-sm mb-1">Redeem Code:</label>
+                          <input
+                            type="text"
+                            value={codeItem.redeemCode || ''}
+                            onChange={(e) => {
+                              const newCodes = [...giftCardCodes];
+                              newCodes[idx] = { ...newCodes[idx], redeemCode: e.target.value };
+                              setGiftCardCodes(newCodes);
+                            }}
+                            placeholder={`Redeem code ${idx + 1}`}
+                            className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white focus:border-neon-blue focus:outline-none font-mono"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
             <div className="flex gap-2 mt-6">
               <button
+                type="button"
                 onClick={saveCodes}
-                disabled={giftCardCodes.some(c => !c.serialNumber || !c.serialNumber.trim() || !c.redeemCode || !c.redeemCode.trim())}
+                disabled={
+                  isVirtualCardOrderItem(selectedItem)
+                    ? giftCardCodes.some(
+                        (c) => !c.cardNumber?.trim() || !c.expireDate?.trim() || !c.cvv?.trim()
+                      )
+                    : giftCardCodes.some((c) => !c.serialNumber?.trim() || !c.redeemCode?.trim())
+                }
                 className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
               >
-                Save Codes
+                Save
               </button>
               <button
                 onClick={() => {
@@ -2669,6 +3957,8 @@ function OrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
 
 function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [customerSearch, setCustomerSearch] = useState('');
   const [form, setForm] = useState<any>({ 
     customer: '', 
     email: '', 
@@ -2713,7 +4003,7 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/invoices`, { headers: getAdminHeaders() as HeadersInit });
+      const res = await fetch(`${getApiBase()}/invoices`, { headers: getAdminHeaders() as HeadersInit });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
         throw new Error(errorData.error || `Server error: ${res.status}`);
@@ -2732,6 +4022,26 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await fetchAdminUsers(getAdminHeaders, {
+          search: customerSearch.trim() || undefined,
+          limit: customerSearch.trim() ? 100 : 5000,
+        });
+        if (!cancelled) setUsers(data);
+      } catch (error) {
+        console.error('Failed to load users for invoices:', error);
+        if (!cancelled) setUsers([]);
+      }
+    }, customerSearch.trim() ? 300 : 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [getAdminHeaders, customerSearch]);
   
   const addItem = () => {
     setForm({
@@ -2751,7 +4061,7 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
     
     // Recalculate totals
     if (form.serviceType === 'payment-transfer') {
-      // For payment transfer: Total MWK = currency amount × rate
+      // For payment transfer: Total MWK = currency amount Ã— rate
       const currencyAmount = newItems.reduce((sum, item) => sum + (item.priceUsd || 0) * (item.quantity || 1), 0);
       const totalMwk = currencyAmount > 0 && form.rate > 0 ? Math.round(currencyAmount * form.rate) : 0;
       const totalUsd = currencyAmount; // Store currency amount in totalUsd for payment-transfer
@@ -2812,7 +4122,7 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
     let totalMwk = form.totalMwk;
     
     if (form.serviceType === 'payment-transfer') {
-      // For payment transfer: Total MWK = currency amount × rate
+      // For payment transfer: Total MWK = currency amount Ã— rate
       totalMwk = totalUsd > 0 && form.rate > 0 ? Math.round(totalUsd * form.rate) : 0;
     } else {
       // For other services: use existing rate calculation
@@ -2846,7 +4156,7 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
       
       console.log('Creating invoice with data:', invoiceData);
       
-      const response = await fetch(`${API_BASE}/invoices`, { 
+      const response = await fetch(`${getApiBase()}/invoices`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() }, 
         body: JSON.stringify(invoiceData) 
@@ -3050,13 +4360,34 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
               placeholder="Customer Name *" 
               className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white" 
             />
-            <input 
-              value={form.email} 
-              onChange={(e) => setForm({ ...form, email: e.target.value })} 
-              type="email"
-              placeholder="Customer Email *" 
-              className="px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white" 
-            />
+            <div>
+              <input 
+                value={form.email} 
+                onChange={(e) => {
+                  const email = e.target.value;
+                  setCustomerSearch(email);
+                  const match = users.find(
+                    (u) => u.email?.trim().toLowerCase() === email.trim().toLowerCase()
+                  );
+                  setForm({
+                    ...form,
+                    email,
+                    customer: match?.name && !form.customer ? match.name : form.customer,
+                  });
+                }} 
+                type="email"
+                placeholder="Customer Email * (search members)" 
+                className="w-full px-3 py-2 bg-dark-surface border border-dark-border rounded-lg text-white"
+                list="invoice-user-emails"
+              />
+              <datalist id="invoice-user-emails">
+                {users.map((user) => (
+                  <option key={user.id} value={user.email}>
+                    {user.name ? `${user.name}` : user.email}
+                  </option>
+                ))}
+              </datalist>
+            </div>
           </div>
           
           <div>
@@ -3164,7 +4495,7 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
                   className="col-span-1 px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600"
                   disabled={form.items.length === 1}
                 >
-                  ×
+                  Ã—
                 </button>
               </div>
             ))}
@@ -3248,11 +4579,11 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
                     <div>
                       <div className="text-white font-semibold">Invoice #{i.id}</div>
                       <div className="text-gray-400 text-sm">
-                        {i.customer} • {i.email} • {i.serviceType || 'giftcard'}
-                        {currency && rate > 0 && ` • ${currency} @ ${rate.toLocaleString()} MWK`}
+                        {i.customer} â€¢ {i.email} â€¢ {i.serviceType || 'giftcard'}
+                        {currency && rate > 0 && ` â€¢ ${currency} @ ${rate.toLocaleString()} MWK`}
                       </div>
                       <div className="text-gray-400 text-sm">
-                        {currency ? `${currency} ${totalUsd.toFixed(2)}` : `$${totalUsd.toFixed(2)} USD`} • MWK {i.totalMwk?.toLocaleString() || '0'}
+                        {currency ? `${currency} ${totalUsd.toFixed(2)}` : `$${totalUsd.toFixed(2)} USD`} â€¢ MWK {i.totalMwk?.toLocaleString() || '0'}
                       </div>
                       <div className="text-gray-500 text-xs mt-1">
                         {new Date(i.createdAt).toLocaleDateString()}
@@ -3291,7 +4622,7 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
                 onClick={() => setPreviewInvoice(null)} 
                 className="text-white hover:text-red-400"
               >
-                × Close
+                Ã— Close
               </button>
             </div>
             <button 
@@ -3311,26 +4642,211 @@ function InvoicesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
 }
 
 
+function formatUserLocation(row: {
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  lastLoginIp?: string | null;
+  locationSource?: string | null;
+}): string {
+  const place = [row.city, row.region, row.country].filter(Boolean).join(', ');
+  if (place) return place;
+  if (row.lastLoginIp) return `IP ${row.lastLoginIp}`;
+  return 'Unknown';
+}
+
+function locationAccuracyLabel(source?: string | null): string {
+  if (source === 'gps') return 'GPS (accurate)';
+  if (source === 'ip_approx') return 'IP approx.';
+  return '—';
+}
+
+function RecentSignInsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [total, setTotal] = useState(0);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ limit: '5000' });
+      if (search.trim()) params.set('search', search.trim());
+      const res = await fetch(`${getApiBase()}/users/admin/recent-signins?${params}`, {
+        headers: getAdminHeaders() as HeadersInit,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || `Failed (${res.status})`);
+      }
+      const data = await res.json();
+      setRows(Array.isArray(data) ? data : []);
+      setTotal(Number(res.headers.get('X-Total-Count') || (Array.isArray(data) ? data.length : 0)));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load sign-ins');
+      setRows([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = window.setTimeout(load, search.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const withLocation = rows.filter((r) => r.city || r.country).length;
+  const signedIn = rows.filter((r) => r.lastLoginAt).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="card-dark p-5 rounded-xl border border-neon-blue/30">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <MapPin className="w-5 h-5 text-neon-blue" />
+          <div>
+            <h3 className="text-lg font-bold text-white">All users &amp; sign-in locations</h3>
+            <p className="text-sm text-gray-400">
+              Every registered user is listed. Most recent sign-ins appear at the top.
+            </p>
+            <p className="text-xs text-amber-300/90 mt-2 max-w-3xl">
+              IP-based location often shows Lilongwe or Blantyre for all of Malawi (mobile ISP routing).
+              When customers allow &quot;Location&quot; in the browser, we store GPS city (e.g. Mzuzu) — labeled GPS (accurate).
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
+            <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search email, name, city, country…"
+              className="w-full pl-9 pr-3 py-2 bg-dark-bg border border-dark-border rounded-lg text-white text-sm"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg bg-neon-blue text-white text-sm font-medium disabled:opacity-50"
+          >
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-4 mt-4 text-sm">
+          <span className="text-gray-400">
+            Users: <span className="text-white font-semibold">{rows.length}</span>
+            {total > rows.length ? ` of ${total}` : ''}
+          </span>
+          <span className="text-gray-400">
+            Signed in: <span className="text-white font-semibold">{signedIn}</span>
+          </span>
+          <span className="text-gray-400">
+            With location: <span className="text-neon-blue font-semibold">{withLocation}</span>
+          </span>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>
+      )}
+
+      {loading && rows.length === 0 ? (
+        <p className="text-gray-400 text-sm">Loading users…</p>
+      ) : rows.length === 0 ? (
+        <p className="text-gray-400 text-sm">No users found.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-dark-border">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-dark-bg text-gray-400">
+              <tr>
+                <th className="px-4 py-3">Last sign-in</th>
+                <th className="px-4 py-3">Signed up</th>
+                <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Phone</th>
+                <th className="px-4 py-3">Location</th>
+                <th className="px-4 py-3">Accuracy</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-dark-border">
+              {rows.map((r) => (
+                <tr key={r.id} className="bg-dark-surface/80 hover:bg-dark-surface">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {r.lastLoginAt ? (
+                      <span className="text-green-300">{new Date(r.lastLoginAt).toLocaleString()}</span>
+                    ) : (
+                      <span className="text-gray-500">Not yet</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
+                    {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-white font-medium">{r.name || '—'}</td>
+                  <td className="px-4 py-3">
+                    <a href={`mailto:${r.email}`} className="text-neon-blue hover:underline">
+                      {r.email}
+                    </a>
+                  </td>
+                  <td className="px-4 py-3 text-gray-300">{r.phone || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-gray-200">
+                      <MapPin className="w-3.5 h-3.5 text-neon-blue flex-shrink-0" />
+                      {r.lastLoginAt ? formatUserLocation(r) : '— sign in to capture'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs whitespace-nowrap">
+                    {r.lastLoginAt ? (
+                      <span
+                        className={
+                          r.locationSource === 'gps'
+                            ? 'text-green-400'
+                            : 'text-amber-300'
+                        }
+                      >
+                        {locationAccuracyLabel(r.locationSource)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string, string> }) {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const walletHolders = useMemo(() => {
+    return users
+      .filter((u) => Number(u.walletBalanceUsd || 0) > 0.001)
+      .sort((a, b) => Number(b.walletBalanceUsd || 0) - Number(a.walletBalanceUsd || 0));
+  }, [users]);
+
+  const totalWalletUsd = useMemo(
+    () => walletHolders.reduce((s, u) => s + Number(u.walletBalanceUsd || 0), 0),
+    [walletHolders]
+  );
   
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Loading users from:', `${API_BASE}/users`);
-      const res = await fetch(`${API_BASE}/users`, { headers: (getAdminHeaders() as HeadersInit) });
-      console.log('Users response status:', res.status);
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('Failed to load users:', res.status, errorText);
-        throw new Error(`Failed to load users: ${res.status} ${res.statusText}`);
-      }
-      const data = await res.json();
-      console.log('Users loaded:', data.length, 'users');
-      setUsers(Array.isArray(data) ? data : []);
+      const data = await fetchAdminUsers(getAdminHeaders, { limit: 5000 });
+      setUsers(data);
     } catch (error: any) {
       console.error('Failed to load users:', error);
       setError(error.message || 'Failed to load users');
@@ -3345,18 +4861,9 @@ function UsersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  // Auto-refresh users every 5 seconds when on users tab
-  useEffect(() => {
-    const interval = setInterval(() => {
-      load();
-    }, 5000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  
   const updateRole = async (id: string, role: string) => {
     try {
-      await fetch(`${API_BASE}/users/${id}`, { method: 'PATCH', headers: ({ 'Content-Type': 'application/json', ...getAdminHeaders() } as HeadersInit), body: JSON.stringify({ role }) });
+      await fetch(`${getApiBase()}/users/${id}`, { method: 'PATCH', headers: ({ 'Content-Type': 'application/json', ...getAdminHeaders() } as HeadersInit), body: JSON.stringify({ role }) });
       await load();
     } catch (error) {
       console.error('Failed to update role:', error);
@@ -3366,16 +4873,16 @@ function UsersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
   const remove = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
-      await fetch(`${API_BASE}/users/${id}`, { method: 'DELETE', headers: (getAdminHeaders() as HeadersInit) });
+      await fetch(`${getApiBase()}/users/${id}`, { method: 'DELETE', headers: (getAdminHeaders() as HeadersInit) });
       await load();
     } catch (error) {
       console.error('Failed to delete user:', error);
     }
   };
-  
+
   const testUpsert = async () => {
     try {
-      const res = await fetch(`${API_BASE}/users/upsert`, {
+      const res = await fetch(`${getApiBase()}/users/upsert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3394,8 +4901,52 @@ function UsersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
 
   return (
     <div className="space-y-4">
+      <div className="card-dark p-5 rounded-xl border border-amber-500/40">
+        <div className="flex items-center gap-2 mb-3">
+          <Wallet className="w-5 h-5 text-amber-400" />
+          <h3 className="text-lg font-bold text-white">Store Wallet balances</h3>
+        </div>
+        <p className="text-sm text-gray-400 mb-3">
+          Users with a balance &gt; $0 among the loaded list (up to 5,000 accounts). Combined:{' '}
+          <span className="text-amber-300 font-semibold">${totalWalletUsd.toFixed(2)} USD</span>
+        </p>
+        {loading ? (
+          <p className="text-gray-500 text-sm">Loading…</p>
+        ) : walletHolders.length === 0 ? (
+          <p className="text-gray-500 text-sm">No balances in this batch.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-dark-border">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-dark-bg text-gray-400">
+                <tr>
+                  <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2 text-right">Balance (USD)</th>
+                  <th className="px-3 py-2 text-right">≈ MWK</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-dark-border">
+                {walletHolders.map((u) => {
+                  const usd = Number(u.walletBalanceUsd || 0);
+                  return (
+                    <tr key={`w-${u.id}`} className="bg-dark-surface/80">
+                      <td className="px-3 py-2 text-white">{u.email}</td>
+                      <td className="px-3 py-2 text-gray-300">{u.name || '—'}</td>
+                      <td className="px-3 py-2 text-right text-amber-300 font-semibold">${usd.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right text-gray-400">
+                        {getMwkAmountFromUsd(usd, 'store_wallet').toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
-        <div className="text-gray-400">Total users: {users.length}</div>
+        <div className="text-gray-400">Total users loaded: {users.length}</div>
         <div className="flex gap-2">
           <button onClick={testUpsert} className="cyber-border text-green-400 px-4 py-2 rounded hover:bg-green-400/10 text-sm">
             Test API
@@ -3420,7 +4971,26 @@ function UsersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<strin
             <div key={u.id} className="flex items-center justify-between p-3 border border-dark-border rounded-lg bg-dark-surface">
               <div>
                 <div className="text-white font-semibold">{u.email}</div>
-                <div className="text-gray-400 text-sm">Name: {u.name || 'N/A'} • Role: {u.role || 'user'}</div>
+                <div className="text-gray-400 text-sm">
+                  Name: {u.name || 'N/A'} · Role: {u.role || 'user'} · Points:{' '}
+                  {(u.pointsBalance ?? 0).toLocaleString()} · Wallet:{' '}
+                  <span className="text-amber-300">${Number(u.walletBalanceUsd || 0).toFixed(2)}</span>
+                  {u.phone ? ` · Phone: ${u.phone}` : ''}
+                </div>
+                {(u.city || u.country || u.lastLoginAt || u.lastLoginIp) ? (
+                  <div className="text-gray-500 text-xs mt-1">
+                    Location:{' '}
+                    {[u.city, u.region, u.country].filter(Boolean).join(', ') ||
+                      (u.lastLoginIp ? `IP ${u.lastLoginIp}` : 'Not recorded yet')}
+                    {u.lastLoginAt
+                      ? ` · Last login ${new Date(u.lastLoginAt).toLocaleString()}`
+                      : ' · Sign in required to capture location'}
+                  </div>
+                ) : (
+                  <div className="text-gray-600 text-xs mt-1">
+                    Location: not recorded yet — customer must sign in after this update
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button onClick={() => updateRole(u.id, 'user')} className={`cyber-border px-3 py-1 rounded text-xs ${u.role === 'user' ? 'bg-neon-blue/20 text-neon-blue' : 'text-white'}`}>User</button>
@@ -3446,21 +5016,21 @@ function TTOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
   const load = async () => {
     setLoading(true);
     try {
-      console.log('📦 [TTOrders] Loading TT orders from:', `${API_BASE}/ttorders`);
-      const res = await fetch(`${API_BASE}/ttorders`, { headers: getAdminHeaders() as HeadersInit });
-      console.log('📥 [TTOrders] Response status:', res.status);
+      console.log('ðŸ“¦ [TTOrders] Loading TT orders from:', `${getApiBase()}/ttorders`);
+      const res = await fetch(`${getApiBase()}/ttorders`, { headers: getAdminHeaders() as HeadersInit });
+      console.log('ðŸ“¥ [TTOrders] Response status:', res.status);
       
       if (!res.ok) {
         const errorText = await res.text();
-        console.error('❌ [TTOrders] Failed to load:', res.status, errorText);
+        console.error('âŒ [TTOrders] Failed to load:', res.status, errorText);
         throw new Error(`Failed to load TT orders: ${res.status} ${res.statusText}`);
       }
       
       const data = await res.json();
-      console.log('✅ [TTOrders] Loaded', Array.isArray(data) ? data.length : 'non-array', 'orders');
+      console.log('âœ… [TTOrders] Loaded', Array.isArray(data) ? data.length : 'non-array', 'orders');
       setOrders(Array.isArray(data) ? data : []);
     } catch (error: any) {
-      console.error('❌ [TTOrders] Error loading TT orders:', error);
+      console.error('âŒ [TTOrders] Error loading TT orders:', error);
       setOrders([]);
       alert(`Failed to load TT orders: ${error.message || 'Unknown error'}. Check console for details.`);
     } finally {
@@ -3473,7 +5043,7 @@ function TTOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      await fetch(`${API_BASE}/ttorders/${id}/status`, {
+      await fetch(`${getApiBase()}/ttorders/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ status })
@@ -3488,7 +5058,7 @@ function TTOrdersManager({ getAdminHeaders }: { getAdminHeaders: () => Record<st
   const deleteOrder = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this TT order?')) return;
     try {
-      await fetch(`${API_BASE}/ttorders/${id}`, {
+      await fetch(`${getApiBase()}/ttorders/${id}`, {
         method: 'DELETE',
         headers: getAdminHeaders() as HeadersInit
       });
@@ -3614,7 +5184,7 @@ function SlidesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/slides/all`, { headers: getAdminHeaders() });
+      const res = await fetch(`${getApiBase()}/slides/all`, { headers: getAdminHeaders() });
       const data = await res.json();
       setSlides(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -3630,7 +5200,7 @@ function SlidesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
 
   const create = async () => {
     try {
-      await fetch(`${API_BASE}/slides`, { 
+      await fetch(`${getApiBase()}/slides`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() }, 
         body: JSON.stringify(form) 
@@ -3644,7 +5214,7 @@ function SlidesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
 
   const update = async (id: string) => {
     try {
-      await fetch(`${API_BASE}/slides/${id}`, { 
+      await fetch(`${getApiBase()}/slides/${id}`, { 
         method: 'PUT', 
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() }, 
         body: JSON.stringify(form) 
@@ -3660,7 +5230,7 @@ function SlidesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   const remove = async (id: string) => {
     if (!window.confirm('Delete this slide?')) return;
     try {
-      await fetch(`${API_BASE}/slides/${id}`, { method: 'DELETE', headers: getAdminHeaders() });
+      await fetch(`${getApiBase()}/slides/${id}`, { method: 'DELETE', headers: getAdminHeaders() });
       await load();
     } catch (error) {
       console.error('Failed to delete slide:', error);
@@ -3725,7 +5295,7 @@ function SlidesManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
                       </div>
                     </div>
                     <div className="text-gray-500 text-xs mt-2">
-                      Order: {slide.order} • {slide.active ? 'Active' : 'Inactive'} • {slide.cta && `CTA: ${slide.cta}`}
+                      Order: {slide.order} â€¢ {slide.active ? 'Active' : 'Inactive'} â€¢ {slide.cta && `CTA: ${slide.cta}`}
                     </div>
                   </div>
                   <div className="flex gap-2 ml-4">
@@ -3761,7 +5331,7 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/chats/all`, { headers: getAdminHeaders() as HeadersInit });
+      const res = await fetch(`${getApiBase()}/chats/all`, { headers: getAdminHeaders() as HeadersInit });
       const data = await res.json();
       setChats(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -3774,24 +5344,25 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
 
   useEffect(() => { 
     load();
-    const interval = setInterval(load, 5000); // Poll every 5 seconds
-    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load selected chat messages
   useEffect(() => {
-    if (selectedChat) {
+    if (selectedChat?.id) {
       loadChatMessages(selectedChat.id);
-      const interval = setInterval(() => loadChatMessages(selectedChat.id), 3000);
-      return () => clearInterval(interval);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChat?.id]);
 
+  const refreshSelectedChat = () => {
+    if (selectedChat?.id) {
+      loadChatMessages(selectedChat.id);
+    }
+  };
+
   const loadChatMessages = async (chatId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/chats/${chatId}`, { headers: getAdminHeaders() as HeadersInit });
+      const res = await fetch(`${getApiBase()}/chats/${chatId}`, { headers: getAdminHeaders() as HeadersInit });
       if (res.ok) {
         const chat = await res.json();
         setSelectedChat(chat);
@@ -3811,7 +5382,7 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
     if (!agentName.trim() || !chatToJoin) return;
     
     try {
-      const res = await fetch(`${API_BASE}/chats/${chatToJoin}/join`, {
+      const res = await fetch(`${getApiBase()}/chats/${chatToJoin}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ agentName: agentName.trim() })
@@ -3857,9 +5428,9 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
       if (error) {
         console.error('Image upload error:', error);
         if (error.message.includes('Bucket') || error.message.includes('not found')) {
-          alert(`Error: The 'chat-images' bucket doesn't exist in Supabase Storage.\n\nPlease:\n1. Go to Supabase Dashboard → Storage\n2. Create a new bucket named 'chat-images'\n3. Set it as public or create RLS policies allowing INSERT and SELECT for public or authenticated users.`);
+          alert(`Error: The 'chat-images' bucket doesn't exist in Supabase Storage.\n\nPlease:\n1. Go to Supabase Dashboard â†’ Storage\n2. Create a new bucket named 'chat-images'\n3. Set it as public or create RLS policies allowing INSERT and SELECT for public or authenticated users.`);
         } else if (error.message.includes('row-level security') || error.message.includes('RLS')) {
-          alert(`Error: Storage policy blocking upload.\n\nPlease:\n1. Go to Supabase Dashboard → Storage → chat-images bucket → Policies\n2. Create a policy allowing INSERT and SELECT for public or authenticated users.`);
+          alert(`Error: Storage policy blocking upload.\n\nPlease:\n1. Go to Supabase Dashboard â†’ Storage â†’ chat-images bucket â†’ Policies\n2. Create a policy allowing INSERT and SELECT for public or authenticated users.`);
         } else {
           alert(`Failed to upload image: ${error.message}`);
         }
@@ -3891,7 +5462,7 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
         }
       }
 
-      const res = await fetch(`${API_BASE}/chats/${selectedChat.id}/agent-message`, {
+      const res = await fetch(`${getApiBase()}/chats/${selectedChat.id}/agent-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ 
@@ -3907,7 +5478,6 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
         setMessage('');
         setImageFile(null);
         setImagePreview(null);
-        await load();
       }
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -3920,7 +5490,7 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
   const closeChat = async (chatId: string) => {
     if (!window.confirm('Close this chat?')) return;
     try {
-      const res = await fetch(`${API_BASE}/chats/${chatId}/close`, {
+      const res = await fetch(`${getApiBase()}/chats/${chatId}/close`, {
         method: 'POST',
         headers: getAdminHeaders() as HeadersInit
       });
@@ -3958,6 +5528,16 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-300px)]">
       {/* Chat List */}
       <div className="lg:col-span-1 bg-dark-surface rounded-lg border border-dark-border p-4 overflow-y-auto">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="px-3 py-1.5 rounded-lg bg-neon-blue text-white text-xs font-bold disabled:opacity-50"
+          >
+            {loading ? 'Refreshing…' : 'Refresh Chats'}
+          </button>
+        </div>
         <div className="flex gap-2 mb-4">
           {['all', 'waiting', 'active', 'closed'].map((f) => (
             <button
@@ -4035,6 +5615,13 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
                 </div>
               </div>
               <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={refreshSelectedChat}
+                  className="px-3 py-2 bg-dark-bg border border-dark-border text-gray-200 rounded-lg hover:border-neon-blue/50 text-sm"
+                >
+                  Refresh Messages
+                </button>
                 {selectedChat.status === 'waiting' && (
                   <button
                     onClick={() => joinChat(selectedChat.id)}
@@ -4106,7 +5693,7 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
                       }}
                       className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                     >
-                      ×
+                      Ã—
                     </button>
                   </div>
                 )}
@@ -4123,7 +5710,7 @@ function ChatManager({ getAdminHeaders }: { getAdminHeaders: () => Record<string
                     className="bg-dark-bg border border-dark-border rounded-lg px-3 py-2 cursor-pointer hover:bg-dark-card transition-colors flex items-center"
                     title="Upload image"
                   >
-                    📷
+                    ðŸ“·
                   </label>
                   <input
                     type="text"
@@ -4203,21 +5790,18 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   const [pointsToAdd, setPointsToAdd] = useState('');
   const [pointsReason, setPointsReason] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
-  const load = async () => {
+  const load = async (search?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/users`, { headers: getAdminHeaders() as HeadersInit });
-      if (!res.ok) {
-        throw new Error(`Failed to load users: ${res.status}`);
-      }
-      const data = await res.json();
-      // Sort by points balance (highest first)
-      const sorted = Array.isArray(data) 
-        ? data.sort((a: any, b: any) => (b.pointsBalance || 0) - (a.pointsBalance || 0))
-        : [];
-      setUsers(sorted);
+      const data = await fetchAdminUsers(getAdminHeaders, {
+        search: search?.trim() || undefined,
+        sort: 'points',
+        limit: search?.trim() ? 100 : 5000,
+      });
+      setUsers(data);
     } catch (error: any) {
       console.error('Failed to load users:', error);
       setError(error.message || 'Failed to load users');
@@ -4228,19 +5812,14 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
   };
 
   useEffect(() => {
-    load();
+    const timer = window.setTimeout(() => {
+      load(searchTerm);
+    }, searchTerm.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchTerm]);
 
-  const filteredUsers = users.filter(user => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      user.name?.toLowerCase().includes(term) ||
-      user.email?.toLowerCase().includes(term) ||
-      user.id?.toLowerCase().includes(term)
-    );
-  });
+  const filteredUsers = users;
 
   const totalPoints = users.reduce((sum, user) => sum + (user.pointsBalance || 0), 0);
   const totalUsersWithPoints = users.filter(user => (user.pointsBalance || 0) > 0).length;
@@ -4257,7 +5836,7 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
 
     setUpdating(true);
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}/points`, {
+      const res = await fetch(`${getApiBase()}/users/${userId}/points`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({
@@ -4271,8 +5850,7 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
         throw new Error(errorData.error || 'Failed to update points');
       }
 
-      // Reload users list
-      await load();
+      await load(searchTerm);
       setEditingUser(null);
       setPointsToAdd('');
       setPointsReason('');
@@ -4282,6 +5860,75 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
       alert(`Failed to update points: ${error.message || 'Unknown error'}`);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const resetAllPoints = async () => {
+    if (
+      !window.confirm(
+        'Reset ALL user points balances to zero? This cannot be undone.'
+      )
+    ) {
+      return;
+    }
+    if (
+      !window.confirm(
+        'Last chance: every account will lose their current points balance. Continue?'
+      )
+    ) {
+      return;
+    }
+
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch(`${getApiBase()}/users/points/bulk-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset points');
+      }
+      await load(searchTerm);
+      alert(
+        `Reset complete. ${data.usersReset ?? 0} user(s) cleared (${(data.totalPointsRemoved ?? 0).toLocaleString()} points removed).`
+      );
+    } catch (error: any) {
+      console.error('Failed to reset all points:', error);
+      alert(`Failed to reset points: ${error.message || 'Unknown error'}`);
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  const grantDollarToEveryone = async () => {
+    if (
+      !window.confirm(
+        'Grant $1 worth of points (130 pts) to EVERY user account?'
+      )
+    ) {
+      return;
+    }
+
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch(`${getApiBase()}/users/points/bulk-grant-dollar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to grant points');
+      }
+      await load(searchTerm);
+      alert(
+        `Grant complete. ${data.usersGranted ?? 0} user(s) received ${data.pointsPerUser ?? 130} points ($${data.usdValuePerUser ?? 1} each).`
+      );
+    } catch (error: any) {
+      console.error('Failed to grant points to all users:', error);
+      alert(`Failed to grant points: ${error.message || 'Unknown error'}`);
+    } finally {
+      setBulkActionLoading(false);
     }
   };
 
@@ -4306,15 +5953,46 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
         </div>
       </div>
 
+      {/* Bulk actions */}
+      <div className="card-dark p-4 border border-amber-400/30">
+        <h3 className="text-white font-semibold mb-3">Bulk actions</h3>
+        <p className="text-gray-400 text-sm mb-4">
+          Apply changes to every user account at once. Each action is logged in points transaction history.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={grantDollarToEveryone}
+            disabled={bulkActionLoading || updating}
+            className="px-4 py-2 bg-neon-green/20 border border-neon-green/50 text-neon-green rounded-lg text-sm font-semibold hover:bg-neon-green/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {bulkActionLoading ? 'Working...' : 'Grant $1 to Everyone (130 pts)'}
+          </button>
+          <button
+            type="button"
+            onClick={resetAllPoints}
+            disabled={bulkActionLoading || updating}
+            className="px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 rounded-lg text-sm font-semibold hover:bg-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {bulkActionLoading ? 'Working...' : 'Reset All Balances to Zero'}
+          </button>
+        </div>
+      </div>
+
       {/* Search */}
       <div>
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by name, email, or user ID..."
+          placeholder="Search by name or email (searches all accounts)..."
           className="w-full px-4 py-2 bg-dark-surface border border-dark-border rounded-lg text-white placeholder-gray-400"
         />
+        {!searchTerm.trim() && users.length >= 5000 && (
+          <p className="text-amber-300 text-xs mt-2">
+            Showing top 5,000 accounts by points. Search to find any other user.
+          </p>
+        )}
       </div>
 
       {/* Users Table */}
@@ -4439,20 +6117,28 @@ function PointsManager({ getAdminHeaders }: { getAdminHeaders: () => Record<stri
       <div className="card-dark p-6 border border-neon-blue/30">
         <h3 className="text-white font-bold mb-4 flex items-center">
           <span className="text-2xl mr-2">🎁</span>
-          TConnect Points System
+          TConnect Points — Terms &amp; Conditions
         </h3>
         <div className="space-y-2 text-gray-300 text-sm">
-          <div className="flex items-center space-x-2">
-            <span className="text-neon-green">✓</span>
-            <span><strong>Earning:</strong> Users earn 2 points for every $10 spent on approved orders</span>
+          <div className="flex items-start space-x-2">
+            <span className="text-neon-green mt-0.5">✓</span>
+            <span><strong>Earning:</strong> Users earn 2 points for every $10 spent on approved paid orders</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-neon-blue">✓</span>
-            <span><strong>Redemption:</strong> 1300 points = $10 USD value</span>
+          <div className="flex items-start space-x-2">
+            <span className="text-neon-blue mt-0.5">✓</span>
+            <span><strong>Redemption:</strong> 1300 points = $10 USD value at checkout</span>
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-purple-400">✓</span>
-            <span><strong>Usage:</strong> Points can be used at checkout to purchase items</span>
+          <div className="flex items-start space-x-2">
+            <span className="text-purple-400 mt-0.5">✓</span>
+            <span><strong>Minimum balance:</strong> Users need at least 1,300 points ($10 value) before they can redeem</span>
+          </div>
+          <div className="flex items-start space-x-2">
+            <span className="text-amber-300 mt-0.5">✓</span>
+            <span><strong>Purchase requirement:</strong> Users must have more than $20 in approved TConnect store purchases before redeeming points — spin-only points cannot be saved up without real purchases</span>
+          </div>
+          <div className="flex items-start space-x-2">
+            <span className="text-gray-400 mt-0.5">✓</span>
+            <span><strong>Points expiry:</strong> Points do not expire, but redemption rules above always apply</span>
           </div>
         </div>
       </div>

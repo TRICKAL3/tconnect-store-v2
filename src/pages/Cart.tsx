@@ -6,9 +6,19 @@ import { getAbsoluteImageUrl } from '../lib/getApiBase';
 import { calculatePromotionResult, fetchActivePromotions, Promotion } from '../lib/promotions';
 
 const Cart: React.FC = () => {
+  const VIRTUAL_CARD_MIN_USD = 5;
   const { state, dispatch, clearPersistedCart } = useCart();
   const navigate = useNavigate();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const hasUnderMinVirtualCard = useMemo(
+    () =>
+      state.items.some(
+        (item) =>
+          String(item.type || '').trim().toLowerCase() === 'virtual-card' &&
+          Number(item.price) < VIRTUAL_CARD_MIN_USD
+      ),
+    [state.items]
+  );
 
   const updateQuantity = (lineId: string, quantity: number) => {
     if (quantity <= 0) {
@@ -27,7 +37,10 @@ const Cart: React.FC = () => {
   };
 
   const proceedToCheckout = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (hasUnderMinVirtualCard) {
+      alert(`Virtual cards require at least $${VIRTUAL_CARD_MIN_USD.toFixed(2)} per item before checkout.`);
+      return;
+    }
     navigate('/checkout');
   };
 
@@ -133,14 +146,18 @@ const Cart: React.FC = () => {
                           {item.category} •{' '}
                           {item.type === 'giftcard'
                             ? 'Gift Card'
-                            : item.type === 'wallet'
-                              ? 'Payments'
-                              : 'Cryptocurrency'}
+                            : item.type === 'virtual-card'
+                              ? 'Virtual Card'
+                              : item.type === 'wallet'
+                                ? 'Payments'
+                                : 'Cryptocurrency'}
                         </p>
                         <div className="mt-1 md:mt-2 flex items-center space-x-2 md:space-x-4 flex-wrap">
                           <div className="text-sm md:text-lg font-semibold text-neon-blue">
                             ${item.price.toFixed(2)}
-                            {item.type === 'giftcard' ? <span className="text-xs font-normal text-gray-500"> /card</span> : null}
+                            {item.type === 'giftcard' || item.type === 'virtual-card' ? (
+                              <span className="text-xs font-normal text-gray-500"> /card</span>
+                            ) : null}
                           </div>
                           {item.type === 'crypto' && (
                             <div className="text-xs md:text-sm text-gray-400">
@@ -230,6 +247,11 @@ const Cart: React.FC = () => {
               </h2>
 
               <div className="space-y-2 md:space-y-3 mb-4 md:mb-6">
+                {hasUnderMinVirtualCard && (
+                  <div className="text-xs md:text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                    One or more virtual cards are below ${VIRTUAL_CARD_MIN_USD.toFixed(2)}. Update the amount before checkout.
+                  </div>
+                )}
                 <div className="flex justify-between text-xs md:text-sm">
                   <span className="text-gray-400">Subtotal</span>
                   <span className="font-medium text-white">${state.total.toFixed(2)}</span>
@@ -267,7 +289,8 @@ const Cart: React.FC = () => {
               <div className="hidden md:block space-y-3">
                 <button
                   onClick={proceedToCheckout}
-                  className="w-full btn-cyber text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 hover:scale-105"
+                  disabled={hasUnderMinVirtualCard}
+                  className="w-full btn-cyber text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CreditCard className="w-5 h-5" />
                   <span>Proceed to Checkout</span>
@@ -310,7 +333,8 @@ const Cart: React.FC = () => {
             </div>
             <button
               onClick={proceedToCheckout}
-              className="w-full btn-cyber text-white font-medium py-3.5 px-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 active:scale-95"
+              disabled={hasUnderMinVirtualCard}
+              className="w-full btn-cyber text-white font-medium py-3.5 px-4 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CreditCard className="w-5 h-5" />
               <span>Proceed to Checkout</span>

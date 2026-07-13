@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 import { getApiBase } from '../lib/getApiBase';
 import { cartAccountEmail } from '../lib/cartIdentity';
+import { captureLoginLocation } from '../lib/captureLoginLocation';
 
 interface AuthUser {
   id: string;
@@ -190,6 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             );
           }
           if (ok) {
+            captureLoginLocation(email).catch(() => {});
             const base = getApiBase();
             const ac = new AbortController();
             const timeoutId = setTimeout(() => ac.abort(), 5000);
@@ -226,6 +228,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubscribe();
     };
   }, []);
+
+  // Refresh location for returning sessions (Firebase may skip duplicate upsert).
+  useEffect(() => {
+    const email = user?.email?.trim();
+    if (!email) return;
+    const key = 'tconnect-loc-last';
+    const last = Number(localStorage.getItem(key) || 0);
+    if (Date.now() - last < 6 * 60 * 60 * 1000) return;
+    captureLoginLocation(email)
+      .catch(() => {})
+      .finally(() => localStorage.setItem(key, String(Date.now())));
+  }, [user?.email]);
 
   const value = useMemo(() => ({
     user,

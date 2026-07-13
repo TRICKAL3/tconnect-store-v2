@@ -2,15 +2,67 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../lib/auth';
 import { basicAdminAuth } from '../lib/adminAuth';
-import { sendOrderApprovedEmail, sendOrderRejectedEmail, sendOrderFulfilledEmail } from '../lib/email';
+import {
+  sendAdminOrderAlertEmail,
+  sendOrderApprovedEmail,
+  sendOrderRejectedEmail,
+  sendOrderFulfilledEmail,
+} from '../lib/email';
+import { pointsRedemptionBlockReason } from '../lib/tconnectPoints';
+import { getUserLifetimePurchaseUsd } from '../lib/pointsEligibility';
+import { roundUsd } from '../lib/wallet';
+import { walletCheckoutChargeUsd } from '../lib/storeWallet';
+import { createUserNotification } from '../lib/userNotifications';
+import {
+  PAYCHANGU_CHECKOUT_ENABLED,
+  PAWAPAY_CHECKOUT_ENABLED,
+  WALLET_CHECKOUT_ENABLED,
+  MOBILE_MONEY_MAX_CHECKOUT_USD,
+  CHECKOUT_UNAVAILABLE_MOBILE_MONEY,
+  CHECKOUT_UNAVAILABLE_WALLET,
+  isMobileMoneyPaymentMethod,
+} from '../lib/checkoutFlags';
+import {
+  utilityBillChargeFromMetadata,
+  utilityBillChargeMwk,
+} from '../lib/utilityBillFees';
+import { getStoreWalletMwkPerUsd } from '../lib/storeWallet';
+import {
+  orderHasVirtualCardItems,
+  provisionVirtualCardsForOrder,
+} from '../lib/virtualCardProvisioning';
 
 const router = Router();
+const VIRTUAL_CARD_MIN_CHECKOUT_USD = 5;
+
+async function clearSavedCartSnapshotForUser(userId: string | null | undefined) {
+  if (!userId) return;
+  try {
+    await prisma.userCartSnapshot.deleteMany({ where: { userId } });
+  } catch (e: unknown) {
+    console.warn('[orders] Saved cart snapshot not cleared:', e instanceof Error ? e.message : e);
+  }
+}
 
 // Create order with items and optional payment submission (auth optional for now)
 // Card payments: agent creates the order manually in admin after customer pays and sends POP in live chat
 router.post('/', async (req: any, res) => {
   try {
-    const { items, totalUsd, totalMwk, payment, userId, userEmail, pointsUsed, paymentMethod, pointsReceiptUrl, pointsReceiptId, adminCreateForUser } = req.body;
+    const {
+      items,
+      totalUsd,
+      totalMwk,
+      payment,
+      userId,
+      userEmail,
+      prismaUserId,
+      pointsUsed,
+      paymentMethod,
+      pointsReceiptUrl,
+      pointsReceiptId,
+      adminCreateForUser,
+      cartSubtotalUsd,
+    } = req.body;
 
     // Admin: create order for a specific user (same path POST /orders to avoid 404 routing issues)
     if (adminCreateForUser === true && (userId || userEmail)) {
@@ -67,25 +119,165 @@ router.post('/', async (req: any, res) => {
         include: { items: true, payment: true, user: true }
       });
       console.log('✅ [Orders] Manual order created for user:', { orderId: order.id, userId: targetUserId, userEmail: order.user?.email });
+      await clearSavedCartSnapshotForUser(targetUserId);
+      try {
+        await provisionVirtualCardsForOrder(order.id);
+      } catch (e: unknown) {
+        console.warn('[orders] Virtual card provision (manual):', e instanceof Error ? e.message : e);
+      }
       return res.json(order);
     }
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'No items' });
     }
-    let finalUserId = req.user?.id;
-    if (!finalUserId && userEmail) {
-      const existing = await prisma.user.findUnique({ where: { email: userEmail } });
+    const hasVirtualCardItem = items.some(
+      (i: any) => String(i?.type || '').trim().toLowerCase() === 'virtual-card'
+    );
+    const hasUnderMinVirtualCard = items.some(
+      (i: any) =>
+        String(i?.type || '').trim().toLowerCase() === 'virtual-card' &&
+        Number(i?.price) < VIRTUAL_CARD_MIN_CHECKOUT_USD
+    );
+    if (hasUnderMinVirtualCard) {
+      return res.status(400).json({
+        error: `Virtual card amount must be at least $${VIRTUAL_CARD_MIN_CHECKOUT_USD.toFixed(2)} per item.`,
+      });
+    }
+    if (paymentMethod === 'paychangu' && !PAYCHANGU_CHECKOUT_ENABLED) {
+      return res.status(503).json({ error: CHECKOUT_UNAVAILABLE_MOBILE_MONEY });
+    }
+    if (paymentMethod === 'pawapay' && !PAWAPAY_CHECKOUT_ENABLED) {
+      return res.status(503).json({ error: CHECKOUT_UNAVAILABLE_MOBILE_MONEY });
+    }
+    if (paymentMethod === 'wallet' && !WALLET_CHECKOUT_ENABLED) {
+      return res.status(503).json({ error: CHECKOUT_UNAVAILABLE_WALLET });
+    }
+    if (isMobileMoneyPaymentMethod(paymentMethod) && Number(totalUsd) > MOBILE_MONEY_MAX_CHECKOUT_USD) {
+      return res.status(400).json({
+        error: `Mobile money checkout is currently limited to $${MOBILE_MONEY_MAX_CHECKOUT_USD.toFixed(2)} max per order.`,
+      });
+    }
+    const hasUtilityBillItem = items.some(
+      (i: any) => String(i?.type || '').trim().toLowerCase() === 'utility-bill'
+    );
+    const allUtilityBillItems = items.every(
+      (i: any) => String(i?.type || '').trim().toLowerCase() === 'utility-bill'
+    );
+    if (hasUtilityBillItem && !allUtilityBillItems) {
+      return res.status(400).json({
+        error: 'Utility bills must be paid on their own. Remove other items from your cart.',
+      });
+    }
+    if (hasUtilityBillItem && paymentMethod !== 'paychangu') {
+      return res.status(400).json({
+        error: 'Utility bills can only be paid with mobile money.',
+      });
+    }
+    if (hasUtilityBillItem) {
+      const mwkPerUsd = await getStoreWalletMwkPerUsd();
+      let expectedMwk = 0;
+      let expectedUsd = 0;
+      for (const i of items) {
+        const meta = (i?.metadata && typeof i.metadata === 'object' ? i.metadata : {}) as Record<
+          string,
+          unknown
+        >;
+        const billMwk = Math.round(Number(meta.amountMwk) || 0);
+        if (!billMwk) {
+          return res.status(400).json({ error: 'Utility bill amount is required.' });
+        }
+        const { serviceFeeMwk, totalChargeMwk } = utilityBillChargeFromMetadata(meta);
+        if (
+          meta.serviceFeeMwk != null &&
+          Math.abs(Math.round(Number(meta.serviceFeeMwk)) - serviceFeeMwk) > 1
+        ) {
+          return res.status(400).json({ error: 'Invalid utility bill service fee.' });
+        }
+        if (
+          meta.totalChargeMwk != null &&
+          Math.abs(Math.round(Number(meta.totalChargeMwk)) - totalChargeMwk) > 1
+        ) {
+          return res.status(400).json({ error: 'Invalid utility bill total.' });
+        }
+        const qty = Math.max(1, Math.round(Number(i?.quantity) || 1));
+        expectedMwk += utilityBillChargeMwk(billMwk) * qty;
+        expectedUsd += roundUsd(utilityBillChargeMwk(billMwk) / mwkPerUsd) * qty;
+      }
+      const submittedMwk = Math.round(Number(totalMwk));
+      const submittedUsd = roundUsd(Number(totalUsd));
+      if (Math.abs(submittedMwk - expectedMwk) > 2) {
+        return res.status(400).json({ error: 'Utility bill total does not match.' });
+      }
+      if (Math.abs(submittedUsd - expectedUsd) > 0.05) {
+        return res.status(400).json({ error: 'Utility bill total does not match.' });
+      }
+    }
+    let finalUserId: string | undefined =
+      typeof req.user?.id === 'string' ? req.user.id : undefined;
+    const emailTrim =
+      typeof userEmail === 'string' && userEmail.trim() ? userEmail.trim() : '';
+    const clientDbId =
+      typeof prismaUserId === 'string' && prismaUserId.trim()
+        ? prismaUserId.trim()
+        : '';
+
+    if (!finalUserId && clientDbId && emailTrim) {
+      const verified = await prisma.user.findFirst({
+        where: {
+          id: clientDbId,
+          email: { equals: emailTrim, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (verified) finalUserId = verified.id;
+    }
+
+    if (!finalUserId && emailTrim) {
+      const existing = await prisma.user.findFirst({
+        where: { email: { equals: emailTrim, mode: 'insensitive' } },
+        select: { id: true },
+      });
       if (existing) finalUserId = existing.id;
     }
     
-    // For points payment: validate points balance but DON'T deduct yet (wait for approval)
+    // For points payment: need balance, lifetime purchases, and enough points for this order
     if (paymentMethod === 'points' && pointsUsed && pointsUsed > 0 && finalUserId) {
       const user = await prisma.user.findUnique({ where: { id: finalUserId } });
-      if (!user || (user.pointsBalance || 0) < pointsUsed) {
-        return res.status(400).json({ error: 'Insufficient points balance' });
+      const balance = user?.pointsBalance || 0;
+      const lifetimePurchaseUsd = await getUserLifetimePurchaseUsd(finalUserId);
+      const blockReason = pointsRedemptionBlockReason(balance, lifetimePurchaseUsd);
+      if (!user || blockReason) {
+        return res.status(400).json({
+          error: blockReason || 'Points checkout is not available for this account.',
+        });
+      }
+      if (balance < pointsUsed) {
+        return res.status(400).json({ error: 'Insufficient points for this order total.' });
       }
       console.log(`✅ Points payment validated: ${pointsUsed} points available for user ${finalUserId}`);
+    }
+
+    const walletSubtotalUsd =
+      paymentMethod === 'wallet' ? roundUsd(Number(cartSubtotalUsd ?? totalUsd)) : 0;
+    const walletChargeUsd =
+      paymentMethod === 'wallet' ? walletCheckoutChargeUsd(walletSubtotalUsd) : 0;
+
+    if (paymentMethod === 'wallet' && finalUserId) {
+      const submitted = roundUsd(Number(totalUsd));
+      if (Math.abs(submitted - walletChargeUsd) > 0.02) {
+        return res.status(400).json({ error: 'Wallet checkout total mismatch. Refresh and try again.' });
+      }
+      const walletUser = await prisma.user.findUnique({
+        where: { id: finalUserId },
+        select: { walletBalanceUsd: true, name: true, email: true },
+      });
+      const balance = walletUser?.walletBalanceUsd || 0;
+      if (!walletUser || balance < walletChargeUsd - 0.001) {
+        return res.status(400).json({
+          error: `Insufficient Wallet balance. You have $${balance.toFixed(2)}, checkout needs $${walletChargeUsd.toFixed(2)} (includes 5% fee).`,
+        });
+      }
     }
     
     // Create payment submission based on payment method
@@ -131,13 +323,126 @@ router.post('/', async (req: any, res) => {
           senderName: payment.senderName || userEmail || 'PayPal User',
         }
       };
+    } else if (paymentMethod === 'wallet') {
+      paymentData = {
+        create: {
+          method: 'wallet',
+          bankName: 'Wallet',
+          accountName: 'TConnect Wallet',
+          accountNumber: null,
+          transactionId: `WALLET-${Date.now()}`,
+          popUrl: null,
+          senderName: payment?.senderName || userEmail || 'Customer',
+        },
+      };
     }
-    // paymentMethod === 'card' → no payment submission; admin will send link via chat
+    // paymentMethod === 'card' → no payment row yet (manual link).
+    // Mobile money → order stays hidden from admin until payment completes.
+    const orderStatus = isMobileMoneyPaymentMethod(paymentMethod) ? 'awaiting_pawapay' : 'pending';
+
+    if (paymentMethod === 'wallet' && finalUserId) {
+      const walletUserId = finalUserId;
+      const total = walletChargeUsd;
+      let order;
+      try {
+        order = await prisma.$transaction(async (tx) => {
+        const u = await tx.user.findUnique({
+          where: { id: walletUserId },
+          select: { walletBalanceUsd: true },
+        });
+        if (!u || (u.walletBalanceUsd || 0) < total - 0.001) {
+          const err = new Error('INSUFFICIENT_WALLET');
+          throw err;
+        }
+        await tx.user.update({
+          where: { id: walletUserId },
+          data: { walletBalanceUsd: { decrement: total } },
+        });
+        const created = await tx.order.create({
+          data: {
+            userId: walletUserId,
+            status: 'pending',
+            totalUsd: total,
+            totalMwk: Math.round(Number(totalMwk) || 0),
+            items: {
+              create: items.map((i: any) => ({
+                name: i.name,
+                type: i.type,
+                category: i.category,
+                image: i.image,
+                priceUsd: i.price,
+                quantity: i.quantity,
+                metadata: i.metadata ? JSON.stringify(i.metadata) : null,
+              })),
+            },
+            payment: paymentData,
+          },
+          include: { items: true, payment: true },
+        });
+        await tx.walletTransaction.create({
+          data: {
+            userId: walletUserId,
+            type: 'order_payment',
+            amountUsd: -total,
+            orderId: created.id,
+            description: `Checkout order #${created.id.slice(0, 8)}`,
+          },
+        });
+        return created;
+      });
+      } catch (e: unknown) {
+        if (e instanceof Error && e.message === 'INSUFFICIENT_WALLET') {
+          return res.status(400).json({ error: 'Insufficient Wallet balance' });
+        }
+        throw e;
+      }
+
+      await clearSavedCartSnapshotForUser(order.userId);
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: null,
+            type: 'order_created',
+            title: 'New Order Received',
+            message: `New order #${order.id.substring(0, 8)} paid with Wallet — $${order.totalUsd.toFixed(2)}`,
+            link: `/admin?tab=orders&orderId=${order.id}`,
+          },
+        });
+        await sendAdminOrderAlertEmail({
+          orderId: order.id,
+          totalUsd: order.totalUsd,
+          totalMwk: order.totalMwk,
+          itemsCount: order.items.length,
+          paymentMethod: 'wallet',
+        });
+        if (order.userId) {
+          const hasVirtual = orderHasVirtualCardItems(order.items);
+          await createUserNotification({
+            userId: order.userId,
+            type: 'order_received',
+            title: 'Order received',
+            message: hasVirtual
+              ? `We received your virtual card order #${order.id.substring(0, 8)} ($${order.totalUsd.toFixed(2)}). View it in My Cards on your profile.`
+              : `We received your order #${order.id.substring(0, 8)} ($${order.totalUsd.toFixed(2)}). We will review it shortly.`,
+            link: hasVirtual ? '/profile#my-cards' : '/orders',
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+      console.log('Order created (wallet):', order.id);
+      try {
+        await provisionVirtualCardsForOrder(order.id);
+      } catch (e: unknown) {
+        console.warn('[orders] Virtual card provision:', e instanceof Error ? e.message : e);
+      }
+      return res.json(order);
+    }
 
     const order = await prisma.order.create({
       data: {
         userId: finalUserId || (await prisma.user.upsert({ where: { email: userEmail || 'guest@unknown.local' }, update: {}, create: { email: userEmail || `guest+${Date.now()}@unknown.local`, name: 'Guest', password: '' } })).id,
-        status: 'pending', // Explicitly set to pending
+        status: orderStatus,
         totalUsd,
         totalMwk,
         items: {
@@ -159,7 +464,11 @@ router.post('/', async (req: any, res) => {
       },
       include: { items: true, payment: true, pointsReceipt: true }
     });
-    
+
+    if (!isMobileMoneyPaymentMethod(paymentMethod)) {
+      await clearSavedCartSnapshotForUser(order.userId);
+    }
+
     // Update receipt with order ID if linked
     if (pointsReceiptId && order.id) {
       try {
@@ -174,24 +483,49 @@ router.post('/', async (req: any, res) => {
       }
     }
     
-    // Create notification for admin
-    try {
-      await prisma.notification.create({
-        data: {
-          userId: null, // null = admin notification
-          type: 'order_created',
-          title: 'New Order Received',
-          message: `New order #${order.id.substring(0, 8)} for $${order.totalUsd.toFixed(2)} (${order.items.length} item${order.items.length > 1 ? 's' : ''})`,
-          link: `/admin?tab=orders&orderId=${order.id}`
+    // Notify admin only for real submissions (not unpaid mobile money checkouts)
+    if (!isMobileMoneyPaymentMethod(paymentMethod)) {
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: null,
+            type: 'order_created',
+            title: 'New Order Received',
+            message: `New order #${order.id.substring(0, 8)} for $${order.totalUsd.toFixed(2)} (${order.items.length} item${order.items.length > 1 ? 's' : ''})`,
+            link: `/admin?tab=orders&orderId=${order.id}`,
+          },
+        });
+        console.log('✅ Notification created for admin');
+        await sendAdminOrderAlertEmail({
+          orderId: order.id,
+          totalUsd: order.totalUsd,
+          totalMwk: order.totalMwk,
+          itemsCount: order.items.length,
+          paymentMethod: paymentMethod || 'unknown',
+        });
+        if (order.userId) {
+          const hasVirtual = orderHasVirtualCardItems(order.items);
+          await createUserNotification({
+            userId: order.userId,
+            type: 'order_received',
+            title: 'Order received',
+            message: hasVirtual
+              ? `We received your virtual card order #${order.id.substring(0, 8)} ($${order.totalUsd.toFixed(2)}). View it in My Cards on your profile.`
+              : `We received your order #${order.id.substring(0, 8)} ($${order.totalUsd.toFixed(2)}). We will review it shortly.`,
+            link: hasVirtual ? '/profile#my-cards' : '/orders',
+          });
         }
-      });
-      console.log('✅ Notification created for admin');
-    } catch (notifError: any) {
-      console.error('❌ Failed to create notification:', notifError?.message || notifError);
-      // Don't fail order creation if notification fails
+      } catch (notifError: any) {
+        console.error('❌ Failed to create notification:', notifError?.message || notifError);
+      }
     }
     
     console.log('Order created:', order.id, 'Status:', order.status, 'Payment Method:', paymentMethod);
+    try {
+      await provisionVirtualCardsForOrder(order.id);
+    } catch (e: unknown) {
+      console.warn('[orders] Virtual card provision:', e instanceof Error ? e.message : e);
+    }
     res.json(order);
   } catch (error: any) {
     console.error('Error creating order:', error);
@@ -226,7 +560,10 @@ router.get('/me', async (req: any, res) => {
     }
     
     const orders = await prisma.order.findMany({ 
-      where: { userId: { in: userIds } }, 
+      where: {
+        userId: { in: userIds },
+        status: { notIn: ['awaiting_pawapay', 'cancelled'] },
+      },
       include: { 
         items: {
           orderBy: { id: 'asc' }
@@ -328,7 +665,14 @@ router.patch('/:id/card-currency', async (req: any, res) => {
 
 // Admin: list all and update status
 router.get('/', basicAdminAuth, async (_req: any, res) => {
-  const orders = await prisma.order.findMany({ include: { items: true, payment: true }, orderBy: { createdAt: 'desc' } });
+  const orders = await prisma.order.findMany({
+    include: {
+      items: true,
+      payment: true,
+      user: { select: { id: true, email: true, name: true, phone: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
   res.json(orders);
 });
 
@@ -353,25 +697,74 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
       data: { status },
       include: { user: true }
     });
-    
-    // Create notification for user if order is confirmed or rejected
-    if ((status === 'approved' || status === 'rejected') && currentOrder.userId) {
+
+    const transitionedTo = (target: string) => currentOrder.status !== target && status === target;
+
+    const orderItemsForNotify = await prisma.orderItem.findMany({ where: { orderId } });
+    const hasVirtualCardOrder = orderHasVirtualCardItems(orderItemsForNotify);
+
+    // One in-app notification per transition (approved / rejected / fulfilled)
+    if (
+      currentOrder.userId &&
+      (transitionedTo('approved') || transitionedTo('rejected') || transitionedTo('fulfilled'))
+    ) {
       try {
-        await prisma.notification.create({
-          data: {
-            userId: currentOrder.userId,
-            type: status === 'approved' ? 'order_confirmed' : 'order_rejected',
-            title: status === 'approved' ? 'Order Confirmed!' : 'Order Rejected',
-            message: status === 'approved' 
-              ? `Your order #${orderId.substring(0, 8)} has been confirmed and is being processed.`
-              : `Your order #${orderId.substring(0, 8)} has been rejected. Please contact support for details.`,
-            link: `/orders`
-          }
+        const shortId = orderId.substring(0, 8);
+        const payload =
+          status === 'approved'
+            ? {
+                type: 'order_confirmed',
+                title: 'Order confirmed',
+                message: hasVirtualCardOrder
+                  ? `Your virtual card order #${shortId} is approved. Open My Cards on your profile to view your card.`
+                  : `Your order #${shortId} has been approved and is being processed.`,
+                link: hasVirtualCardOrder ? '/profile#my-cards' : '/orders',
+              }
+            : status === 'rejected'
+              ? {
+                  type: 'order_rejected',
+                  title: 'Order rejected',
+                  message: `Your order #${shortId} was rejected. Contact support if you need help.`,
+                  link: '/orders',
+                }
+              : {
+                  type: 'order_fulfilled',
+                  title: 'Virtual card ready' as string,
+                  message: hasVirtualCardOrder
+                  ? `Your virtual card order #${shortId} is complete. Open My Cards to view your card balance and transactions.`
+                  : `Your order #${shortId} is complete — open Order History for codes and details.`,
+                link: hasVirtualCardOrder ? '/profile#my-cards' : '/orders',
+              };
+        if (!hasVirtualCardOrder && status === 'fulfilled') {
+          payload.title = 'Order delivered';
+        } else if (hasVirtualCardOrder && status === 'fulfilled') {
+          payload.title = 'Your virtual card is ready';
+        }
+        await createUserNotification({
+          userId: currentOrder.userId,
+          type: payload.type,
+          title: payload.title,
+          message: payload.message,
+          link: payload.link,
         });
         console.log('✅ Notification created for user (order status change)');
       } catch (notifError: any) {
         console.error('❌ Failed to create notification:', notifError?.message || notifError);
-        // Don't fail status update if notification fails
+      }
+    }
+
+    if (
+      transitionedTo('approved') ||
+      transitionedTo('fulfilled') ||
+      status === 'approved' ||
+      status === 'fulfilled'
+    ) {
+      try {
+        await provisionVirtualCardsForOrder(orderId, {
+          activate: status === 'fulfilled' || status === 'approved',
+        });
+      } catch (e: unknown) {
+        console.warn('[orders] Virtual card provision on status:', e instanceof Error ? e.message : e);
       }
     }
     
@@ -541,7 +934,7 @@ router.patch('/:id/status', basicAdminAuth, async (req: any, res) => {
     } else if (isNowCompleted && wasAlreadyCompleted) {
       console.log(`⚠️ Order ${orderId} was already ${currentOrder.status}, points already processed`);
     }
-    
+
     res.json(order);
   } catch (error: any) {
     console.error('Error updating order status:', error);
@@ -564,10 +957,61 @@ router.patch('/:id/items/:itemId/codes', basicAdminAuth, async (req: any, res) =
       data: { giftCardCodes: JSON.stringify(codes) }
     });
 
+    const parentOrder = await prisma.order.findFirst({
+      where: { id: orderItem.orderId },
+      select: { id: true },
+    });
+    if (parentOrder) {
+      try {
+        await provisionVirtualCardsForOrder(parentOrder.id, { activate: true });
+      } catch (e: unknown) {
+        console.warn('[orders] Virtual card provision on codes:', e instanceof Error ? e.message : e);
+      }
+    }
+
     res.json(orderItem);
   } catch (error: any) {
     console.error('Failed to update codes:', error);
     res.status(500).json({ error: error.message || 'Failed to update codes' });
+  }
+});
+
+// Admin: Merge keys into OrderItem.metadata (crypto/wallet line fulfillment, notes, etc.)
+router.patch('/:id/items/:itemId/metadata', basicAdminAuth, async (req: any, res) => {
+  try {
+    const orderId = req.params.id;
+    const itemId = req.params.itemId;
+    const merge = req.body?.merge;
+    if (!merge || typeof merge !== 'object' || Array.isArray(merge)) {
+      return res.status(400).json({ error: 'merge (object) is required' });
+    }
+
+    const item = await prisma.orderItem.findFirst({
+      where: { id: itemId, orderId },
+    });
+    if (!item) {
+      return res.status(404).json({ error: 'Order item not found for this order' });
+    }
+
+    let meta: Record<string, unknown> = {};
+    if (item.metadata) {
+      try {
+        meta = JSON.parse(item.metadata) as Record<string, unknown>;
+        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) meta = {};
+      } catch {
+        meta = {};
+      }
+    }
+    const next = { ...meta, ...merge };
+
+    const orderItem = await prisma.orderItem.update({
+      where: { id: itemId },
+      data: { metadata: JSON.stringify(next) },
+    });
+    res.json(orderItem);
+  } catch (error: any) {
+    console.error('Failed to merge order item metadata:', error);
+    res.status(500).json({ error: error.message || 'Failed to update metadata' });
   }
 });
 

@@ -8,7 +8,7 @@ const API_BASE = getApiBase();
 
 interface Rate {
   id: string;
-  type: 'giftcard' | 'crypto' | 'wallet';
+  type: 'giftcard' | 'crypto' | 'wallet' | 'store_wallet';
   value: number;
   createdAt: string;
 }
@@ -18,6 +18,7 @@ interface RateChartData {
   giftcard: number | null;
   crypto: number | null;
   wallet: number | null;
+  store_wallet: number | null;
 }
 
 const Rates: React.FC = () => {
@@ -26,7 +27,8 @@ const Rates: React.FC = () => {
   const [currentRates, setCurrentRates] = useState<Record<string, number>>({
     giftcard: 1900,
     crypto: 1800,
-    wallet: 1850
+    wallet: 1850,
+    store_wallet: 1700,
   });
 
   useEffect(() => {
@@ -53,7 +55,8 @@ const Rates: React.FC = () => {
         setCurrentRates({
           giftcard: latest.giftcard || 1900,
           crypto: latest.crypto || 1800,
-          wallet: latest.wallet || 1850
+          wallet: latest.wallet || 1850,
+          store_wallet: latest.store_wallet || latest.wallet || 1700,
         });
       }
     } catch (error) {
@@ -66,14 +69,16 @@ const Rates: React.FC = () => {
   // Prepare chart data
   const prepareChartData = (): RateChartData[] => {
     // Group rates by date
-    const dateMap: Record<string, { giftcard?: number; crypto?: number; wallet?: number }> = {};
+    const dateMap: Record<string, { giftcard?: number; crypto?: number; wallet?: number; store_wallet?: number }> = {};
     
     rates.forEach(rate => {
       const date = new Date(rate.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       if (!dateMap[date]) {
         dateMap[date] = {};
       }
-      dateMap[date][rate.type] = rate.value;
+      if (rate.type === 'giftcard' || rate.type === 'crypto' || rate.type === 'wallet' || rate.type === 'store_wallet') {
+        dateMap[date][rate.type] = rate.value;
+      }
     });
 
     // Convert to array and fill gaps
@@ -85,18 +90,21 @@ const Rates: React.FC = () => {
     let lastGiftcard: number | null = null;
     let lastCrypto: number | null = null;
     let lastWallet: number | null = null;
+    let lastStoreWallet: number | null = null;
 
     sortedDates.forEach(date => {
       const dayData = dateMap[date];
       lastGiftcard = dayData.giftcard ?? lastGiftcard;
       lastCrypto = dayData.crypto ?? lastCrypto;
       lastWallet = dayData.wallet ?? lastWallet;
+      lastStoreWallet = dayData.store_wallet ?? lastStoreWallet;
 
       chartData.push({
         date,
         giftcard: lastGiftcard,
         crypto: lastCrypto,
-        wallet: lastWallet
+        wallet: lastWallet,
+        store_wallet: lastStoreWallet,
       });
     });
 
@@ -106,7 +114,7 @@ const Rates: React.FC = () => {
   const chartData = prepareChartData();
 
   // Calculate trends
-  const getTrend = (type: 'giftcard' | 'crypto' | 'wallet') => {
+  const getTrend = (type: 'giftcard' | 'crypto' | 'wallet' | 'store_wallet') => {
     const typeRates = rates.filter(r => r.type === type).sort((a, b) => 
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
@@ -119,6 +127,7 @@ const Rates: React.FC = () => {
   const giftcardTrend = getTrend('giftcard');
   const cryptoTrend = getTrend('crypto');
   const walletTrend = getTrend('wallet');
+  const storeWalletTrend = getTrend('store_wallet');
 
   return (
     <div className="min-h-screen bg-dark-bg">
@@ -129,7 +138,7 @@ const Rates: React.FC = () => {
         </div>
 
         {/* Current Rates Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Gift Card Rate */}
           <div className="card-dark p-6 rounded-xl">
             <div className="flex items-center justify-between mb-4">
@@ -180,6 +189,24 @@ const Rates: React.FC = () => {
               <div className={`flex items-center text-sm ${walletTrend >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {walletTrend >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
                 {walletTrend >= 0 ? '+' : ''}{walletTrend} MWK
+              </div>
+            )}
+          </div>
+
+          {/* Store Wallet Rate */}
+          <div className="card-dark p-6 rounded-xl border border-amber-500/30">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-amber-200">Store Wallet (top-up)</h3>
+              <DollarSign className="w-6 h-6 text-amber-400" />
+            </div>
+            <div className="text-3xl font-bold text-amber-300 mb-2">
+              {currentRates.store_wallet.toLocaleString()} MWK
+            </div>
+            <div className="text-sm text-gray-400 mb-2">per $1 USD · add money to your account</div>
+            {storeWalletTrend !== null && (
+              <div className={`flex items-center text-sm ${storeWalletTrend >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {storeWalletTrend >= 0 ? <TrendingUp className="w-4 h-4 mr-1" /> : <TrendingDown className="w-4 h-4 mr-1" />}
+                {storeWalletTrend >= 0 ? '+' : ''}{storeWalletTrend} MWK
               </div>
             )}
           </div>
@@ -235,6 +262,14 @@ const Rates: React.FC = () => {
                   name="Payments"
                   dot={{ fill: '#3b82f6', r: 4 }}
                 />
+                <Line 
+                  type="monotone" 
+                  dataKey="store_wallet" 
+                  stroke="#f59e0b" 
+                  strokeWidth={2}
+                  name="Store Wallet"
+                  dot={{ fill: '#f59e0b', r: 4 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -257,9 +292,9 @@ const Rates: React.FC = () => {
               </div>
             </div>
             <div className="bg-dark-surface p-4 rounded-lg">
-              <div className="text-sm text-gray-400 mb-2">$100 Wallet</div>
-              <div className="text-xl font-bold text-white">
-                {getMwkAmountFromUsd(100, 'wallet').toLocaleString()} MWK
+              <div className="text-sm text-gray-400 mb-2">$10 Store Wallet top-up</div>
+              <div className="text-xl font-bold text-amber-300">
+                {getMwkAmountFromUsd(10, 'store_wallet').toLocaleString()} MWK
               </div>
             </div>
           </div>

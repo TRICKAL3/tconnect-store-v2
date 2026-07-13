@@ -44,6 +44,8 @@ const ChatWidget: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [showNameForm, setShowNameForm] = useState(true);
+  const [showSessionChoice, setShowSessionChoice] = useState(false);
+  const [pendingChatId, setPendingChatId] = useState<string | null>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const { user, loading: authLoading } = useAuth();
@@ -89,12 +91,12 @@ const ChatWidget: React.FC = () => {
     }
   };
 
-  // Load chat from localStorage on mount
+  // Load chat from localStorage on mount — defer if we should ask continue vs new
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const storedChatId = localStorage.getItem('tconnect_chat_id');
     if (storedChatId) {
-      loadChat(storedChatId);
+      setPendingChatId(storedChatId);
     }
   }, []);
 
@@ -113,11 +115,43 @@ const ChatWidget: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openChatId]);
 
-  // Load user's chat history when widget opens
+  // Load user's chat history when widget opens; offer continue vs new chat
   useEffect(() => {
-    if (isOpen && (user?.id || user?.email || email)) {
-      loadChatHistory();
-    }
+    if (!isOpen) return;
+
+    const run = async () => {
+      const identifier = user?.id || user?.email || email;
+      if (!identifier) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/chats/user/${encodeURIComponent(identifier)}`);
+        if (!res.ok) return;
+        const history: ChatListItem[] = await res.json();
+        setChatHistory(history);
+
+        const storedId = pendingChatId || localStorage.getItem('tconnect_chat_id');
+        const storedChat = storedId
+          ? history.find((c) => c.id === storedId) || null
+          : null;
+        const latestOpen = history.find((c) => c.status !== 'closed') || null;
+        const resumeId =
+          storedChat && storedChat.status !== 'closed'
+            ? storedChat.id
+            : latestOpen?.id || storedId;
+
+        if (resumeId && !chat) {
+          setPendingChatId(resumeId);
+          setShowSessionChoice(true);
+          setShowNameForm(false);
+        } else if (!chat && history.length > 0 && !showNameForm) {
+          setShowSessionChoice(true);
+        }
+      } catch (error) {
+        console.error('Failed to load chat history:', error);
+      }
+    };
+
+    run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user?.id, user?.email, email]);
 
@@ -133,14 +167,22 @@ const ChatWidget: React.FC = () => {
     }
   }, [user, name, email]);
 
-  // Auto-initialize chat when widget opens if user is logged in
+  // Auto-initialize chat when widget opens only after user chose "new" or has no prior session
   useEffect(() => {
-    if (isOpen && !chat && !showNameForm && (user?.name || name) && !loading && !authLoading) {
-      console.log('🚀 [ChatWidget] Auto-initializing chat for logged-in user');
+    if (
+      isOpen &&
+      !chat &&
+      !showNameForm &&
+      !showSessionChoice &&
+      !showChatHistory &&
+      (user?.name || name) &&
+      !loading &&
+      !authLoading
+    ) {
       initializeChat();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, chat, showNameForm, user, name, loading, authLoading]);
+  }, [isOpen, chat, showNameForm, showSessionChoice, showChatHistory, user, name, loading, authLoading]);
 
   // Keep newest messages visible inside the widget only — scrollIntoView() would scroll the
   // whole page when the chat body doesn’t overflow (fixed panel at bottom of viewport).
@@ -226,9 +268,36 @@ const ChatWidget: React.FC = () => {
 
   const handleOpen = () => {
     setIsOpen(true);
-    // If user is logged in and we have their info, auto-initialize chat
-    if (!chat && !showNameForm && (user?.name || name)) {
+    if (!chat && !showNameForm && !showSessionChoice && (user?.name || name)) {
+      const storedId = localStorage.getItem('tconnect_chat_id');
+      if (storedId) {
+        setPendingChatId(storedId);
+        setShowSessionChoice(true);
+      }
+    }
+  };
+
+  const continuePreviousChat = async () => {
+    const chatId = pendingChatId || localStorage.getItem('tconnect_chat_id');
+    if (!chatId) {
+      setShowSessionChoice(false);
+      return;
+    }
+    setShowSessionChoice(false);
+    await loadChat(chatId);
+  };
+
+  const startFreshChat = () => {
+    localStorage.removeItem('tconnect_chat_id');
+    setPendingChatId(null);
+    setChat(null);
+    setShowSessionChoice(false);
+    setShowChatHistory(false);
+    if (user?.name || name) {
+      setShowNameForm(false);
       initializeChat();
+    } else {
+      setShowNameForm(true);
     }
   };
 
@@ -382,7 +451,27 @@ const ChatWidget: React.FC = () => {
         ref={messagesScrollRef}
         className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950/90 via-slate-900/95 to-slate-950"
       >
-        {showChatHistory ? (
+        {showSessionChoice && !chat && !showChatHistory ? (
+          <div className="space-y-4 text-center py-6">
+            <Bot className="w-12 h-12 mx-auto mb-2 text-neon-blue" />
+            <p className="text-white font-semibold">Welcome back!</p>
+            <p className="text-gray-300 text-sm">
+              Would you like to continue your previous conversation or start a new one?
+            </p>
+            <button
+              onClick={continuePreviousChat}
+              className="w-full btn-cyber text-white py-2 rounded-xl"
+            >
+              Continue Previous Chat
+            </button>
+            <button
+              onClick={startFreshChat}
+              className="w-full py-2 rounded-xl border border-dark-border text-gray-200 hover:border-neon-blue/50"
+            >
+              Start New Chat
+            </button>
+          </div>
+        ) : showChatHistory ? (
           <div className="space-y-2">
             <div className="text-white font-semibold mb-3">
               {chatHistory.length > 0 ? 'Your Chat History' : 'My Chats'}
@@ -427,12 +516,8 @@ const ChatWidget: React.FC = () => {
                 setShowChatHistory(false);
                 setChat(null);
                 localStorage.removeItem('tconnect_chat_id');
-                // If we already know the user's name, skip the form and let auto-init create a new chat
-                if (user?.name || name) {
-                  setShowNameForm(false);
-                } else {
-                  setShowNameForm(true);
-                }
+                setShowSessionChoice(false);
+                startFreshChat();
               }}
               className="w-full mt-4 btn-cyber text-white py-2 rounded-xl shadow-[0_12px_40px_rgba(56,189,248,0.6)] hover:shadow-[0_16px_55px_rgba(129,140,248,0.9)] hover:-translate-y-0.5 transition-all"
             >

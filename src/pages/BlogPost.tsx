@@ -44,6 +44,38 @@ const BlogPost: React.FC = () => {
     if (slug) run();
   }, [slug]);
 
+  useEffect(() => {
+    if (!post) return;
+    const site = 'https://www.tconnect.store';
+    const url = `${site}/blog/${slug}`;
+    const image = post.imageUrl1 || `${site}/tconnect_logo-removebg-preview.png`;
+    const description = (post.summary || post.content || '').trim().slice(0, 200);
+
+    document.title = `${post.title} | TConnect Store`;
+
+    const setMeta = (attr: string, key: string, value: string) => {
+      let el = document.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', value);
+    };
+
+    setMeta('name', 'description', description);
+    setMeta('property', 'og:type', 'article');
+    setMeta('property', 'og:site_name', 'TConnect Store');
+    setMeta('property', 'og:title', post.title);
+    setMeta('property', 'og:description', description);
+    setMeta('property', 'og:image', image);
+    setMeta('property', 'og:url', url);
+    setMeta('name', 'twitter:card', 'summary_large_image');
+    setMeta('name', 'twitter:title', post.title);
+    setMeta('name', 'twitter:description', description);
+    setMeta('name', 'twitter:image', image);
+  }, [post, slug]);
+
   if (loading) return <div className="min-h-screen bg-dark-bg text-gray-300 p-8">Loading...</div>;
   if (!post) return <div className="min-h-screen bg-dark-bg text-gray-300 p-8">Post not found.</div>;
 

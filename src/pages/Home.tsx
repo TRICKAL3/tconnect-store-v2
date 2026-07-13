@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Gift, Shield, Zap, CreditCard, TrendingUp, CheckCircle, Globe, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, Gift, Shield, Zap, CreditCard, TrendingUp, CheckCircle, Globe, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { getApiBase, getAbsoluteImageUrl, GIFT_CARD_PLACEHOLDER } from '../lib/getApiBase';
 import { GIFTCARD_BUYER_MAX_USD } from '../lib/giftCardPricing';
 import paypalLogo from '../assets/paypal.jpg';
@@ -294,7 +294,7 @@ const Home: React.FC = () => {
     {
       id: 3,
       name: 'Prepaid Cards',
-      description: 'Load and spend with prepaid virtual cards',
+      description: 'One-time prepaid cards — buy a new card when balance runs out',
       image: '🔄'
     }
   ];
@@ -533,8 +533,8 @@ const Home: React.FC = () => {
               <Globe className="w-4 h-4 text-neon-blue" />
               Worldwide
             </span>
-            <a href="#how-it-works" className="flex items-center gap-2 text-neon-blue hover:text-white transition-colors">
-              How it works
+            <a href="#showcase" className="flex items-center gap-2 text-neon-blue hover:text-white transition-colors">
+              What we offer
             </a>
             <a href="#featured" className="flex items-center gap-2 text-neon-blue hover:text-white transition-colors">
               Featured cards
@@ -543,77 +543,213 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* How It Works - early for trust */}
-      <section id="how-it-works" className="py-12 md:py-16 bg-dark-surface">
+      {/* Visual product showcase — animated gift cards, rotating card, crypto, gaming, software, wallets, spin */}
+      <section id="showcase" className="py-14 md:py-20 bg-dark-surface border-b border-dark-border overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10 md:mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-3 holographic">
-              How It Works
-            </h2>
-            <p className="text-base text-gray-300 max-w-2xl mx-auto">
-              Getting your favorite gift cards has never been easier
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
-            {howItWorks.map((step, index) => (
-              <div key={step.step} className="text-center card-dark p-4 md:p-6 rounded-xl md:rounded-2xl border border-dark-border hover:border-neon-blue/50">
-                <div className="relative inline-flex mb-3">
-                  <div className="w-12 h-12 md:w-14 md:h-14 bg-neon-blue/20 rounded-lg md:rounded-xl flex items-center justify-center text-neon-blue">
-                    {step.icon}
-                  </div>
-                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 md:w-6 md:h-6 bg-neon-blue rounded-full flex items-center justify-center text-white font-bold text-[10px] md:text-xs">
-                    {step.step}
-                  </span>
-                </div>
-                <h3 className="text-base md:text-lg font-bold text-white mb-1 md:mb-2">{step.title}</h3>
-                <p className="text-gray-300 text-xs md:text-sm leading-relaxed">{step.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Shop by Category Section */}
-      <section id="categories" className="py-12 md:py-20 bg-dark-bg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`text-center mb-8 md:mb-16 fade-in-on-scroll ${visibleElements.has('category-header') ? 'visible' : ''}`} id="category-header">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 md:mb-4 holographic">
-              Shop by Category
+          <div className="text-center mb-10 md:mb-14">
+            <h2 className="text-2xl md:text-4xl font-bold text-white mb-3 holographic">
+              Everything you need, one store
             </h2>
             <p className="text-sm md:text-base text-gray-300 max-w-2xl mx-auto">
-              Find the perfect gift card for any occasion
+              Gift cards, gaming, TConnect Cards, crypto, digital wallets, points &amp; daily spin — all in one place.
             </p>
-            <Link to="/giftcards" className="inline-flex items-center text-neon-blue hover:text-neon-purple transition-colors duration-300 mt-3 md:mt-4 text-sm md:text-base">
-              Browse all Products
-              <ArrowRight className="ml-2 w-4 h-4" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6 mb-5 md:mb-6">
+            {/* Gift cards */}
+            <Link to="/giftcards" className="home-showcase-card group hover:border-neon-blue/40 transition-colors">
+              <div className="flex items-center gap-2 mb-4">
+                <Gift className="w-5 h-5 text-neon-blue" />
+                <h3 className="text-lg font-bold text-white group-hover:text-neon-blue">Gift Cards</h3>
+              </div>
+              <div className="home-gift-mosaic mb-3">
+                {(featuredCards.length > 0 ? featuredCards.slice(0, 4) : popularCards.slice(0, 4)).map((card, i) => (
+                  <img
+                    key={card.id || i}
+                    src={getAbsoluteImageUrl(card.image) || GIFT_CARD_PLACEHOLDER}
+                    alt={card.name}
+                    onError={(e) => { e.currentTarget.src = GIFT_CARD_PLACEHOLDER; }}
+                  />
+                ))}
+                {featuredCards.length === 0 && popularCards.length === 0 && (
+                  <>
+                    <div className="h-16 sm:h-20 rounded-lg bg-gradient-to-br from-neon-blue/30 to-purple-600/30 border border-white/10 animate-pulse" />
+                    <div className="h-16 sm:h-20 rounded-lg bg-gradient-to-br from-neon-green/20 to-cyan-600/30 border border-white/10 animate-pulse" />
+                    <div className="h-16 sm:h-20 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-600/30 border border-white/10 animate-pulse" />
+                    <div className="h-16 sm:h-20 rounded-lg bg-gradient-to-br from-pink-500/20 to-rose-600/30 border border-white/10 animate-pulse" />
+                  </>
+                )}
+              </div>
+              <div className="home-marquee-wrap mb-3">
+                <div className="home-marquee-track">
+                  {['Steam', 'PlayStation', 'Xbox', 'Nintendo', 'Netflix', 'Amazon', 'Steam', 'PlayStation', 'Xbox', 'Nintendo', 'Netflix', 'Amazon'].map((brand, i) => (
+                    <span key={`${brand}-${i}`} className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold shrink-0">{brand}</span>
+                  ))}
+                </div>
+              </div>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Premium brands for gaming, streaming, shopping &amp; more. Instant digital delivery.
+              </p>
+              <span className="inline-flex items-center text-neon-blue text-sm font-semibold mt-4 group-hover:gap-2 transition-all">
+                Browse gift cards <ArrowRight className="w-4 h-4 ml-1" />
+              </span>
+            </Link>
+
+            {/* TConnect Cards — 3 rotating cards */}
+            <Link to="/payments" className="home-showcase-card group hover:border-cyan-400/40 transition-colors">
+              <div className="flex items-center gap-2 mb-4">
+                <CreditCard className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-lg font-bold text-white group-hover:text-cyan-300">TConnect Cards</h3>
+              </div>
+              <div className="home-cards-coverflow mb-4" aria-hidden>
+                <div className="home-cards-coverflow-glow" />
+                <div className="home-cards-coverflow-stage">
+                  <div className="home-coverflow-card home-coverflow-card-1">
+                    <div className="home-coverflow-card-inner">
+                      <div className="home-coverflow-shine" />
+                      <span className="home-coverflow-chip" />
+                      <p className="home-coverflow-brand">TCONNECT CARDS</p>
+                      <p className="home-coverflow-num">4242</p>
+                      <div className="home-coverflow-footer">
+                        <span className="home-coverflow-label">VIRTUAL</span>
+                        <span className="home-coverflow-wifi" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="home-coverflow-card home-coverflow-card-2">
+                    <div className="home-coverflow-card-inner home-coverflow-card-inner--violet">
+                      <div className="home-coverflow-shine" />
+                      <span className="home-coverflow-chip" />
+                      <p className="home-coverflow-brand">TCONNECT CARDS</p>
+                      <p className="home-coverflow-num">8810</p>
+                      <div className="home-coverflow-footer">
+                        <span className="home-coverflow-label">VIRTUAL</span>
+                        <span className="home-coverflow-wifi" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="home-coverflow-card home-coverflow-card-3">
+                    <div className="home-coverflow-card-inner home-coverflow-card-inner--teal">
+                      <div className="home-coverflow-shine" />
+                      <span className="home-coverflow-chip" />
+                      <p className="home-coverflow-brand">TCONNECT CARDS</p>
+                      <p className="home-coverflow-num">3391</p>
+                      <div className="home-coverflow-footer">
+                        <span className="home-coverflow-label">VIRTUAL</span>
+                        <span className="home-coverflow-wifi" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Prepaid virtual cards for online shopping. Track balance &amp; transactions in My Cards.
+              </p>
+              <span className="inline-flex items-center text-cyan-400 text-sm font-semibold mt-4 group-hover:gap-2 transition-all">
+                Get a virtual card <ArrowRight className="w-4 h-4 ml-1" />
+              </span>
+            </Link>
+
+            {/* Crypto */}
+            <Link to="/crypto" className="home-showcase-card group hover:border-neon-purple/40 transition-colors">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-5 h-5 text-neon-purple" />
+                <h3 className="text-lg font-bold text-white group-hover:text-neon-purple">Cryptocurrency</h3>
+              </div>
+              <div className="home-crypto-orbit mb-4">
+                <div className="home-crypto-coin bg-amber-500/90 text-white">₿</div>
+                <div className="home-crypto-coin bg-indigo-500/90 text-white text-lg">Ξ</div>
+                <div className="home-crypto-coin bg-emerald-500/90 text-white text-sm">₮</div>
+                <div className="home-crypto-coin bg-violet-600/90 text-white text-xs">◎</div>
+              </div>
+              <p className="text-sm text-gray-400 leading-relaxed">
+                BTC, ETH, USDT &amp; stablecoins — competitive rates, fast wallet delivery.
+              </p>
+              <span className="inline-flex items-center text-neon-purple text-sm font-semibold mt-4 group-hover:gap-2 transition-all">
+                Explore crypto <ArrowRight className="w-4 h-4 ml-1" />
+              </span>
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-6">
-            {categories.map((category, index) => (
-              <Link
-                key={category.name}
-                to={category.link}
-                id={`category-${index}`}
-                className={`group card-dark p-3 md:p-6 rounded-lg md:rounded-xl hover:border-neon-blue/50 active:scale-[0.98] md:hover:-translate-y-1 fade-in-on-scroll ${visibleElements.has(`category-${index}`) ? 'visible' : ''}`}
-              >
-                <div className="text-center">
-                  <div className="text-2xl sm:text-3xl md:text-5xl mb-2 md:mb-3 group-hover:scale-105">
-                    {category.icon}
+          {/* Gaming hero + wallets & spin */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-6">
+            <Link
+              to="/giftcards"
+              className="home-showcase-card lg:col-span-2 group hover:border-purple-400/50 transition-colors overflow-hidden"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div>
+                  <h3 className="text-xl md:text-2xl font-bold text-white group-hover:text-purple-300">🎮 Gaming</h3>
+                  <p className="text-sm text-gray-400 mt-1">Steam · PlayStation · Xbox · Nintendo &amp; more</p>
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-purple-300/80 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/10">
+                  Instant codes
+                </span>
+              </div>
+
+              <div className="home-gaming-arena mb-4">
+                <div className="home-gaming-glow" aria-hidden />
+                <span className="home-gaming-center" aria-hidden>🎮</span>
+                <div className="home-gaming-orbit" aria-hidden>
+                  <div className="home-gaming-platform home-gaming-steam">
+                    <span className="home-gaming-platform-icon">🎮</span>
+                    <span className="home-gaming-platform-name">Steam</span>
                   </div>
-                  <h3 className="text-sm md:text-lg font-bold text-white mb-1 md:mb-2 group-hover:text-neon-blue">
-                    {category.name}
-                  </h3>
-                  <p className="text-[10px] sm:text-xs md:text-sm text-gray-300 mb-2 md:mb-3 leading-relaxed line-clamp-2">
-                    {category.description}
-                  </p>
-                  <div className="flex items-center justify-center text-neon-blue group-hover:text-neon-purple">
-                    <span className="text-[10px] sm:text-xs font-semibold">Explore</span>
-                    <ArrowRight className="ml-1 w-3 h-3" />
+                  <div className="home-gaming-platform home-gaming-psn">
+                    <span className="home-gaming-platform-icon">▶</span>
+                    <span className="home-gaming-platform-name">PlayStation</span>
+                  </div>
+                  <div className="home-gaming-platform home-gaming-xbox">
+                    <span className="home-gaming-platform-icon">✕</span>
+                    <span className="home-gaming-platform-name">Xbox</span>
+                  </div>
+                  <div className="home-gaming-platform home-gaming-nintendo">
+                    <span className="home-gaming-platform-icon">⬤</span>
+                    <span className="home-gaming-platform-name">Nintendo</span>
                   </div>
                 </div>
+              </div>
+
+              <p className="text-sm md:text-base text-gray-300 leading-relaxed">
+                Top up your favorite platforms, buy in-game currency, and grab gaming gift cards — delivered in seconds.
+              </p>
+              <span className="inline-flex items-center text-purple-300 text-sm font-semibold mt-4 group-hover:gap-2 transition-all">
+                Shop gaming cards <ArrowRight className="w-4 h-4 ml-1" />
+              </span>
+            </Link>
+
+            <div className="flex flex-col gap-5 md:gap-6">
+              <Link to="/payments" className="home-showcase-card group hover:border-amber-400/40 transition-colors flex-1">
+                <h3 className="text-base font-bold text-white mb-1 group-hover:text-amber-300">Digital Wallets</h3>
+                <p className="text-xs text-gray-500 mb-3">PayPal · Skrill · Neteller &amp; more</p>
+                <div className="home-marquee-wrap mb-2">
+                  <div className="home-marquee-track reverse">
+                    {[...walletServices, ...walletServices].map((w, i) => (
+                      <div key={`${w.id}-${i}`} className="home-wallet-pill">
+                        <img src={getAbsoluteImageUrl(w.image)} alt={w.name} />
+                        <span className="text-xs text-gray-300 font-medium">{w.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-sm text-gray-400">Top up global wallets &amp; order virtual cards in one checkout.</p>
               </Link>
-            ))}
+
+              <Link to="/spin" className="home-showcase-card group hover:border-pink-400/40 transition-colors home-points-glow rounded-2xl flex-1">
+                <h3 className="text-base font-bold text-white mb-1 group-hover:text-pink-300 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  Points &amp; Spin
+                </h3>
+                <p className="text-xs text-gray-500 mb-3">Earn points · daily spin wheel</p>
+                <div className="home-spin-wheel mb-3" aria-hidden />
+                <p className="text-sm text-gray-400">
+                  Collect <strong className="text-purple-300 font-medium">TConnect Points</strong> on orders and spin daily for prizes.
+                </p>
+                <span className="inline-flex items-center text-purple-400 text-sm font-semibold mt-3 group-hover:gap-2 transition-all">
+                  Spin to win <ArrowRight className="w-4 h-4 ml-1" />
+                </span>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -920,6 +1056,81 @@ const Home: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works — near footer */}
+      <section id="how-it-works" className="py-12 md:py-16 bg-dark-surface border-t border-dark-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10 md:mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-3 holographic">
+              How It Works
+            </h2>
+            <p className="text-base text-gray-300 max-w-2xl mx-auto">
+              Getting your favorite gift cards has never been easier
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
+            {howItWorks.map((step) => (
+              <div key={step.step} className="text-center card-dark p-4 md:p-6 rounded-xl md:rounded-2xl border border-dark-border hover:border-neon-blue/50">
+                <div className="relative inline-flex mb-3">
+                  <div className="w-12 h-12 md:w-14 md:h-14 bg-neon-blue/20 rounded-lg md:rounded-xl flex items-center justify-center text-neon-blue">
+                    {step.icon}
+                  </div>
+                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 md:w-6 md:h-6 bg-neon-blue rounded-full flex items-center justify-center text-white font-bold text-[10px] md:text-xs">
+                    {step.step}
+                  </span>
+                </div>
+                <h3 className="text-base md:text-lg font-bold text-white mb-1 md:mb-2">{step.title}</h3>
+                <p className="text-gray-300 text-xs md:text-sm leading-relaxed">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Shop by Category — near footer */}
+      <section id="categories" className="py-12 md:py-16 bg-dark-bg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className={`text-center mb-8 md:mb-12 fade-in-on-scroll ${visibleElements.has('category-header') ? 'visible' : ''}`} id="category-header">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 md:mb-4 holographic">
+              Shop by Category
+            </h2>
+            <p className="text-sm md:text-base text-gray-300 max-w-2xl mx-auto">
+              Find the perfect gift card for any occasion
+            </p>
+            <Link to="/giftcards" className="inline-flex items-center text-neon-blue hover:text-neon-purple transition-colors duration-300 mt-3 md:mt-4 text-sm md:text-base">
+              Browse all Products
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-6">
+            {categories.map((category, index) => (
+              <Link
+                key={category.name}
+                to={category.link}
+                id={`category-${index}`}
+                className={`group card-dark p-3 md:p-6 rounded-lg md:rounded-xl hover:border-neon-blue/50 active:scale-[0.98] md:hover:-translate-y-1 fade-in-on-scroll ${visibleElements.has(`category-${index}`) ? 'visible' : ''}`}
+              >
+                <div className="text-center">
+                  <div className="text-2xl sm:text-3xl md:text-5xl mb-2 md:mb-3 group-hover:scale-105">
+                    {category.icon}
+                  </div>
+                  <h3 className="text-sm md:text-lg font-bold text-white mb-1 md:mb-2 group-hover:text-neon-blue">
+                    {category.name}
+                  </h3>
+                  <p className="text-[10px] sm:text-xs md:text-sm text-gray-300 mb-2 md:mb-3 leading-relaxed line-clamp-2">
+                    {category.description}
+                  </p>
+                  <div className="flex items-center justify-center text-neon-blue group-hover:text-neon-purple">
+                    <span className="text-[10px] sm:text-xs font-semibold">Explore</span>
+                    <ArrowRight className="ml-1 w-3 h-3" />
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>

@@ -559,3 +559,594 @@ html {
   display: inline-block;
   animation: heroWordSwap 0.5s ease-out;
 }
+
+/* 3D flip card (virtual card front / back) */
+.card-flip-scene {
+  perspective: 1200px;
+}
+
+.card-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.4, 0.2, 0.2, 1);
+}
+
+.card-flip-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.card-flip-back {
+  transform: rotateY(180deg);
+}
+
+/* Home page product showcase */
+.home-showcase-card {
+  @apply relative rounded-2xl border border-dark-border bg-dark-surface/80 overflow-hidden p-5 md:p-6;
+}
+
+.home-gift-mosaic {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  transform: perspective(800px) rotateY(-8deg) rotateX(4deg);
+}
+
+.home-gift-mosaic img {
+  @apply w-full h-16 sm:h-20 object-cover rounded-lg border border-white/10 shadow-lg;
+}
+
+.home-gift-mosaic img:nth-child(1) { animation: giftTileFloat 3.2s ease-in-out infinite; }
+.home-gift-mosaic img:nth-child(2) { animation: giftTileFloat 3.2s ease-in-out 0.4s infinite; }
+.home-gift-mosaic img:nth-child(3) { animation: giftTileFloat 3.2s ease-in-out 0.8s infinite; }
+.home-gift-mosaic img:nth-child(4) { animation: giftTileFloat 3.2s ease-in-out 1.2s infinite; }
+
+@keyframes giftTileFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.home-card-rotate-scene {
+  perspective: 1100px;
+  width: 100%;
+  max-width: 240px;
+  margin: 0 auto;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* TConnect cards — 3D coverflow carousel */
+.home-cards-coverflow {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  height: 200px;
+  margin: 0 auto;
+}
+
+.home-cards-coverflow-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 70%;
+  height: 40px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse, rgba(34, 211, 238, 0.35) 0%, transparent 70%);
+  filter: blur(12px);
+  animation: coverflowGlow 12s ease-in-out infinite;
+}
+
+@keyframes coverflowGlow {
+  0%, 33% { opacity: 0.7; transform: translateX(-50%) scaleX(1); }
+  50% { opacity: 1; transform: translateX(-50%) scaleX(1.15); }
+  66%, 100% { opacity: 0.75; transform: translateX(-50%) scaleX(1); }
+}
+
+.home-cards-coverflow-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  perspective: 900px;
+  transform-style: preserve-3d;
+}
+
+.home-coverflow-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 68%;
+  max-width: 200px;
+  aspect-ratio: 1.586 / 1;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.home-coverflow-card-1 {
+  animation: coverflowPos1 12s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.home-coverflow-card-2 {
+  animation: coverflowPos2 12s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.home-coverflow-card-3 {
+  animation: coverflowPos3 12s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes coverflowPos1 {
+  0%, 30% {
+    transform: translate(-50%, -50%) translateX(0) translateZ(48px) rotateY(0deg) scale(1.06);
+    z-index: 30;
+    filter: brightness(1.08);
+  }
+  33%, 63% {
+    transform: translate(-50%, -50%) translateX(72%) translateZ(-12px) rotateY(-38deg) scale(0.82);
+    z-index: 10;
+    filter: brightness(0.72);
+  }
+  66%, 96% {
+    transform: translate(-50%, -50%) translateX(-72%) translateZ(-12px) rotateY(38deg) scale(0.82);
+    z-index: 10;
+    filter: brightness(0.72);
+  }
+  100% {
+    transform: translate(-50%, -50%) translateX(0) translateZ(48px) rotateY(0deg) scale(1.06);
+    z-index: 30;
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes coverflowPos2 {
+  0%, 30% {
+    transform: translate(-50%, -50%) translateX(72%) translateZ(-12px) rotateY(-38deg) scale(0.82);
+    z-index: 10;
+    filter: brightness(0.72);
+  }
+  33%, 63% {
+    transform: translate(-50%, -50%) translateX(0) translateZ(48px) rotateY(0deg) scale(1.06);
+    z-index: 30;
+    filter: brightness(1.08);
+  }
+  66%, 96% {
+    transform: translate(-50%, -50%) translateX(-72%) translateZ(-12px) rotateY(38deg) scale(0.82);
+    z-index: 10;
+    filter: brightness(0.72);
+  }
+  100% {
+    transform: translate(-50%, -50%) translateX(72%) translateZ(-12px) rotateY(-38deg) scale(0.82);
+    z-index: 10;
+    filter: brightness(0.72);
+  }
+}
+
+@keyframes coverflowPos3 {
+  0%, 30% {
+    transform: translate(-50%, -50%) translateX(-72%) translateZ(-12px) rotateY(38deg) scale(0.82);
+    z-index: 10;
+    filter: brightness(0.72);
+  }
+  33%, 63% {
+    transform: translate(-50%, -50%) translateX(72%) translateZ(-12px) rotateY(-38deg) scale(0.82);
+    z-index: 10;
+    filter: brightness(0.72);
+  }
+  66%, 96% {
+    transform: translate(-50%, -50%) translateX(0) translateZ(48px) rotateY(0deg) scale(1.06);
+    z-index: 30;
+    filter: brightness(1.08);
+  }
+  100% {
+    transform: translate(-50%, -50%) translateX(-72%) translateZ(-12px) rotateY(38deg) scale(0.82);
+    z-index: 10;
+    filter: brightness(0.72);
+  }
+}
+
+.home-coverflow-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  padding: 12px 14px;
+  overflow: hidden;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, #0a0f1a 0%, #152a4a 45%, #1e3a8a 100%);
+}
+
+.home-coverflow-card-inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(56, 189, 248, 0.28), transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(139, 92, 246, 0.2), transparent 45%);
+  pointer-events: none;
+}
+
+.home-coverflow-card-inner--violet {
+  background: linear-gradient(135deg, #0f0a1a 0%, #312e81 45%, #4c1d95 100%);
+}
+
+.home-coverflow-card-inner--teal {
+  background: linear-gradient(135deg, #042f2e 0%, #0e7490 45%, #164e63 100%);
+}
+
+.home-coverflow-shine {
+  position: absolute;
+  inset: -50%;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.06) 44%,
+    rgba(255, 255, 255, 0.22) 50%,
+    rgba(255, 255, 255, 0.06) 56%,
+    transparent 62%
+  );
+  animation: coverflowShine 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes coverflowShine {
+  0%, 100% { transform: translateX(-60%) rotate(12deg); }
+  50% { transform: translateX(60%) rotate(12deg); }
+}
+
+.home-coverflow-chip {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 22px;
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.08) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  margin-bottom: 6px;
+}
+
+.home-coverflow-brand {
+  position: relative;
+  z-index: 1;
+  font-size: 6px;
+  letter-spacing: 0.28em;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.home-coverflow-num {
+  position: relative;
+  z-index: 1;
+  font-family: ui-monospace, monospace;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  margin-top: 1.25rem;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.home-coverflow-num::before {
+  content: '•••• •••• •••• ';
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  opacity: 0.65;
+}
+
+.home-coverflow-footer {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.home-coverflow-label {
+  font-size: 6px;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: rgba(34, 211, 238, 0.85);
+}
+
+.home-coverflow-wifi {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+  background:
+    radial-gradient(circle at 50% 85%, currentColor 2px, transparent 2px),
+    conic-gradient(from 225deg at 50% 85%, transparent 0deg, currentColor 50deg, transparent 51deg),
+    conic-gradient(from 225deg at 50% 85%, transparent 0deg, currentColor 80deg, transparent 81deg);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Gaming arena — large orbiting platforms */
+.home-gaming-arena {
+  position: relative;
+  min-height: 240px;
+  border-radius: 1.25rem;
+  background: radial-gradient(ellipse at 50% 40%, rgba(139, 92, 246, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse at 20% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 45%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 6, 23, 0.95) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  overflow: hidden;
+}
+
+.home-gaming-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.12) 0%, transparent 50%);
+  animation: gamingPulse 3s ease-in-out infinite;
+}
+
+@keyframes gamingPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.home-gaming-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 4.5rem;
+  filter: drop-shadow(0 0 32px rgba(168, 85, 247, 0.6));
+  animation: gamingCenterBob 2.8s ease-in-out infinite;
+  z-index: 2;
+}
+
+@keyframes gamingCenterBob {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -58%) scale(1.08); }
+}
+
+.home-gaming-orbit {
+  position: absolute;
+  inset: 0;
+  animation: gamingOrbitSpin 24s linear infinite;
+}
+
+@keyframes gamingOrbitSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.home-gaming-platform {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 1rem;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  animation: gamingPlatformCounter 24s linear infinite;
+}
+
+.home-gaming-platform-icon {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.home-gaming-platform-name {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 0.35rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@keyframes gamingPlatformCounter {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+.home-gaming-steam {
+  top: 8%;
+  left: 50%;
+  margin-left: -2.75rem;
+  background: linear-gradient(145deg, #1b2838, #2a475e);
+}
+.home-gaming-psn {
+  bottom: 12%;
+  left: 8%;
+  background: linear-gradient(145deg, #003791, #0070d1);
+}
+.home-gaming-xbox {
+  bottom: 12%;
+  right: 8%;
+  background: linear-gradient(145deg, #0e5c0e, #107c10);
+}
+.home-gaming-nintendo {
+  top: 38%;
+  right: 6%;
+  background: linear-gradient(145deg, #8b0000, #e60012);
+}
+
+@media (min-width: 640px) {
+  .home-gaming-arena { min-height: 280px; }
+  .home-gaming-center { font-size: 5.5rem; }
+  .home-gaming-platform {
+    width: 6.5rem;
+    height: 6.5rem;
+  }
+  .home-gaming-steam { margin-left: -3.25rem; }
+  .home-gaming-platform-icon { font-size: 1.75rem; }
+  .home-gaming-platform-name { font-size: 10px; }
+  .home-cards-fan-scene { height: 210px; max-width: 320px; }
+  .home-mini-card-num { font-size: 14px; }
+}
+
+.home-crypto-orbit {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  height: 180px;
+  margin: 0 auto;
+}
+
+.home-crypto-orbit::before {
+  content: '';
+  position: absolute;
+  inset: 12% 8%;
+  border: 1px dashed rgba(139, 92, 246, 0.35);
+  border-radius: 50%;
+  animation: orbitSpin 14s linear infinite;
+}
+
+.home-crypto-coin {
+  position: absolute;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.home-crypto-coin:nth-child(1) {
+  top: 4%;
+  left: 50%;
+  margin-left: -1.625rem;
+  animation: cryptoOrbitA 5s ease-in-out infinite;
+}
+.home-crypto-coin:nth-child(2) {
+  bottom: 6%;
+  left: 6%;
+  animation: cryptoOrbitB 4.5s ease-in-out infinite;
+}
+.home-crypto-coin:nth-child(3) {
+  bottom: 10%;
+  right: 4%;
+  animation: cryptoOrbitC 5.5s ease-in-out infinite;
+}
+.home-crypto-coin:nth-child(4) {
+  top: 42%;
+  right: 2%;
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: 1rem;
+  animation: cryptoOrbitD 4s ease-in-out infinite;
+}
+
+@keyframes orbitSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cryptoOrbitA {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(8px, 12px) scale(1.08); }
+}
+@keyframes cryptoOrbitB {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(14px, -10px); }
+}
+@keyframes cryptoOrbitC {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-12px, -8px); }
+}
+@keyframes cryptoOrbitD {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-10px, 10px); }
+}
+
+
+.home-crypto-orbit {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+
+.home-marquee-track {
+  display: flex;
+  gap: 1.25rem;
+  width: max-content;
+  animation: marqueeSlide 18s linear infinite;
+}
+
+.home-marquee-track.reverse {
+  animation-direction: reverse;
+  animation-duration: 22s;
+}
+
+@keyframes marqueeSlide {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.home-wallet-pill {
+  @apply flex items-center gap-2 px-3 py-2 rounded-xl bg-dark-bg/80 border border-white/10 shrink-0;
+}
+
+.home-wallet-pill img {
+  height: 1.5rem;
+  width: auto;
+  object-fit: contain;
+}
+
+.home-spin-wheel {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(
+    #8b5cf6 0deg 45deg,
+    #06b6d4 45deg 90deg,
+    #22c55e 90deg 135deg,
+    #f59e0b 135deg 180deg,
+    #ef4444 180deg 225deg,
+    #ec4899 225deg 270deg,
+    #3b82f6 270deg 315deg,
+    #a855f7 315deg 360deg
+  );
+  border: 4px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.35);
+  animation: spinWheelTurn 4s ease-in-out infinite;
+  position: relative;
+}
+
+.home-spin-wheel::after {
+  content: '';
+  position: absolute;
+  inset: 28%;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes spinWheelTurn {
+  0%, 100% { transform: rotate(0deg); }
+  40% { transform: rotate(380deg); }
+  60% { transform: rotate(360deg); }
+}
+
+.home-points-glow {
+  animation: pointsPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes pointsPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.25); }
+  50% { box-shadow: 0 0 24px 4px rgba(168, 85, 247, 0.35); }
+}

@@ -1,5 +1,5 @@
 import './loadEnv';
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import authRouter from './routes/auth';
 import productsRouter from './routes/products';
@@ -16,21 +16,10 @@ import promotionsRouter from './routes/promotions';
 import blogsRouter from './routes/blogs';
 import paymentsRouter from './routes/payments';
 import cartRouter from './routes/cart';
+import spinRouter from './routes/spin';
 import { prisma } from './lib/prisma';
 import { ensureUserCartSnapshotTable } from './lib/ensureUserCartSnapshotTable';
-
-/** Safe log so you can confirm the API sees the same DB as Supabase (no passwords). */
-function databaseHostLabel(databaseUrl: string): string {
-  if (!databaseUrl) return '(DATABASE_URL missing)';
-  if (databaseUrl.startsWith('file:')) return 'SQLite file URL';
-  try {
-    const normalized = databaseUrl.replace(/^postgresql:\/\//i, 'http://').replace(/^postgres:\/\//i, 'http://');
-    const u = new URL(normalized);
-    return `${u.hostname}${u.port ? `:${u.port}` : ''}`;
-  } catch {
-    return '(unparseable DATABASE_URL)';
-  }
-}
+import { databaseHostLabel, databaseKind, getDatabaseHealthPayload } from './lib/dbHealth';
 
 const app = express();
 
@@ -70,11 +59,26 @@ app.get('/', (_req, res) => res.json({
     chats: '/chats',
     notifications: '/notifications',
     blogs: '/blogs',
-    payments: '/payments'
+    payments: '/payments',
+    spin: '/spin',
   }
 }));
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/health', async (_req, res) => {
+  try {
+    const payload = await getDatabaseHealthPayload();
+    res.status(payload.status === 'ok' ? 200 : 503).json({
+      ...payload,
+      api: 'local-backend',
+      port: Number(process.env.PORT || 4001),
+    });
+  } catch (e: unknown) {
+    res.status(503).json({
+      status: 'error',
+      error: e instanceof Error ? e.message : 'health check failed',
+    });
+  }
+});
 app.use('/auth', authRouter);
 app.use('/products', productsRouter);
 app.use('/orders', ordersRouter);
@@ -90,6 +94,18 @@ app.use('/promotions', promotionsRouter);
 app.use('/blogs', blogsRouter);
 app.use('/payments', paymentsRouter);
 app.use('/cart', cartRouter);
+app.use('/spin', spinRouter);
+
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('❌ Express error:', err);
+  if (res.headersSent) return;
+  const message = err instanceof Error ? err.message : 'Internal server error';
+  res.status(500).json({ error: message });
+});
+
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: 'Not found' });
+});
 
 // Export for Vercel serverless functions
 // Vercel needs the app exported as default
@@ -110,15 +126,7 @@ if (process.env.VERCEL !== '1') {
     .then(async () => {
       const url = process.env.DATABASE_URL || '';
       const host = databaseHostLabel(url);
-      const kind = url.includes('neon.tech')
-        ? 'Neon'
-        : url.includes('supabase.co')
-          ? 'Supabase'
-          : url.startsWith('file:')
-            ? 'SQLite'
-            : url
-              ? 'Postgres'
-              : 'unknown';
+      const kind = databaseKind(url);
       console.log(`✅ Database connected — ${kind} @ ${host}`);
       await ensureUserCartSnapshotTable(prisma).catch((err: unknown) =>
         console.warn('[cart] could not prepare user_cart_snapshots yet:', err instanceof Error ? err.message : err)

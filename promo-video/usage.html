@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>TConnect Store — Gift Cards, Crypto &amp; Cards</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --dur: 42s; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 1080px; height: 1920px;
+      overflow: hidden;
+      background: #05080f;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #fff;
+    }
+
+    .stage {
+      width: 1080px; height: 1920px;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 30%, #0f172a 0%, #05080f 70%);
+    }
+
+    .phone {
+      width: 920px; height: 1880px;
+      border-radius: 56px;
+      background: linear-gradient(145deg, #1a1a1a, #0a0a0a);
+      padding: 14px;
+      box-shadow: 0 0 0 2px #2a2a2a, 0 40px 100px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    .phone-screen {
+      position: relative; width: 100%; height: 100%;
+      border-radius: 44px; overflow: hidden; background: #0b1120;
+    }
+
+    .notch {
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 280px; height: 38px; background: #000;
+      border-radius: 0 0 22px 22px; z-index: 100;
+    }
+
+    .status-bar {
+      position: absolute; top: 12px; left: 36px; right: 36px; height: 28px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 22px; font-weight: 600; z-index: 99;
+    }
+
+    .home-bar {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      width: 280px; height: 6px; background: rgba(255,255,255,0.35);
+      border-radius: 99px; z-index: 100;
+    }
+
+    .scene {
+      position: absolute; inset: 0; opacity: 0; pointer-events: none;
+      padding-top: 56px; overflow: hidden;
+    }
+
+    .app-header { padding: 16px 32px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .app-header h1 { font-size: 34px; font-weight: 700; }
+    .app-header p { font-size: 18px; color: rgba(255,255,255,0.45); margin-top: 4px; }
+
+    .badge {
+      display: inline-block; font-size: 13px; padding: 4px 12px; border-radius: 99px;
+      background: rgba(34,197,94,0.15); color: #4ade80;
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+
+    .buy-btn {
+      width: 100%; padding: 20px; border: none; border-radius: 14px;
+      font-size: 22px; font-weight: 700; color: #05080f;
+      background: linear-gradient(135deg, #22d3ee, #818cf8);
+      box-shadow: 0 8px 32px rgba(56,189,248,0.3);
+    }
+
+    /* ── Home ── */
+    .scene-home {
+      animation: showHome var(--dur) ease forwards; z-index: 24;
+      background: linear-gradient(180deg, #0b1120, #111827);
+    }
+    @keyframes showHome {
+      0%, 1% { opacity: 0; } 2%, 5% { opacity: 1; } 6%, 100% { opacity: 0; }
+    }
+
+    .store-logo {
+      text-align: center; padding: 48px 32px 28px;
+      font-family: Orbitron, sans-serif; font-size: 36px; font-weight: 800;
+      letter-spacing: 0.14em;
+      background: linear-gradient(135deg, #fff, #67e8f9);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .store-tag { text-align: center; font-size: 20px; color: rgba(255,255,255,0.5); }
+
+    .cat-grid {
+      display: grid; grid-template-columns: 1fr; gap: 16px;
+      padding: 32px 28px;
+    }
+    .cat-tile {
+      display: flex; align-items: center; gap: 20px;
+      padding: 24px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(15,23,42,0.65);
+    }
+    .cat-tile.active {
+      border-color: rgba(56,189,248,0.45);
+      background: rgba(56,189,248,0.08);
+      animation: tileGlow var(--dur) ease forwards;
+    }
+    @keyframes tileGlow {
+      0%, 4% { box-shadow: none; }
+      5%, 6% { box-shadow: 0 0 0 3px rgba(56,189,248,0.35); }
+      7%, 100% { box-shadow: none; }
+    }
+    .cat-icon {
+      width: 64px; height: 64px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; flex-shrink: 0;
+    }
+    .cat-icon.gift { background: linear-gradient(135deg, #7c3aed, #db2777); }
+    .cat-icon.crypto { background: linear-gradient(135deg, #059669, #0891b2); }
+    .cat-icon.card { background: linear-gradient(135deg, #1e3a8a, #6366f1); }
+    .cat-tile h3 { font-size: 24px; font-weight: 700; }
+    .cat-tile p { font-size: 16px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+
+    /* ── Gift cards ── */
+    .scene-gift {
+      animation: showGift var(--dur) ease forwards; z-index: 22;
+    }
+    @keyframes showGift {
+      0%, 5% { opacity: 0; } 7%, 15% { opacity: 1; } 17%, 100% { opacity: 0; }
+    }
+
+    .product-card {
+      margin: 20px 28px 0; padding: 24px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(15,23,42,0.6);
+      display: flex; gap: 20px; align-items: center;
+    }
+    .product-thumb {
+      width: 100px; height: 100px; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 44px; font-weight: 800; flex-shrink: 0;
+    }
+    .product-thumb.steam { background: linear-gradient(135deg, #1b2838, #2a475e); color: #fff; }
+    .product-thumb.ps { background: linear-gradient(135deg, #003791, #0070d1); }
+    .product-info h2 { font-size: 26px; font-weight: 700; }
+    .product-info .price { font-size: 32px; font-weight: 700; color: #67e8f9; margin-top: 8px; }
+    .product-info .meta { font-size: 16px; color: rgba(255,255,255,0.45); margin-top: 4px; }
+
+    .gift-brands {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      padding: 20px 28px 0;
+    }
+    .brand-pill {
+      font-size: 14px; padding: 8px 14px; border-radius: 99px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.6);
+    }
+
+    .scene-gift-code {
+      animation: showGiftCode var(--dur) ease forwards; z-index: 21;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; padding: 60px 40px;
+    }
+    @keyframes showGiftCode {
+      0%, 15% { opacity: 0; } 17%, 22% { opacity: 1; } 24%, 100% { opacity: 0; }
+    }
+
+    .deliver-check {
+      width: 100px; height: 100px; border-radius: 50%;
+      background: rgba(34,197,94,0.15); border: 2px solid rgba(34,197,94,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 48px; color: #4ade80;
+      transform: scale(0);
+      animation: popIn var(--dur) cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes popIn {
+      0%, 16% { transform: scale(0); }
+      18%, 22% { transform: scale(1); }
+      24%, 100% { transform: scale(1); }
+    }
+
+    .deliver-title { font-size: 32px; font-weight: 700; margin-top: 28px; }
+    .deliver-sub { font-size: 20px; color: rgba(255,255,255,0.5); margin-top: 10px; }
+
+    .code-box {
+      margin-top: 32px; padding: 24px 32px; border-radius: 16px;
+      background: rgba(0,0,0,0.35); border: 1px solid rgba(34,211,238,0.3);
+      font-family: ui-monospace, monospace; font-size: 28px; letter-spacing: 0.12em;
+      color: #67e8f9;
+      opacity: 0; animation: codeReveal var(--dur) ease forwards;
+    }
+    @keyframes codeReveal {
+      0%, 18% { opacity: 0; transform: translateY(12px); }
+      19.5%, 22% { opacity: 1; transform: translateY(0); }
+      24%, 100% { opacity: 1; }
+    }
+
+    /* ── Crypto ── */
+    .scene-crypto {
+      animation: showCrypto var(--dur) ease forwards; z-index: 20;
+    }
+    @keyframes showCrypto {
+      0%, 23% { opacity: 0; } 25%, 32% { opacity: 1; } 34%, 100% { opacity: 0; }
+    }
+
+    .crypto-coin {
+      margin: 24px 28px 0; padding: 28px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(135deg, rgba(5,150,105,0.15), rgba(8,145,178,0.1));
+      display: flex; gap: 24px; align-items: center;
+    }
+    .coin-icon {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: linear-gradient(135deg, #10b981, #06b6d4);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px; font-weight: 700;
+    }
+    .coin-info h2 { font-size: 30px; font-weight: 700; }
+    .coin-info .amt { font-size: 36px; font-weight: 700; color: #34d399; margin-top: 6px; }
+    .coin-info .net { font-size: 16px; color: rgba(255,255,255,0.45); margin-top: 4px; }
+
+    .wallet-field {
+      margin: 24px 28px 0; padding: 20px; border-radius: 14px;
+      background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
+    }
+    .wallet-field label { font-size: 14px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.08em; }
+    .wallet-field .addr {
+      font-family: ui-monospace, monospace; font-size: 18px;
+      color: #a5f3fc; margin-top: 10px; word-break: break-all; line-height: 1.5;
+    }
+
+    .crypto-actions { padding: 28px; }
+
+    .scene-crypto-sent {
+      animation: showCryptoSent var(--dur) ease forwards; z-index: 19;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; padding: 60px;
+    }
+    @keyframes showCryptoSent {
+      0%, 32% { opacity: 0; } 34%, 38% { opacity: 1; } 40%, 100% { opacity: 0; }
+    }
+
+    .sent-amt { font-size: 52px; font-weight: 700; color: #34d399; margin-top: 24px; }
+    .sent-hash {
+      margin-top: 20px; font-family: ui-monospace, monospace; font-size: 16px;
+      color: rgba(255,255,255,0.4);
+    }
+
+    /* ── Virtual card ── */
+    .scene-mycards {
+      animation: showMyCards var(--dur) ease forwards; z-index: 18;
+    }
+    @keyframes showMyCards {
+      0%, 39% { opacity: 0; } 41%, 46% { opacity: 1; } 48%, 100% { opacity: 0; }
+    }
+
+    .card-list-item {
+      margin: 24px 28px 0; padding: 20px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08); background: rgba(15,23,42,0.6);
+      display: flex; gap: 20px; align-items: center;
+    }
+    .mini-card {
+      width: 120px; height: 76px; border-radius: 12px;
+      background: linear-gradient(135deg, #0c1222, #1e3a8a);
+      padding: 10px 12px; border: 1px solid rgba(255,255,255,0.12);
+    }
+    .mini-card .mc-brand { font-family: Orbitron, sans-serif; font-size: 7px; letter-spacing: 0.2em; font-weight: 700; }
+    .mini-card .mc-num { font-family: ui-monospace, monospace; font-size: 11px; margin-top: 28px; color: rgba(255,255,255,0.85); }
+    .card-info h2 { font-size: 24px; font-weight: 600; }
+    .card-info .bal { margin-top: 10px; font-size: 28px; font-weight: 700; color: #67e8f9; }
+
+    .scene-detail {
+      animation: showDetail var(--dur) ease forwards; z-index: 16;
+    }
+    @keyframes showDetail {
+      0%, 46% { opacity: 0; } 48%, 54% { opacity: 1; } 56%, 100% { opacity: 0; }
+    }
+
+    .nav-back { padding: 12px 32px; font-size: 20px; color: #38bdf8; }
+
+    .real-card {
+      margin: 12px auto 0; width: 820px; height: 516px; border-radius: 24px;
+      position: relative; overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+      background: linear-gradient(135deg, #0c1222, #152a4a 45%, #2d1b69);
+      padding: 36px 40px;
+    }
+    .real-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 20% 0%, rgba(56,189,248,0.22), transparent 50%),
+                  radial-gradient(ellipse at 100% 100%, rgba(139,92,246,0.18), transparent 45%);
+    }
+    .rc-brand { position: relative; font-family: Orbitron, sans-serif; font-size: 18px; font-weight: 800; letter-spacing: 0.28em; }
+    .rc-sub { position: relative; font-family: Orbitron, sans-serif; font-size: 11px; letter-spacing: 0.42em; color: #67e8f9; margin-top: 2px; }
+    .rc-chip { position: relative; width: 52px; height: 38px; border-radius: 8px; margin-top: 28px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0.08));
+      border: 1px solid rgba(255,255,255,0.25); }
+    .rc-number { position: relative; font-family: ui-monospace, monospace; font-size: 36px; font-weight: 600; letter-spacing: 0.14em; margin-top: 48px; }
+    .rc-number .reveal { display: inline-block; overflow: hidden; white-space: nowrap; width: 0;
+      animation: revealNum var(--dur) steps(19) forwards; }
+    @keyframes revealNum {
+      0%, 49% { width: 0; } 52%, 54% { width: 19ch; } 56%, 100% { width: 19ch; }
+    }
+    .rc-meta { position: absolute; left: 40px; right: 40px; bottom: 36px; display: flex; justify-content: space-between; }
+    .rc-label { font-size: 12px; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; }
+    .rc-val { font-size: 20px; margin-top: 4px; }
+
+    .detail-actions { margin: 28px 32px 0; display: flex; gap: 12px; }
+    .btn { flex: 1; padding: 18px; border-radius: 14px; font-size: 18px; font-weight: 600; text-align: center;
+      border: 1px solid rgba(255,255,255,0.1); }
+    .btn-primary {
+      background: rgba(56,189,248,0.15); border-color: rgba(56,189,248,0.35); color: #38bdf8;
+      animation: btnPulse var(--dur) ease forwards;
+    }
+    @keyframes btnPulse {
+      0%, 50% { box-shadow: none; }
+      51%, 53% { box-shadow: 0 0 0 4px rgba(56,189,248,0.4); }
+      55%, 100% { box-shadow: none; }
+    }
+
+    .copied-toast {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%) scale(0.9);
+      background: rgba(15,23,42,0.95); border: 1px solid rgba(34,197,94,0.4);
+      padding: 20px 36px; border-radius: 16px; font-size: 22px; font-weight: 600; color: #4ade80;
+      opacity: 0; z-index: 50; animation: copiedToast var(--dur) ease forwards;
+    }
+    @keyframes copiedToast {
+      0%, 51.5% { opacity: 0; } 53%, 55% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+      57%, 100% { opacity: 0; }
+    }
+
+    /* ── Checkout ── */
+    .scene-checkout {
+      animation: showCheckout var(--dur) ease forwards; z-index: 14;
+      background: #f8fafc; color: #0f172a;
+    }
+    @keyframes showCheckout {
+      0%, 55% { opacity: 0; } 57%, 66% { opacity: 1; } 68%, 100% { opacity: 0; }
+    }
+
+    .browser-bar { background: #e2e8f0; padding: 14px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #cbd5e1; }
+    .browser-dots { display: flex; gap: 8px; }
+    .browser-dots span { width: 14px; height: 14px; border-radius: 50%; }
+    .browser-dots span:nth-child(1) { background: #ef4444; }
+    .browser-dots span:nth-child(2) { background: #eab308; }
+    .browser-dots span:nth-child(3) { background: #22c55e; }
+    .url-bar { flex: 1; background: #fff; border-radius: 10px; padding: 12px 18px; font-size: 17px; color: #475569; display: flex; align-items: center; gap: 8px; }
+    .checkout-body { padding: 32px 36px; }
+    .merchant-logo { width: 64px; height: 64px; border-radius: 14px; background: #ff9900; color: #111; font-size: 36px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+    .checkout-body h2 { font-size: 32px; font-weight: 700; }
+    .checkout-total { margin: 28px 0; padding: 24px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+      display: flex; justify-content: space-between; align-items: center; }
+    .checkout-total span:last-child { font-size: 36px; font-weight: 700; }
+    .form-input { width: 100%; padding: 18px 20px; border: 2px solid #3b82f6; border-radius: 12px;
+      font-size: 22px; font-family: ui-monospace, monospace; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    .form-input .typed { display: inline-block; overflow: hidden; white-space: nowrap; width: 0;
+      animation: typeCard var(--dur) steps(19) forwards; }
+    @keyframes typeCard {
+      0%, 58% { width: 0; } 62%, 66% { width: 19ch; } 68%, 100% { width: 19ch; }
+    }
+    .pay-btn {
+      margin-top: 28px; width: 100%; padding: 22px; border: none; border-radius: 14px;
+      background: #ff9900; color: #111; font-size: 24px; font-weight: 700;
+      animation: payBtn var(--dur) ease forwards;
+    }
+    @keyframes payBtn {
+      0%, 63% { opacity: 0.5; } 64.5%, 66% { opacity: 1; transform: scale(0.97); box-shadow: 0 0 0 4px rgba(255,153,0,0.4); }
+      67%, 100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* ── Success ── */
+    .scene-success {
+      animation: showSuccess var(--dur) ease forwards; z-index: 12;
+      background: #fff; color: #0f172a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 60px;
+    }
+    @keyframes showSuccess {
+      0%, 67% { opacity: 0; } 69%, 74% { opacity: 1; } 76%, 100% { opacity: 0; }
+    }
+    .success-check {
+      width: 100px; height: 100px; border-radius: 50%; background: #dcfce7;
+      display: flex; align-items: center; justify-content: center; font-size: 48px;
+      animation: checkPop var(--dur) cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes checkPop {
+      0%, 68% { transform: scale(0); } 70%, 74% { transform: scale(1); } 76%, 100% { transform: scale(1); }
+    }
+    .success-title { font-size: 36px; font-weight: 700; margin-top: 28px; }
+    .success-amt { font-size: 44px; font-weight: 700; color: #16a34a; margin-top: 16px; }
+
+    /* ── CTA ── */
+    .scene-cta {
+      animation: showCta var(--dur) ease forwards; z-index: 30;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 40%, rgba(8,145,178,0.25) 0%, rgba(5,8,15,0.97) 55%);
+      padding: 56px 36px 80px;
+    }
+    @keyframes showCta {
+      0%, 76% { opacity: 0; } 78%, 100% { opacity: 1; }
+    }
+
+    .cta-card { text-align: center; width: 100%; opacity: 0;
+      animation: ctaIn var(--dur) cubic-bezier(0.22,1,0.36,1) forwards; }
+    @keyframes ctaIn {
+      0%, 77% { opacity: 0; transform: translateY(20px); }
+      80%, 100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .cta-logo {
+      font-family: Orbitron, sans-serif; font-size: 38px; font-weight: 800; letter-spacing: 0.1em; line-height: 1.2;
+      background: linear-gradient(135deg, #fff, #67e8f9);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .cta-pills {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 28px;
+    }
+    .cta-pill {
+      font-size: 15px; font-weight: 600; padding: 10px 18px; border-radius: 99px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06);
+    }
+    .cta-pill.gift { border-color: rgba(192,132,252,0.4); color: #e9d5ff; }
+    .cta-pill.crypto { border-color: rgba(52,211,153,0.4); color: #a7f3d0; }
+    .cta-pill.card { border-color: rgba(56,189,248,0.4); color: #bae6fd; }
+
+    .cta-tagline { font-size: 26px; font-weight: 600; color: rgba(255,255,255,0.9); margin-top: 28px; line-height: 1.4; }
+    .cta-sub { font-size: 18px; color: rgba(255,255,255,0.45); margin-top: 12px; }
+
+    .cta-btn {
+      display: inline-block; margin-top: 36px; padding: 24px 48px; border-radius: 16px;
+      font-size: 24px; font-weight: 700; color: #05080f;
+      background: linear-gradient(135deg, #22d3ee, #818cf8);
+      box-shadow: 0 16px 48px rgba(56,189,248,0.35);
+      animation: ctaPulse var(--dur) ease forwards;
+    }
+    @keyframes ctaPulse {
+      0%, 82% { transform: scale(1); }
+      84%, 86% { transform: scale(1.04); }
+      88%, 100% { transform: scale(1); }
+    }
+
+    .cta-url { margin-top: 24px; font-family: Orbitron, sans-serif; font-size: 20px; letter-spacing: 0.1em; color: #38bdf8; }
+
+    /* ── Fingers ── */
+    .finger {
+      position: absolute; width: 56px; height: 56px; border-radius: 50%;
+      background: rgba(255,255,255,0.25); border: 2px solid rgba(255,255,255,0.5);
+      z-index: 200; pointer-events: none; opacity: 0; transform: translate(-50%,-50%);
+    }
+    .finger::after { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: rgba(255,255,255,0.35); }
+
+    .finger.t1 { animation: f1 var(--dur) ease forwards; }
+    .finger.t2 { animation: f2 var(--dur) ease forwards; }
+    .finger.t3 { animation: f3 var(--dur) ease forwards; }
+    .finger.t4 { animation: f4 var(--dur) ease forwards; }
+    .finger.t5 { animation: f5 var(--dur) ease forwards; }
+
+    @keyframes f1 {
+      0%, 11% { opacity: 0; left: 50%; top: 72%; }
+      12% { opacity: 1; } 12.5% { transform: translate(-50%,-50%) scale(0.85); }
+      14%, 100% { opacity: 0; }
+    }
+    @keyframes f2 {
+      0%, 28% { opacity: 0; left: 50%; top: 78%; }
+      29% { opacity: 1; } 29.5% { transform: translate(-50%,-50%) scale(0.85); }
+      31%, 100% { opacity: 0; }
+    }
+    @keyframes f3 {
+      0%, 46% { opacity: 0; left: 70%; top: 48%; }
+      47% { opacity: 1; } 47.5% { transform: translate(-50%,-50%) scale(0.85); }
+      49%, 100% { opacity: 0; }
+    }
+    @keyframes f4 {
+      0%, 50% { opacity: 0; left: 50%; top: 74%; }
+      51% { opacity: 1; } 51.5% { transform: translate(-50%,-50%) scale(0.85); }
+      53%, 100% { opacity: 0; }
+    }
+    @keyframes f5 {
+      0%, 63% { opacity: 0; left: 50%; top: 82%; }
+      64% { opacity: 1; } 64.5% { transform: translate(-50%,-50%) scale(0.85); }
+      66%, 100% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="notch"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <span>▮▮▮▮ WiFi 🔋</span>
+        </div>
+
+        <!-- Home -->
+        <section class="scene scene-home">
+          <div class="store-logo">TCONNECT</div>
+          <p class="store-tag">Gift cards · Crypto · Virtual cards</p>
+          <div class="cat-grid">
+            <div class="cat-tile active">
+              <div class="cat-icon gift">🎁</div>
+              <div>
+                <h3>Gift Cards</h3>
+                <p>Steam · PlayStation · Amazon · Netflix</p>
+              </div>
+            </div>
+            <div class="cat-tile">
+              <div class="cat-icon crypto">₿</div>
+              <div>
+                <h3>Crypto</h3>
+                <p>USDT · BTC · ETH · USDC</p>
+              </div>
+            </div>
+            <div class="cat-tile">
+              <div class="cat-icon card">💳</div>
+              <div>
+                <h3>Virtual Cards</h3>
+                <p>Visa &amp; Mastercard for online shopping</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Gift card shop -->
+        <section class="scene scene-gift">
+          <div class="app-header">
+            <h1>Gift Cards</h1>
+            <p>Gaming · Streaming · Shopping</p>
+          </div>
+          <div class="gift-brands">
+            <span class="brand-pill">Steam</span>
+            <span class="brand-pill">PlayStation</span>
+            <span class="brand-pill">Xbox</span>
+            <span class="brand-pill">Amazon</span>
+            <span class="brand-pill">Netflix</span>
+            <span class="brand-pill">iTunes</span>
+          </div>
+          <div class="product-card">
+            <div class="product-thumb steam">S</div>
+            <div class="product-info">
+              <h2>Steam Wallet</h2>
+              <div class="meta">Gaming · Instant delivery</div>
+              <div class="price">$50.00</div>
+            </div>
+          </div>
+          <div style="padding: 24px 28px 0;">
+            <button type="button" class="buy-btn">Buy Now — $50.00</button>
+          </div>
+        </section>
+
+        <!-- Gift code delivered -->
+        <section class="scene scene-gift-code">
+          <div class="deliver-check">✓</div>
+          <p class="deliver-title">Code delivered instantly</p>
+          <p class="deliver-sub">Steam Wallet $50 · Order #TC-88421</p>
+          <div class="code-box">ABCD-EFGH-1234-WXYZ</div>
+        </section>
+
+        <!-- Crypto buy -->
+        <section class="scene scene-crypto">
+          <div class="app-header">
+            <h1>Buy Crypto</h1>
+            <p>Fast delivery to your wallet</p>
+          </div>
+          <div class="crypto-coin">
+            <div class="coin-icon">₮</div>
+            <div class="coin-info">
+              <h2>USDT (Tether)</h2>
+              <div class="amt">$100.00</div>
+              <div class="net">TRC-20 · Instant send</div>
+            </div>
+          </div>
+          <div class="wallet-field">
+            <label>Your wallet address</label>
+            <div class="addr">TXk9mP2vR8nL4qW7sH3jF6cB1dA0eY5uZ</div>
+          </div>
+          <div class="crypto-actions">
+            <button type="button" class="buy-btn">Buy USDT — $100</button>
+          </div>
+        </section>
+
+        <!-- Crypto sent -->
+        <section class="scene scene-crypto-sent">
+          <div class="deliver-check">✓</div>
+          <p class="deliver-title">Crypto sent!</p>
+          <p class="deliver-sub">100 USDT delivered to your wallet</p>
+          <p class="sent-amt">+$100.00</p>
+          <p class="sent-hash">TX · 0x8f3a…c21b · Confirmed</p>
+        </section>
+
+        <!-- Virtual card -->
+        <section class="scene scene-mycards">
+          <div class="app-header">
+            <h1>My Cards</h1>
+            <p>Virtual Visa · Ready to use</p>
+          </div>
+          <div class="card-list-item">
+            <div class="mini-card">
+              <div class="mc-brand">TCONNECT</div>
+              <div class="mc-num">•••• 4242</div>
+            </div>
+            <div class="card-info">
+              <h2>Virtual Visa $250</h2>
+              <span class="badge">Active</span>
+              <div class="bal">$247.50</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="scene scene-detail">
+          <div class="nav-back">← All cards</div>
+          <div class="real-card">
+            <div class="rc-brand">TCONNECT</div>
+            <div class="rc-sub">CARDS</div>
+            <div class="rc-chip"></div>
+            <div class="rc-number"><span class="reveal">4532 8810 4242 7891</span></div>
+            <div class="rc-meta">
+              <div><div class="rc-label">VALID THRU</div><div class="rc-val">12/28</div></div>
+              <div><div class="rc-label">CARDHOLDER</div><div class="rc-val">JAMES M.</div></div>
+            </div>
+          </div>
+          <div class="detail-actions">
+            <div class="btn btn-primary">Copy card number</div>
+            <div class="btn">Show CVV</div>
+          </div>
+          <div class="copied-toast">✓ Card number copied</div>
+        </section>
+
+        <!-- Amazon checkout -->
+        <section class="scene scene-checkout">
+          <div class="browser-bar">
+            <div class="browser-dots"><span></span><span></span><span></span></div>
+            <div class="url-bar">🔒 checkout.amazon.com</div>
+          </div>
+          <div class="checkout-body">
+            <div class="merchant-logo">a</div>
+            <h2>Complete your order</h2>
+            <div class="checkout-total"><span>Total</span><span>$42.30</span></div>
+            <div class="form-input"><span class="typed">4532 8810 4242 7891</span></div>
+            <button type="button" class="pay-btn">Place your order</button>
+          </div>
+        </section>
+
+        <section class="scene scene-success">
+          <div class="success-check">✓</div>
+          <p class="success-title">Payment successful</p>
+          <p class="success-amt">-$42.30</p>
+        </section>
+
+        <!-- CTA -->
+        <section class="scene scene-cta">
+          <div class="cta-card">
+            <div class="cta-logo">TCONNECT<br/>STORE</div>
+            <div class="cta-pills">
+              <span class="cta-pill gift">🎁 Gift Cards</span>
+              <span class="cta-pill crypto">₿ Crypto</span>
+              <span class="cta-pill card">💳 Virtual Cards</span>
+            </div>
+            <p class="cta-tagline">Everything you need.<br/>Delivered instantly.</p>
+            <p class="cta-sub">Steam · USDT · Visa — one store</p>
+            <div class="cta-btn">Shop Now — Buy Today</div>
+            <div class="cta-url">www.tconnect.store</div>
+          </div>
+        </section>
+
+        <div class="finger t1"></div>
+        <div class="finger t2"></div>
+        <div class="finger t3"></div>
+        <div class="finger t4"></div>
+        <div class="finger t5"></div>
+        <div class="home-bar"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import './loadApiEnv';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import authRouter from '../server/routes/auth';
@@ -12,11 +13,19 @@ import slidesRouter from '../server/routes/slides';
 import ttOrdersRouter from '../server/routes/ttorders';
 import chatsRouter from '../server/routes/chats';
 import notificationsRouter from '../server/routes/notifications';
-import walletRouter from '../server/routes/wallet';
 import promotionsRouter from '../server/routes/promotions';
 import blogsRouter from '../server/routes/blogs';
 import paymentsRouter from '../server/routes/payments';
 import cartRouter from '../server/routes/cart';
+import spinRouter from '../server/routes/spin';
+import walletRouter from '../server/routes/wallet';
+import utilityBillsRouter from '../server/routes/utilityBills';
+import inventoryRouter from '../server/routes/inventory';
+import marketingFundsRouter from '../server/routes/marketingFunds';
+import reloadlyRouter from '../server/routes/reloadly';
+import userCardsRouter from '../server/routes/userCards';
+import ogRouter from '../server/routes/og';
+import { getDatabaseHealthPayload } from '../server/lib/dbHealth';
 
 export const app = express();
 
@@ -38,8 +47,21 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
-// Health check
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+// Health check — confirms live DATABASE_URL (Neon) and row counts
+app.get('/health', async (_req, res) => {
+  try {
+    const payload = await getDatabaseHealthPayload();
+    res.status(payload.status === 'ok' ? 200 : 503).json({
+      ...payload,
+      api: process.env.VERCEL === '1' ? 'vercel-serverless' : 'api',
+    });
+  } catch (e: unknown) {
+    res.status(503).json({
+      status: 'error',
+      error: e instanceof Error ? e.message : 'health check failed',
+    });
+  }
+});
 
 // API routes
 // Add logging middleware to see what routes are being hit
@@ -59,36 +81,57 @@ app.use('/slides', slidesRouter);
 app.use('/ttorders', ttOrdersRouter);
 app.use('/chats', chatsRouter);
 app.use('/notifications', notificationsRouter);
-app.use('/wallet', walletRouter);
 app.use('/promotions', promotionsRouter);
 app.use('/blogs', blogsRouter);
 app.use('/payments', paymentsRouter);
 app.use('/cart', cartRouter);
+app.use('/spin', spinRouter);
+app.use('/wallet', walletRouter);
+app.use('/utility-bills', utilityBillsRouter);
+app.use('/inventory', inventoryRouter);
+app.use('/marketing-funds', marketingFundsRouter);
+app.use('/reloadly', reloadlyRouter);
+app.use('/user-cards', userCardsRouter);
+app.use('/og', ogRouter);
 
-// Root route
-app.get('/', (_req, res) => res.json({ 
-  message: 'TConnect Store API v2.0',
-  status: 'running',
-  endpoints: {
-    health: '/health',
-    auth: '/auth',
-    products: '/products',
-    orders: '/orders',
-    rates: '/rates',
-    invoices: '/invoices',
-    quotes: '/quotes',
-    users: '/users',
-    slides: '/slides',
-    ttorders: '/ttorders',
-    wallet: '/wallet',
-    chats: '/chats',
-    notifications: '/notifications',
-    promotions: '/promotions',
-    blogs: '/blogs',
-    payments: '/payments',
-    cart: '/cart'
-  }
-}));
+app.get('/', (_req, res) =>
+  res.json({
+    message: 'TConnect Store API v2.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      auth: '/auth',
+      products: '/products',
+      orders: '/orders',
+      rates: '/rates',
+      invoices: '/invoices',
+      quotes: '/quotes',
+      users: '/users',
+      slides: '/slides',
+      ttorders: '/ttorders',
+      chats: '/chats',
+      notifications: '/notifications',
+      promotions: '/promotions',
+      blogs: '/blogs',
+      payments: '/payments',
+      pawapay: '/payments/pawapay',
+      cart: '/cart',
+      spin: '/spin',
+    },
+  })
+);
+
+// Always return JSON for errors (avoid plain-text/HTML bodies that break res.json() on the client)
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('❌ Express error:', err);
+  if (res.headersSent) return;
+  const message = err instanceof Error ? err.message : 'Internal server error';
+  res.status(500).json({ error: message });
+});
+
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: 'Not found' });
+});
 
 // Export for Vercel serverless functions
 // Use handler function format for Vercel

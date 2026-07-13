@@ -49,6 +49,26 @@ interface OrderEmailData {
   }>;
 }
 
+interface AdminOrderAlertData {
+  orderId: string;
+  totalUsd: number;
+  totalMwk?: number;
+  itemsCount?: number;
+  paymentMethod?: string;
+}
+
+interface AdminChatAlertData {
+  chatId: string;
+  senderName?: string;
+  preview?: string;
+}
+
+interface AdminNewChatData {
+  chatId: string;
+  userName?: string | null;
+  userEmail?: string | null;
+}
+
 function formatOrderItems(items: OrderEmailData['items']): string {
   return items.map((item, index) => {
     let itemHtml = `
@@ -93,6 +113,32 @@ function formatOrderItems(items: OrderEmailData['items']): string {
     
     return itemHtml;
   }).join('');
+}
+
+function orderEmailHasVirtualCard(items: OrderEmailData['items']): boolean {
+  return items.some((i) => {
+    const t = String(i.type || '').toLowerCase();
+    if (t === 'virtual-card') return true;
+    const name = String(i.name || '').toLowerCase();
+    return (t === 'giftcard' || t === 'gift-card') && name.includes('virtual card');
+  });
+}
+
+function virtualCardProfileEmailBlock(): string {
+  const profileUrl = `${BASE_URL}/profile#my-cards`;
+  return `
+    <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; margin: 24px 0; border-radius: 4px;">
+      <p style="margin: 0 0 12px 0; font-size: 16px; color: #1e40af;">
+        <strong>Your virtual card lives in My Cards</strong>
+      </p>
+      <p style="margin: 0 0 16px 0; font-size: 14px; color: #1e3a8a;">
+        Open your profile to see card balance, status, and transaction history. We update it as your card is activated and used.
+      </p>
+      <a href="${profileUrl}" style="display: inline-block; background: #2563eb; color: white; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; font-size: 14px;">
+        Open My Cards
+      </a>
+    </div>
+  `;
 }
 
 export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void> {
@@ -153,6 +199,8 @@ export async function sendOrderApprovedEmail(data: OrderEmailData): Promise<void
               <p style="font-size: 16px; margin: 24px 0;">
                 Your order is being prepared and will be delivered soon. You'll receive another email once your order is fulfilled with all the details.
               </p>
+              
+              ${orderEmailHasVirtualCard(data.items) ? virtualCardProfileEmailBlock() : ''}
               
               <!-- CTA Button -->
               <div style="text-align: center; margin: 32px 0;">
@@ -338,14 +386,18 @@ export async function sendOrderFulfilledEmail(data: OrderEmailData): Promise<voi
               <div style="background: #ecfdf5; border-left: 4px solid #10b981; padding: 16px; margin: 24px 0; border-radius: 4px;">
                 <p style="margin: 0; font-size: 16px; color: #065f46;">
                   <strong>Your order is complete!</strong><br>
-                  All items have been processed and delivered. Check your order details below for gift card codes and activation links.
+                  ${orderEmailHasVirtualCard(data.items)
+                    ? 'Your virtual card is ready. View balance and transactions in My Cards on your profile.'
+                    : 'All items have been processed and delivered. Check your order details below for gift card codes and activation links.'}
                 </p>
               </div>
               
+              ${orderEmailHasVirtualCard(data.items) ? virtualCardProfileEmailBlock() : ''}
+              
               <!-- CTA Button -->
               <div style="text-align: center; margin: 32px 0;">
-                <a href="${orderHistoryUrl}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 16px;">
-                  View Order History
+                <a href="${orderEmailHasVirtualCard(data.items) ? `${BASE_URL}/profile#my-cards` : orderHistoryUrl}" style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                  ${orderEmailHasVirtualCard(data.items) ? 'View My Cards' : 'View Order History'}
                 </a>
               </div>
               
@@ -377,6 +429,222 @@ export async function sendOrderFulfilledEmail(data: OrderEmailData): Promise<voi
   } catch (error: any) {
     console.error('❌ Failed to send order fulfilled email:', error?.message || error);
     // Don't throw - email failures shouldn't break the order update
+  }
+}
+
+export async function sendAdminOrderAlertEmail(data: AdminOrderAlertData): Promise<void> {
+  if (!transporter) return;
+
+  const recipients = String(
+    process.env.ADMIN_ALERT_EMAILS || process.env.ADMIN_ALERT_EMAIL || ''
+  )
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (recipients.length === 0) return;
+
+  const orderNumber = data.orderId.slice(0, 8).toUpperCase();
+  const adminUrl = `${BASE_URL}/admin?tab=orders&orderId=${encodeURIComponent(data.orderId)}`;
+  const method = data.paymentMethod || 'unknown';
+  const itemsText =
+    typeof data.itemsCount === 'number'
+      ? `${data.itemsCount} item${data.itemsCount === 1 ? '' : 's'}`
+      : 'items unknown';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111827;">
+      <h2 style="margin-bottom: 8px;">New Order Alert</h2>
+      <p style="margin-top: 0;">Order <strong>#${orderNumber}</strong> was placed.</p>
+      <ul>
+        <li><strong>Total USD:</strong> $${Number(data.totalUsd || 0).toFixed(2)}</li>
+        <li><strong>Total MWK:</strong> ${Number(data.totalMwk || 0).toLocaleString()}</li>
+        <li><strong>Items:</strong> ${itemsText}</li>
+        <li><strong>Payment method:</strong> ${method}</li>
+      </ul>
+      <p><a href="${adminUrl}">Open this order in Admin Dashboard</a></p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      to: recipients.join(','),
+      subject: `New order #${orderNumber} — $${Number(data.totalUsd || 0).toFixed(2)}`,
+      html,
+    });
+  } catch (error: any) {
+    console.error('❌ [Email] Failed to send admin order alert:', error?.message || error);
+  }
+}
+
+export type AdminCardRefreshRequestData = {
+  cardId: string;
+  customerName: string;
+  customerEmail: string;
+  cardLabel: string;
+  orderNumber: string | null;
+};
+
+export async function sendAdminCardRefreshRequestEmail(data: AdminCardRefreshRequestData): Promise<void> {
+  if (!transporter) return;
+
+  const recipients = String(
+    process.env.ADMIN_ALERT_EMAILS || process.env.ADMIN_ALERT_EMAIL || ''
+  )
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (recipients.length === 0) return;
+
+  const adminUrl = `${BASE_URL}/admin/cards?cardId=${encodeURIComponent(data.cardId)}`;
+  const orderLine = data.orderNumber ? `Order #${data.orderNumber}` : 'No order linked';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111827;">
+      <h2 style="margin-bottom: 8px;">Virtual card refresh requested</h2>
+      <p><strong>${data.customerName}</strong> (${data.customerEmail}) requested an update on their TConnect virtual card.</p>
+      <p style="background:#f3f4f6;padding:12px;border-radius:6px;">
+        <strong>Card:</strong> ${data.cardLabel}<br/>
+        <strong>${orderLine}</strong>
+      </p>
+      <p><a href="${adminUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;">Open Card Updates</a></p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      to: recipients.join(','),
+      subject: `Card refresh: ${data.customerName} — ${data.cardLabel}`,
+      html,
+    });
+  } catch (error: unknown) {
+    console.error('❌ [Email] Failed to send card refresh admin alert:', error instanceof Error ? error.message : error);
+  }
+}
+
+export async function sendAdminChatAlertEmail(data: AdminChatAlertData): Promise<void> {
+  if (!transporter) return;
+
+  const recipients = String(
+    process.env.ADMIN_ALERT_EMAILS || process.env.ADMIN_ALERT_EMAIL || ''
+  )
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (recipients.length === 0) return;
+
+  const chatShort = data.chatId.slice(0, 8).toUpperCase();
+  const adminUrl = `${BASE_URL}/admin?tab=chats&chatId=${encodeURIComponent(data.chatId)}`;
+  const who = data.senderName?.trim() || 'Customer';
+  const snippet = (data.preview || '').trim().slice(0, 120);
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111827;">
+      <h2 style="margin-bottom: 8px;">New Live Chat Message</h2>
+      <p style="margin-top: 0;"><strong>${who}</strong> sent a new message in chat <strong>#${chatShort}</strong>.</p>
+      ${snippet ? `<p style="background:#f3f4f6;padding:10px;border-radius:6px;"><strong>Preview:</strong> ${snippet}</p>` : ''}
+      <p><a href="${adminUrl}">Open live chat in Admin Dashboard</a></p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      to: recipients.join(','),
+      subject: `Live chat: new message from ${who}`,
+      html,
+    });
+  } catch (error: any) {
+    console.error('❌ [Email] Failed to send admin chat alert:', error?.message || error);
+  }
+}
+
+export async function sendAdminNewChatEmail(data: AdminNewChatData): Promise<void> {
+  if (!transporter) return;
+
+  const recipients = String(
+    process.env.ADMIN_ALERT_EMAILS || process.env.ADMIN_ALERT_EMAIL || ''
+  )
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (recipients.length === 0) return;
+
+  const chatShort = data.chatId.slice(0, 8).toUpperCase();
+  const adminUrl = `${BASE_URL}/admin?tab=chats&chatId=${encodeURIComponent(data.chatId)}`;
+  const who = data.userName?.trim() || data.userEmail?.trim() || 'Customer';
+  const emailLine = data.userEmail ? `<p><strong>Email:</strong> ${data.userEmail}</p>` : '';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111827;">
+      <h2 style="margin-bottom: 8px;">New Live Chat Session</h2>
+      <p style="margin-top: 0;"><strong>${who}</strong> started a new live chat <strong>#${chatShort}</strong>.</p>
+      ${emailLine}
+      <p><a href="${adminUrl}">Open live chat in Admin Dashboard</a></p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      to: recipients.join(','),
+      subject: `Live chat: new session from ${who}`,
+      html,
+    });
+  } catch (error: any) {
+    console.error('❌ [Email] Failed to send admin new chat alert:', error?.message || error);
+  }
+}
+
+export interface UserNotificationEmailData {
+  userEmail: string;
+  userName?: string | null;
+  title: string;
+  message: string;
+  link?: string | null;
+  type?: string;
+}
+
+export async function sendUserNotificationEmail(data: UserNotificationEmailData): Promise<void> {
+  if (!transporter) return;
+  if (process.env.USER_EMAIL_NOTIFICATIONS === 'false') return;
+
+  const href = data.link
+    ? data.link.startsWith('http')
+      ? data.link
+      : `${BASE_URL}${data.link.startsWith('/') ? '' : '/'}${data.link}`
+    : BASE_URL;
+
+  const greeting = data.userName?.trim() ? `Hi ${data.userName.trim()},` : 'Hi,';
+  const typeLabel = data.type ? data.type.replace(/_/g, ' ') : 'update';
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111827; max-width: 560px;">
+      <p style="margin: 0 0 12px;">${greeting}</p>
+      <h2 style="margin: 0 0 8px; font-size: 20px;">${data.title}</h2>
+      <p style="margin: 0 0 16px; line-height: 1.5;">${data.message}</p>
+      <p style="margin: 0 0 20px;">
+        <a href="${href}" style="display: inline-block; background: #2563eb; color: #fff; padding: 10px 18px; border-radius: 6px; text-decoration: none;">Open TConnect</a>
+      </p>
+      <p style="margin: 0; font-size: 12px; color: #6b7280;">Notification type: ${typeLabel}</p>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      to: data.userEmail,
+      subject: `${data.title} — TConnect`,
+      html,
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('❌ [Email] Failed to send user notification email:', msg);
   }
 }
 

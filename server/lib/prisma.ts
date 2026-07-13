@@ -12,3 +12,13 @@ export const prisma =
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
+const p = prisma as unknown as Record<string, { findMany?: unknown } | undefined>;
+for (const name of ['spinPrize', 'spinGrantLog', 'spinProductWin'] as const) {
+  const d = p[name];
+  if (!d || typeof d.findMany !== 'function') {
+    throw new Error(
+      `[Prisma] Generated client missing "${name}". From repo root run: npx prisma generate (then redeploy).`
+    );
+  }
+}
+

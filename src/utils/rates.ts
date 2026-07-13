@@ -1,12 +1,13 @@
 import { getApiBase } from '../lib/getApiBase';
 
-export type ProductRateType = 'crypto' | 'giftcard' | 'wallet';
+export type ProductRateType = 'crypto' | 'giftcard' | 'wallet' | 'store_wallet';
 
 // Cache for rates
 let ratesCache: Record<ProductRateType, number> = {
   crypto: 1800,
   giftcard: 1900,
-  wallet: 1850
+  wallet: 1850,
+  store_wallet: 1700,
 };
 
 let ratesCacheTime = 0;
@@ -35,6 +36,7 @@ async function fetchRatesFromAPI(): Promise<void> {
       if (latestRates.crypto) ratesCache.crypto = latestRates.crypto;
       if (latestRates.giftcard) ratesCache.giftcard = latestRates.giftcard;
       if (latestRates.wallet) ratesCache.wallet = latestRates.wallet;
+      if (latestRates.store_wallet) ratesCache.store_wallet = latestRates.store_wallet;
       ratesCacheTime = Date.now();
       console.log('✅ [Rates] Updated cache:', ratesCache);
     } else {

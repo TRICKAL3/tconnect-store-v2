@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { basicAdminAuth, isAdminRequest } from '../lib/adminAuth';
+import { createUserNotification, createUserNotificationsBulk } from '../lib/userNotifications';
 
 const router = Router();
 
@@ -182,17 +183,16 @@ router.post('/', basicAdminAuth, async (req: any, res) => {
       if (users.length === 0) {
         return res.json({ success: true, count: 0, message: 'No users in database' });
       }
-      await prisma.notification.createMany({
-        data: users.map((u) => ({
-          userId: u.id,
+      const bulk = await createUserNotificationsBulk(
+        users.map((u) => u.id),
+        {
           type: String(type),
           title: String(title),
           message: String(message),
           link: linkVal,
-          read: false,
-        })),
-      });
-      return res.json({ success: true, count: users.length });
+        }
+      );
+      return res.json({ success: true, count: bulk.count });
     }
 
     let targetUserId: string | null = typeof userId === 'string' && userId.trim() ? userId.trim() : null;
@@ -217,15 +217,12 @@ router.post('/', basicAdminAuth, async (req: any, res) => {
       return res.json(notification);
     }
 
-    const notification = await prisma.notification.create({
-      data: {
-        userId: targetUserId,
-        type: String(type),
-        title: String(title),
-        message: String(message),
-        link: linkVal,
-        read: false,
-      },
+    const notification = await createUserNotification({
+      userId: targetUserId,
+      type: String(type),
+      title: String(title),
+      message: String(message),
+      link: linkVal,
     });
 
     res.json(notification);

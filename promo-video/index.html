@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1080, height=1920" />
+  <title>TConnect Cards Promo 40s</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --dur: 40s; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      background: #020617;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    .promo {
+      position: relative;
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+      background: #020617;
+    }
+
+    /* ── Background ── */
+    .bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 90% 55% at 50% 0%, #0f172a 0%, #020617 50%, #000 100%);
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      animation: orbDrift var(--dur) ease-in-out infinite;
+    }
+    .orb-1 { width: 520px; height: 520px; top: -100px; left: -80px; background: rgba(34,211,238,0.3); }
+    .orb-2 { width: 440px; height: 440px; top: 45%; right: -140px; background: rgba(139,92,246,0.28); animation-delay: -8s; }
+    .orb-3 { width: 360px; height: 360px; bottom: 8%; left: 5%; background: rgba(59,130,246,0.22); animation-delay: -16s; }
+
+    @keyframes orbDrift {
+      0%, 100% { transform: translate(0,0) scale(1); opacity: 0.7; }
+      50% { transform: translate(20px,-30px) scale(1.08); opacity: 1; }
+    }
+
+    .grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: radial-gradient(ellipse 75% 65% at 50% 42%, black 15%, transparent 72%);
+      opacity: 0.85;
+    }
+
+    .scene {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ═══ SCENE 1 — Intro (0–5s) ═══ */
+    .scene-intro {
+      animation: showIntro var(--dur) ease forwards;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px;
+      z-index: 5;
+    }
+
+    @keyframes showIntro {
+      0%, 1% { opacity: 0; }
+      3%, 11% { opacity: 1; }
+      13%, 100% { opacity: 0; }
+    }
+
+    .intro-eyebrow {
+      font-size: 26px;
+      letter-spacing: 0.35em;
+      color: #22d3ee;
+      font-weight: 600;
+      text-transform: uppercase;
+      opacity: 0;
+      transform: translateY(30px);
+      animation: introEyebrow var(--dur) ease forwards;
+    }
+
+    @keyframes introEyebrow {
+      0%, 2% { opacity: 0; transform: translateY(30px); }
+      5%, 11% { opacity: 1; transform: translateY(0); }
+      13%, 100% { opacity: 0; }
+    }
+
+    .intro-title {
+      font-family: Orbitron, sans-serif;
+      font-size: 88px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: #fff;
+      margin-top: 24px;
+      text-shadow: 0 0 60px rgba(34,211,238,0.45);
+      opacity: 0;
+      transform: scale(0.85);
+      animation: introTitle var(--dur) cubic-bezier(0.22,1,0.36,1) forwards;
+    }
+
+    @keyframes introTitle {
+      0%, 3% { opacity: 0; transform: scale(0.85); }
+      6%, 11% { opacity: 1; transform: scale(1); }
+      13%, 100% { opacity: 0; transform: scale(1.02); }
+    }
+
+    .intro-sub {
+      font-family: Orbitron, sans-serif;
+      font-size: 40px;
+      letter-spacing: 0.45em;
+      color: #67e8f9;
+      margin-top: 12px;
+      opacity: 0;
+      animation: introSub var(--dur) ease forwards;
+    }
+
+    @keyframes introSub {
+      0%, 4% { opacity: 0; transform: translateY(16px); }
+      7%, 11% { opacity: 1; transform: translateY(0); }
+      13%, 100% { opacity: 0; }
+    }
+
+    .intro-hook {
+      margin-top: 48px;
+      font-size: 36px;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.82);
+      max-width: 800px;
+      opacity: 0;
+      animation: introHook var(--dur) ease forwards;
+    }
+
+    @keyframes introHook {
+      0%, 6% { opacity: 0; transform: translateY(24px); }
+      9%, 11% { opacity: 1; transform: translateY(0); }
+      13%, 100% { opacity: 0; }
+    }
+
+    /* ═══ SCENE 2 — Hero card fly-in + flip (5–16s) ═══ */
+    .scene-hero {
+      animation: showHero var(--dur) ease forwards;
+      z-index: 6;
+    }
+
+    @keyframes showHero {
+      0%, 12% { opacity: 0; }
+      14%, 38% { opacity: 1; }
+      40%, 100% { opacity: 0; }
+    }
+
+    .hero-label {
+      position: absolute;
+      top: 100px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 30px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.7);
+      text-transform: uppercase;
+      opacity: 0;
+      animation: heroLabel var(--dur) ease forwards;
+    }
+
+    @keyframes heroLabel {
+      0%, 13% { opacity: 0; }
+      15%, 38% { opacity: 1; }
+      40%, 100% { opacity: 0; }
+    }
+
+    .hero-stage {
+      position: absolute;
+      top: 340px;
+      left: 0; right: 0;
+      height: 440px;
+      perspective: 1600px;
+    }
+
+    .hero-card-wrap {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 660px;
+      height: 416px;
+      transform-style: preserve-3d;
+      animation: heroCardMotion var(--dur) cubic-bezier(0.34,1.2,0.64,1) forwards;
+    }
+
+    @keyframes heroCardMotion {
+      /* fly in */
+      0%, 12% {
+        transform: translate(-50%, -50%) translateY(700px) rotateX(50deg) rotateY(-40deg) rotateZ(-8deg) scale(0.45);
+        opacity: 0;
+      }
+      14% {
+        transform: translate(-50%, -50%) translateY(-30px) rotateX(-8deg) rotateY(12deg) rotateZ(2deg) scale(1.06);
+        opacity: 1;
+      }
+      17% {
+        transform: translate(-50%, -50%) translateY(10px) rotateX(4deg) rotateY(-4deg) scale(1);
+        opacity: 1;
+      }
+      /* settle + float */
+      20%, 26% {
+        transform: translate(-50%, -50%) translateY(0) rotateX(0) rotateY(0) scale(1);
+        opacity: 1;
+      }
+      28% {
+        transform: translate(-50%, -50%) translateY(-14px) rotateX(0) rotateY(0) scale(1);
+      }
+      30%, 38% {
+        transform: translate(-50%, -50%) translateY(0) rotateX(0) rotateY(0) scale(1);
+        opacity: 1;
+      }
+      40%, 100% {
+        transform: translate(-50%, -50%) translateY(-80px) rotateY(20deg) scale(0.9);
+        opacity: 0;
+      }
+    }
+
+    .hero-flip {
+      width: 100%;
+      height: 100%;
+      transform-style: preserve-3d;
+      animation: heroFlip var(--dur) ease-in-out forwards;
+    }
+
+    @keyframes heroFlip {
+      0%, 26% { transform: rotateY(0deg); }
+      30% { transform: rotateY(90deg); }
+      32% { transform: rotateY(180deg); }
+      36% { transform: rotateY(90deg); }
+      38%, 100% { transform: rotateY(0deg); }
+    }
+
+    .card-side {
+      position: absolute;
+      inset: 0;
+      border-radius: 30px;
+      backface-visibility: hidden;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.22);
+      box-shadow: 0 50px 100px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.14);
+    }
+
+    .card-front {
+      background: linear-gradient(135deg, #0a0f1a 0%, #152a4a 42%, #1e3a8a 100%);
+      padding: 40px 44px;
+      color: #fff;
+    }
+
+    .card-front::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 18% 0%, rgba(56,189,248,0.35), transparent 52%),
+        radial-gradient(ellipse at 100% 100%, rgba(139,92,246,0.25), transparent 48%);
+    }
+
+    .card-back {
+      transform: rotateY(180deg);
+      background: linear-gradient(160deg, #111827 0%, #1e1b4b 100%);
+    }
+
+    .card-shine {
+      position: absolute;
+      inset: -70%;
+      background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.06) 44%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.06) 56%, transparent 62%);
+      animation: shineMove 2.8s ease-in-out infinite;
+    }
+
+    @keyframes shineMove {
+      0%, 100% { transform: translateX(-60%) rotate(10deg); }
+      50% { transform: translateX(60%) rotate(10deg); }
+    }
+
+    .chip {
+      position: relative;
+      z-index: 1;
+      width: 60px; height: 44px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.1));
+      border: 1px solid rgba(255,255,255,0.3);
+      margin-bottom: 22px;
+    }
+
+    .brand { position: relative; z-index: 1; font-family: Orbitron, sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 0.3em; }
+    .brand-sub { font-size: 14px; letter-spacing: 0.48em; color: #67e8f9; margin-top: 4px; }
+
+    .card-num {
+      position: relative; z-index: 1;
+      font-family: ui-monospace, monospace;
+      font-size: 40px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      margin-top: 52px;
+    }
+
+    .card-meta {
+      position: absolute;
+      left: 44px; right: 44px; bottom: 40px;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .meta-label { font-size: 13px; letter-spacing: 0.14em; color: rgba(255,255,255,0.65); }
+    .meta-val { font-size: 22px; letter-spacing: 0.1em; margin-top: 4px; }
+    .virtual-badge { font-family: Orbitron, sans-serif; font-size: 15px; letter-spacing: 0.22em; color: #22d3ee; font-weight: 700; }
+
+    /* Card back */
+    .mag-stripe {
+      position: absolute;
+      top: 56px; left: 0; right: 0;
+      height: 72px;
+      background: #0a0a0a;
+    }
+
+    .cvv-box {
+      position: absolute;
+      top: 160px; right: 44px;
+      background: rgba(255,255,255,0.92);
+      color: #111;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-family: ui-monospace, monospace;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+    }
+
+    .cvv-label {
+      position: absolute;
+      top: 132px; right: 44px;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.5);
+    }
+
+  .back-brand {
+      position: absolute;
+      bottom: 44px; left: 44px;
+      font-family: Orbitron, sans-serif;
+      font-size: 16px;
+      letter-spacing: 0.25em;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .hero-tag {
+      position: absolute;
+      top: 820px;
+      left: 60px; right: 60px;
+      text-align: center;
+      font-size: 38px;
+      font-weight: 600;
+      color: #e0f2fe;
+      opacity: 0;
+      animation: heroTag var(--dur) ease forwards;
+    }
+
+    @keyframes heroTag {
+      0%, 18% { opacity: 0; transform: translateY(20px); }
+      20%, 38% { opacity: 1; transform: translateY(0); }
+      40%, 100% { opacity: 0; }
+    }
+
+    /* ═══ SCENE 3 — Balance + Spending (16–26s) ═══ */
+    .scene-dash {
+      animation: showDash var(--dur) ease forwards;
+      z-index: 7;
+    }
+
+    @keyframes showDash {
+      0%, 38% { opacity: 0; }
+      40%, 62% { opacity: 1; }
+      64%, 100% { opacity: 0; }
+    }
+
+    .dash-title {
+      position: absolute;
+      top: 90px;
+      left: 0; right: 0;
+      text-align: center;
+      font-family: Orbitron, sans-serif;
+      font-size: 34px;
+      letter-spacing: 0.15em;
+      color: #22d3ee;
+      opacity: 0;
+      animation: dashTitle var(--dur) ease forwards;
+    }
+
+    @keyframes dashTitle {
+      0%, 39% { opacity: 0; }
+      41%, 62% { opacity: 1; }
+      64%, 100% { opacity: 0; }
+    }
+
+    .dash-card-mini {
+      position: absolute;
+      top: 180px;
+      left: 50%;
+      width: 340px;
+      height: 214px;
+      margin-left: -170px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #0a0f1a, #1e3a8a);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 22px 26px;
+      color: #fff;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.45);
+      opacity: 0;
+      animation: dashMiniCard var(--dur) cubic-bezier(0.22,1,0.36,1) forwards;
+    }
+
+    @keyframes dashMiniCard {
+      0%, 39% { opacity: 0; transform: translateY(40px) rotateY(-20deg); }
+      42%, 62% { opacity: 1; transform: translateY(0) rotateY(0); }
+      64%, 100% { opacity: 0; transform: translateX(-120px) scale(0.85); }
+    }
+
+    .dash-mini-brand { font-family: Orbitron, sans-serif; font-size: 10px; letter-spacing: 0.28em; }
+    .dash-mini-num { font-family: monospace; font-size: 18px; margin-top: 36px; letter-spacing: 0.12em; }
+
+    .dash-panel {
+      position: absolute;
+      top: 430px;
+      left: 50px; right: 50px;
+      border-radius: 28px;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(34,211,238,0.25);
+      backdrop-filter: blur(12px);
+      padding: 36px 40px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+      opacity: 0;
+      animation: dashPanel var(--dur) ease forwards;
+    }
+
+    @keyframes dashPanel {
+      0%, 40% { opacity: 0; transform: translateY(50px); }
+      43%, 62% { opacity: 1; transform: translateY(0); }
+      64%, 100% { opacity: 0; transform: translateY(-30px); }
+    }
+
+    .balance-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding-bottom: 28px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 24px;
+    }
+
+    .balance-label { font-size: 22px; color: rgba(255,255,255,0.55); }
+    .balance-amount {
+      font-family: Orbitron, sans-serif;
+      font-size: 52px;
+      font-weight: 700;
+      color: #4ade80;
+      opacity: 0;
+      animation: balancePop var(--dur) ease forwards;
+    }
+
+    @keyframes balancePop {
+      0%, 43% { opacity: 0; transform: scale(0.7); }
+      45%, 62% { opacity: 1; transform: scale(1); }
+      64%, 100% { opacity: 0; }
+    }
+
+    .tx-header {
+      font-size: 18px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 18px;
+    }
+
+    .tx-list { display: flex; flex-direction: column; gap: 14px; }
+
+    .tx-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 18px 20px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      opacity: 0;
+      transform: translateX(60px);
+    }
+
+    .tx-row:nth-child(1) { animation: txIn1 var(--dur) ease forwards; }
+    .tx-row:nth-child(2) { animation: txIn2 var(--dur) ease forwards; }
+    .tx-row:nth-child(3) { animation: txIn3 var(--dur) ease forwards; }
+    .tx-row:nth-child(4) { animation: txIn4 var(--dur) ease forwards; }
+    .tx-row:nth-child(5) { animation: txIn5 var(--dur) ease forwards; }
+
+    @keyframes txIn1 { 0%,44% { opacity:0; transform:translateX(60px); } 46%,62% { opacity:1; transform:translateX(0); } 64%,100% { opacity:0; } }
+    @keyframes txIn2 { 0%,46% { opacity:0; transform:translateX(60px); } 48%,62% { opacity:1; transform:translateX(0); } 64%,100% { opacity:0; } }
+    @keyframes txIn3 { 0%,48% { opacity:0; transform:translateX(60px); } 50%,62% { opacity:1; transform:translateX(0); } 64%,100% { opacity:0; } }
+    @keyframes txIn4 { 0%,50% { opacity:0; transform:translateX(60px); } 52%,62% { opacity:1; transform:translateX(0); } 64%,100% { opacity:0; } }
+    @keyframes txIn5 { 0%,52% { opacity:0; transform:translateX(60px); } 54%,62% { opacity:1; transform:translateX(0); } 64%,100% { opacity:0; } }
+
+    .tx-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-right: 16px;
+      flex-shrink: 0;
+    }
+
+    .tx-left { display: flex; align-items: center; }
+    .tx-name { font-size: 24px; font-weight: 600; color: #fff; }
+    .tx-date { font-size: 16px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+    .tx-amt { font-size: 24px; font-weight: 700; font-family: ui-monospace, monospace; }
+    .tx-amt.neg { color: #f87171; }
+    .tx-amt.pos { color: #4ade80; }
+
+    .dash-caption {
+      position: absolute;
+      bottom: 200px;
+      left: 60px; right: 60px;
+      text-align: center;
+      font-size: 32px;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.8);
+      opacity: 0;
+      animation: dashCaption var(--dur) ease forwards;
+    }
+
+    @keyframes dashCaption {
+      0%, 54% { opacity: 0; }
+      56%, 62% { opacity: 1; }
+      64%, 100% { opacity: 0; }
+    }
+
+    /* ═══ SCENE 4 — Multi-card carousel (26–34s) ═══ */
+    .scene-carousel {
+      animation: showCarousel var(--dur) ease forwards;
+      z-index: 8;
+    }
+
+    @keyframes showCarousel {
+      0%, 62% { opacity: 0; }
+      64%, 82% { opacity: 1; }
+      84%, 100% { opacity: 0; }
+    }
+
+    .carousel-headline {
+      position: absolute;
+      top: 100px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 36px;
+      font-weight: 700;
+      color: #fff;
+      opacity: 0;
+      animation: carouselHead var(--dur) ease forwards;
+    }
+
+    @keyframes carouselHead {
+      0%, 63% { opacity: 0; transform: translateY(20px); }
+      65%, 82% { opacity: 1; transform: translateY(0); }
+      84%, 100% { opacity: 0; }
+    }
+
+    .carousel-stage {
+      position: absolute;
+      top: 400px;
+      left: 0; right: 0;
+      height: 500px;
+      perspective: 1500px;
+      overflow: hidden;
+    }
+
+    .carousel-track {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 660px;
+      height: 416px;
+      transform-style: preserve-3d;
+      animation: carouselSwipe var(--dur) cubic-bezier(0.45,0,0.2,1) forwards;
+    }
+
+    @keyframes carouselSwipe {
+      0%, 63% { transform: translate(-50%,-50%) translateX(0) rotateY(0deg); }
+      68% { transform: translate(-50%,-50%) translateX(-120px) rotateY(8deg); }
+      72% { transform: translate(-50%,-50%) translateX(-680px) rotateY(0deg); }
+      76% { transform: translate(-50%,-50%) translateX(-800px) rotateY(-8deg); }
+      80% { transform: translate(-50%,-50%) translateX(-1360px) rotateY(0deg); }
+      82%, 100% { transform: translate(-50%,-50%) translateX(-1360px); }
+    }
+
+    .carousel-card {
+      position: absolute;
+      top: 0;
+      width: 660px;
+      height: 416px;
+      border-radius: 30px;
+      padding: 40px 44px;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.2);
+      box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+      overflow: hidden;
+    }
+
+    .carousel-card:nth-child(1) { left: 0; background: linear-gradient(135deg, #0a0f1a, #1e3a8a); }
+    .carousel-card:nth-child(2) { left: 700px; background: linear-gradient(135deg, #0f0a1a, #4c1d95); }
+    .carousel-card:nth-child(3) { left: 1400px; background: linear-gradient(135deg, #042f2e, #0e7490); }
+
+    .carousel-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 0%, rgba(56,189,248,0.28), transparent 50%);
+    }
+
+    .carousel-card .card-num { margin-top: 40px; font-size: 36px; }
+
+    .carousel-bullets {
+      position: absolute;
+      top: 980px;
+      left: 60px; right: 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .c-bullet {
+      font-size: 30px;
+      font-weight: 600;
+      color: #e0f2fe;
+      padding: 16px 36px;
+      border-radius: 999px;
+      border: 1px solid rgba(34,211,238,0.3);
+      background: rgba(34,211,238,0.08);
+      opacity: 0;
+      transform: translateX(-40px);
+    }
+
+    .c-bullet:nth-child(1) { animation: bullet1 var(--dur) ease forwards; }
+    .c-bullet:nth-child(2) { animation: bullet2 var(--dur) ease forwards; }
+    .c-bullet:nth-child(3) { animation: bullet3 var(--dur) ease forwards; }
+
+    @keyframes bullet1 { 0%,68% { opacity:0; transform:translateX(-40px); } 70%,82% { opacity:1; transform:translateX(0); } 84%,100% { opacity:0; } }
+    @keyframes bullet2 { 0%,71% { opacity:0; transform:translateX(-40px); } 73%,82% { opacity:1; transform:translateX(0); } 84%,100% { opacity:0; } }
+    @keyframes bullet3 { 0%,74% { opacity:0; transform:translateX(-40px); } 76%,82% { opacity:1; transform:translateX(0); } 84%,100% { opacity:0; } }
+
+    /* ═══ SCENE 5 — Marketing + CTA (34–40s) ═══ */
+    .scene-outro {
+      animation: showOutro var(--dur) ease forwards;
+      z-index: 9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px;
+      text-align: center;
+    }
+
+    @keyframes showOutro {
+      0%, 82% { opacity: 0; }
+      84%, 100% { opacity: 1; }
+    }
+
+    .outro-line {
+      font-size: 44px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: #fff;
+      opacity: 0;
+      transform: translateY(30px);
+      max-width: 900px;
+    }
+
+    .outro-line:nth-child(1) { animation: outro1 var(--dur) ease forwards; color: #22d3ee; font-family: Orbitron, sans-serif; font-size: 52px; }
+    .outro-line:nth-child(2) { animation: outro2 var(--dur) ease forwards; margin-top: 28px; }
+    .outro-line:nth-child(3) { animation: outro3 var(--dur) ease forwards; margin-top: 20px; font-size: 34px; color: rgba(255,255,255,0.75); font-weight: 500; }
+
+    @keyframes outro1 { 0%,83% { opacity:0; transform:translateY(30px); } 85%,100% { opacity:1; transform:translateY(0); } }
+    @keyframes outro2 { 0%,86% { opacity:0; transform:translateY(30px); } 88%,100% { opacity:1; transform:translateY(0); } }
+    @keyframes outro3 { 0%,89% { opacity:0; transform:translateY(30px); } 91%,100% { opacity:1; transform:translateY(0); } }
+
+    .outro-url {
+      margin-top: 56px;
+      font-family: Orbitron, sans-serif;
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #22d3ee;
+      text-shadow: 0 0 40px rgba(34,211,238,0.55);
+      opacity: 0;
+      animation: outroUrl var(--dur) cubic-bezier(0.22,1,0.36,1) forwards;
+    }
+
+    @keyframes outroUrl {
+      0%, 91% { opacity: 0; transform: scale(0.88); }
+      93%, 100% { opacity: 1; transform: scale(1); }
+    }
+
+    .outro-sub {
+      margin-top: 20px;
+      font-size: 22px;
+      letter-spacing: 0.18em;
+      color: rgba(255,255,255,0.45);
+      opacity: 0;
+      animation: outroSub var(--dur) ease forwards;
+    }
+
+    @keyframes outroSub {
+      0%, 93% { opacity: 0; }
+      95%, 100% { opacity: 1; }
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      box-shadow: inset 0 0 180px rgba(0,0,0,0.5);
+      z-index: 30;
+    }
+  </style>
+</head>
+<body>
+  <div class="promo">
+    <div class="bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="grid"></div>
+
+    <!-- Scene 1: Intro -->
+    <section class="scene scene-intro">
+      <p class="intro-eyebrow">Prepaid · Virtual · Secure</p>
+      <h1 class="intro-title">TCONNECT</h1>
+      <p class="intro-sub">CARDS</p>
+      <p class="intro-hook">Your digital card for online shopping.<br />No bank hassle. Instant delivery.</p>
+    </section>
+
+    <!-- Scene 2: Hero card -->
+    <section class="scene scene-hero">
+      <p class="hero-label">Meet your virtual card</p>
+      <div class="hero-stage">
+        <div class="hero-card-wrap">
+          <div class="hero-flip">
+            <div class="card-side card-front">
+              <div class="card-shine"></div>
+              <div class="chip"></div>
+              <div class="brand">TCONNECT</div>
+              <div class="brand-sub">CARDS</div>
+              <div class="card-num">•••• •••• •••• 4242</div>
+              <div class="card-meta">
+                <div>
+                  <div class="meta-label">VALID THRU</div>
+                  <div class="meta-val">12/28</div>
+                </div>
+                <div class="virtual-badge">VIRTUAL</div>
+              </div>
+            </div>
+            <div class="card-side card-back">
+              <div class="mag-stripe"></div>
+              <div class="cvv-label">CVV</div>
+              <div class="cvv-box">•••</div>
+              <div class="back-brand">TCONNECT CARDS</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="hero-tag">Tap to flip · Secure CVV on the back</p>
+    </section>
+
+    <!-- Scene 3: Dashboard -->
+    <section class="scene scene-dash">
+      <p class="dash-title">MY CARDS DASHBOARD</p>
+
+      <div class="dash-card-mini">
+        <div class="dash-mini-brand">TCONNECT CARDS</div>
+        <div class="dash-mini-num">•••• 4242</div>
+      </div>
+
+      <div class="dash-panel">
+        <div class="balance-row">
+          <span class="balance-label">Available balance</span>
+          <span class="balance-amount">$247.50</span>
+        </div>
+        <div class="tx-header">Recent spending</div>
+        <div class="tx-list">
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-icon" style="background:rgba(239,68,68,0.2);">🛒</div>
+              <div>
+                <div class="tx-name">Amazon</div>
+                <div class="tx-date">Today · 2:14 PM</div>
+              </div>
+            </div>
+            <span class="tx-amt neg">-$42.30</span>
+          </div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-icon" style="background:rgba(168,85,247,0.2);">🎬</div>
+              <div>
+                <div class="tx-name">Netflix</div>
+                <div class="tx-date">Yesterday</div>
+              </div>
+            </div>
+            <span class="tx-amt neg">-$15.99</span>
+          </div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-icon" style="background:rgba(34,197,94,0.2);">🎵</div>
+              <div>
+                <div class="tx-name">Spotify</div>
+                <div class="tx-date">Mar 28</div>
+              </div>
+            </div>
+            <span class="tx-amt neg">-$9.99</span>
+          </div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-icon" style="background:rgba(59,130,246,0.2);">🎮</div>
+              <div>
+                <div class="tx-name">Steam</div>
+                <div class="tx-date">Mar 27</div>
+              </div>
+            </div>
+            <span class="tx-amt neg">-$29.99</span>
+          </div>
+          <div class="tx-row">
+            <div class="tx-left">
+              <div class="tx-icon" style="background:rgba(74,222,128,0.2);">💰</div>
+              <div>
+                <div class="tx-name">Card top-up</div>
+                <div class="tx-date">Mar 26</div>
+              </div>
+            </div>
+            <span class="tx-amt pos">+$100.00</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="dash-caption">Track balance &amp; every transaction in real time</p>
+    </section>
+
+    <!-- Scene 4: Carousel -->
+    <section class="scene scene-carousel">
+      <p class="carousel-headline">Multiple cards. One dashboard.</p>
+      <div class="carousel-stage">
+        <div class="carousel-track">
+          <div class="carousel-card">
+            <div class="chip"></div>
+            <div class="brand">TCONNECT</div>
+            <div class="brand-sub">CARDS</div>
+            <div class="card-num">•••• •••• •••• 4242</div>
+          </div>
+          <div class="carousel-card">
+            <div class="chip"></div>
+            <div class="brand">TCONNECT</div>
+            <div class="brand-sub">CARDS</div>
+            <div class="card-num">•••• •••• •••• 8810</div>
+          </div>
+          <div class="carousel-card">
+            <div class="chip"></div>
+            <div class="brand">TCONNECT</div>
+            <div class="brand-sub">CARDS</div>
+            <div class="card-num">•••• •••• •••• 3391</div>
+          </div>
+        </div>
+      </div>
+      <div class="carousel-bullets">
+        <span class="c-bullet">Shop anywhere online</span>
+        <span class="c-bullet">No bank account needed</span>
+        <span class="c-bullet">Instant card delivery</span>
+      </div>
+    </section>
+
+    <!-- Scene 5: Outro -->
+    <section class="scene scene-outro">
+      <p class="outro-line">TCONNECT CARDS</p>
+      <p class="outro-line">Spend smarter. Shop safer.</p>
+      <p class="outro-line">Prepaid virtual cards — ready when you are.</p>
+      <p class="outro-url">www.tconnect.store</p>
+      <p class="outro-sub">GIFT CARDS · CRYPTO · GAMING · CARDS</p>
+    </section>
+
+    <div class="vignette"></div>
+  </div>
+</body>
+</html>

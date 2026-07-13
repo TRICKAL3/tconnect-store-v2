@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "DISABLE_ESLINT_PLUGIN=true npm run build",
+  "buildCommand": "prisma generate && DISABLE_ESLINT_PLUGIN=true npm run build",
   "outputDirectory": "build",
   "framework": "create-react-app",
   "functions": {

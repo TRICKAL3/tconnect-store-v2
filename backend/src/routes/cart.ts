@@ -89,6 +89,18 @@ router.post('/clear', async (req, res) => {
   }
 });
 
+router.delete('/admin/snapshot/:userId', basicAdminAuth, async (req, res) => {
+  try {
+    const userId = String(req.params.userId || '').trim();
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    await prisma.userCartSnapshot.deleteMany({ where: { userId } });
+    return res.json({ ok: true });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'delete snapshot failed';
+    return res.status(500).json({ error: msg });
+  }
+});
+
 router.get('/admin/overview', basicAdminAuth, async (_req, res) => {
   try {
     const rows = await prisma.userCartSnapshot.findMany({

@@ -5,6 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMwkAmountFromUsd } from '../utils/rates';
 import { fetchProducts } from '../lib/api';
+import {
+  GIFTCARD_BUYER_MAX_USD,
+  clampGiftCardBuyerUsd,
+  defaultBuyerAmountFromCatalog,
+} from '../lib/giftCardPricing';
 
 interface DigitalWallet {
   id: string;
@@ -30,6 +35,7 @@ function normalizePaymentsProductType(raw: unknown): 'virtual-card' | 'wallet' |
 }
 
 const DigitalWallets: React.FC = () => {
+  const VIRTUAL_CARD_MIN_USD = 5;
   const { dispatch } = useCart();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -95,6 +101,9 @@ const DigitalWallets: React.FC = () => {
   const [amountByWallet, setAmountByWallet] = useState<Record<string, number>>({});
   const [emailByWallet, setEmailByWallet] = useState<Record<string, string>>({});
 
+  const canCheckoutVirtualCardUsd = (amount: number) =>
+    amount >= VIRTUAL_CARD_MIN_USD && amount <= GIFTCARD_BUYER_MAX_USD;
+
   // removed unused addToCart (virtual cards use custom amount and go to checkout)
 
   const addToCartAndCheckout = (wallet: DigitalWallet) => {
@@ -132,15 +141,16 @@ const DigitalWallets: React.FC = () => {
       navigate('/signin'); 
       return; 
     }
-    const amountUsd = Math.max(25, amountByWallet[wallet.id] || 0);
+    const amountUsd = clampGiftCardBuyerUsd(amountByWallet[wallet.id] || 0);
+    if (!canCheckoutVirtualCardUsd(amountUsd)) return;
     dispatch({
       type: 'ADD_ITEM',
       payload: {
-        id: `${wallet.id}-${Date.now()}`,
+        id: wallet.id,
         name: `${wallet.name} (Virtual Card)`,
         price: amountUsd,
         category: 'Virtual Cards',
-        type: 'giftcard',
+        type: 'virtual-card',
         image: wallet.image,
         quantity: 1
       }
@@ -241,29 +251,49 @@ const DigitalWallets: React.FC = () => {
             ) : (
               <div className="text-center">
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-white mb-2">Amount (USD) • Min $25</label>
+                  <label className="block text-sm font-semibold text-white mb-2">
+                    Amount (USD) • ${VIRTUAL_CARD_MIN_USD}–${GIFTCARD_BUYER_MAX_USD}
+                  </label>
                   <input
                     type="number"
-                    min={25}
+                    min={VIRTUAL_CARD_MIN_USD}
+                    max={GIFTCARD_BUYER_MAX_USD}
                     step="0.01"
-                    value={amountByWallet[wallet.id] || ''}
+                    value={amountByWallet[wallet.id] ?? defaultBuyerAmountFromCatalog(wallet.price)}
                     onChange={(e) =>
-                      setAmountByWallet((prev) => ({ ...prev, [wallet.id]: parseFloat(e.target.value) || 0 }))
+                      setAmountByWallet((prev) => ({
+                        ...prev,
+                        [wallet.id]: clampGiftCardBuyerUsd(parseFloat(e.target.value) || 0),
+                      }))
                     }
                     className="w-full px-4 py-3 bg-dark-surface border border-dark-border rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-neon-blue focus:border-transparent"
-                    placeholder="Virtual card amount in USD"
+                    placeholder="Card value in USD"
                   />
-                  {amountByWallet[wallet.id] > 0 && (
+                  {canCheckoutVirtualCardUsd(amountByWallet[wallet.id] ?? 0) && (
                     <div className="text-sm text-gray-300 mt-2">
-                      MWK ≈ {getMwkAmountFromUsd(amountByWallet[wallet.id], 'wallet').toLocaleString()}
+                      MWK ≈{' '}
+                      {getMwkAmountFromUsd(
+                        clampGiftCardBuyerUsd(amountByWallet[wallet.id] ?? 0),
+                        'wallet'
+                      ).toLocaleString()}
                     </div>
                   )}
+                  {(amountByWallet[wallet.id] ?? 0) > 0 &&
+                    !canCheckoutVirtualCardUsd(clampGiftCardBuyerUsd(amountByWallet[wallet.id] ?? 0)) && (
+                      <div className="text-sm text-amber-300 mt-2">
+                        Minimum virtual-card amount is ${VIRTUAL_CARD_MIN_USD.toFixed(2)}.
+                      </div>
+                    )}
                 </div>
                 <button
                   onClick={() => addVirtualCardAndCheckout(wallet)}
-                  disabled={!wallet.inStock || (amountByWallet[wallet.id] || 0) < 25}
+                  disabled={
+                    !wallet.inStock ||
+                    !canCheckoutVirtualCardUsd(clampGiftCardBuyerUsd(amountByWallet[wallet.id] || 0))
+                  }
                   className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 flex items-center justify-center space-x-3 transform hover:scale-105 ${
-                    wallet.inStock && (amountByWallet[wallet.id] || 0) >= 25
+                    wallet.inStock &&
+                    canCheckoutVirtualCardUsd(clampGiftCardBuyerUsd(amountByWallet[wallet.id] || 0))
                       ? 'btn-cyber text-white neon-glow'
                       : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
@@ -289,8 +319,8 @@ const DigitalWallets: React.FC = () => {
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 font-mono holographic">Payments</h1>
           <p className="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto mb-2">Virtual cards and digital wallets</p>
           <p className="text-base md:text-lg text-gray-300 max-w-4xl mx-auto leading-relaxed">
-            Choose a virtual card or digital wallet below, enter amount (min $25), and checkout. MWK uses today’s wallet
-            rate.
+            Choose a virtual card or digital wallet below. Virtual cards: pick any amount $5–$1000 (like gift cards).
+            Digital wallets: min $25 top-up. MWK uses today’s wallet rate.
           </p>
         </div>
 

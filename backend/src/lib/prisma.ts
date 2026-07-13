@@ -12,16 +12,25 @@ export const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
 
-/** Stale installs often skip `postinstall`; then `userCartSnapshot` is undefined and routes throw "reading 'findMany'". */
-const cartDelegate = (prisma as unknown as Record<string, { findMany?: unknown } | undefined>).userCartSnapshot;
-if (!cartDelegate || typeof cartDelegate.findMany !== 'function') {
-  throw new Error(
-    '[Prisma] Client is stale: missing model UserCartSnapshot. From the folder that contains package.json:\n' +
-      '  1) Stop the API (and any other Node processes using this repo).\n' +
-      '  2) npx prisma generate\n' +
-      '  3) npx prisma db push\n' +
-      'If step 2 fails with EPERM on Windows, disable locking on the folder or retry after closing the IDE terminals.'
-  );
+/** Stale installs skip `postinstall` / fail `generate` on Windows (EPERM) — delegates are then missing at runtime. */
+const p = prisma as unknown as Record<string, { findMany?: unknown } | undefined>;
+const requiredDelegates = [
+  'userCartSnapshot',
+  'spinPrize',
+  'spinGrantLog',
+  'spinProductWin',
+] as const;
+for (const name of requiredDelegates) {
+  const d = p[name];
+  if (!d || typeof d.findMany !== 'function') {
+    throw new Error(
+      `[Prisma] Client is stale or incomplete: missing model delegate "${name}".\n` +
+        'In the backend folder (stop the API first):\n' +
+        '  npx prisma generate\n' +
+        '  npx prisma db push\n' +
+        'If generate fails with EPERM on query_engine-windows.dll.node, close every Node/terminal using this project and retry.'
+    );
+  }
 }
 
 

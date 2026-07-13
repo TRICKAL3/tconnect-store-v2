@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { basicAdminAuth } from '../lib/adminAuth';
+import { sendAdminChatAlertEmail, sendAdminNewChatEmail } from '../lib/email';
+import { createUserNotification } from '../lib/userNotifications';
 
 const router = Router();
 
@@ -88,6 +90,26 @@ router.post('/', async (req, res) => {
       where: { id: chat.id },
       include: { messages: { orderBy: { createdAt: 'asc' } } }
     });
+
+    // Notify admin of new chat session
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: null,
+          type: 'message_received',
+          title: 'New Live Chat Started',
+          message: `${userName || userEmail || 'A customer'} started a new live chat`,
+          link: `/admin?tab=chats&chatId=${chat.id}`,
+        },
+      });
+      await sendAdminNewChatEmail({
+        chatId: chat.id,
+        userName: userName || null,
+        userEmail: userEmail || null,
+      });
+    } catch (notifError: any) {
+      console.error('❌ Failed to notify admin of new chat:', notifError?.message || notifError);
+    }
 
     res.json(chatWithMessages);
   } catch (error: any) {
@@ -187,17 +209,19 @@ router.post('/:id/messages', async (req, res) => {
             link: `/admin?tab=chats&chatId=${id}`
           }
         });
+        await sendAdminChatAlertEmail({
+          chatId: id,
+          senderName: senderName || chat.userName || chat.userEmail || 'User',
+          preview: content || (imageUrl ? '[Image]' : ''),
+        });
         console.log('✅ Notification created for admin (user message)');
       } else if (senderType === 'agent' && chat.userId) {
-        // Notify user about admin reply
-        await prisma.notification.create({
-          data: {
-            userId: chat.userId,
-            type: 'message_received',
-            title: 'New Reply from Support',
-            message: `${senderName || 'Support'} replied to your message`,
-            link: `/`
-          }
+        await createUserNotification({
+          userId: chat.userId,
+          type: 'message_received',
+          title: 'New Reply from Support',
+          message: `${senderName || 'Support'} replied to your message`,
+          link: '/',
         });
         console.log('✅ Notification created for user (admin reply)');
       }
@@ -302,14 +326,12 @@ router.post('/:id/agent-message', basicAdminAuth, async (req, res) => {
     // Notify user about admin reply
     try {
       if (chat.userId) {
-        await prisma.notification.create({
-          data: {
-            userId: chat.userId,
-            type: 'message_received',
-            title: 'New Reply from Support',
-            message: `${agentName || 'Support'} replied to your message`,
-            link: `/`
-          }
+        await createUserNotification({
+          userId: chat.userId,
+          type: 'message_received',
+          title: 'New Reply from Support',
+          message: `${agentName || 'Support'} replied to your message`,
+          link: '/',
         });
         console.log('✅ Notification created for user (admin reply)');
       }

@@ -36,7 +36,7 @@ const RefundPolicy: React.FC = () => {
             <section>
               <h2 className="text-xl font-bold text-white mb-3">3. Refund Timeline</h2>
               <p>
-                Approved refunds will be processed within 10-14 business days and returned to the original payment method used for the transaction.
+                Approved refunds may take <strong className="text-white">24–72 hours</strong> depending on payment method and verification process. Refunds are returned to the original payment method used for the transaction when possible.
               </p>
             </section>
 

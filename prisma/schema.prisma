@@ -1,5 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Vercel serverless runs Linux; include both so local (Windows/macOS) and deploy work.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -14,14 +16,57 @@ model User {
   name         String
   phone        String?
   avatarUrl    String?
+  country      String?
+  city         String?
+  region       String?
+  lastLoginIp  String?
+  lastLoginAt  DateTime?
+  locationSource String?           @map("location_source") // gps | ip_approx
   role         String              @default("user") // user, admin, staff
   pointsBalance Int                @default(0) // TConnect Points balance
+  walletBalanceUsd Float           @default(0) // Store credit (USD) — "Wallet"
   orders       Order[]
   pointsTransactions PointsTransaction[]
   pointsReceipts PointsReceipt[]
-  wallets      Wallet[]
+  walletTopUps WalletTopUp[]
+  walletTransactions WalletTransaction[]
   cartSnapshot UserCartSnapshot?
+  spinGrantLogs SpinGrantLog[]
+  spinProductWins SpinProductWin[]
+  virtualCards UserVirtualCard[]
   createdAt    DateTime            @default(now())
+}
+
+/// PawaPay deposit to add funds to user Wallet.
+model WalletTopUp {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  depositId   String   @unique
+  amountUsd   Float
+  amountMwk   Int
+  status      String   @default("pending") // pending | completed | failed | cancelled
+  pawapayRef  String?
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([userId, status])
+  @@map("wallet_top_ups")
+}
+
+model WalletTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // topup | order_payment | adjustment
+  amountUsd   Float    // positive = credit, negative = debit
+  orderId     String?
+  topUpId     String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("wallet_transactions")
 }
 
 /// Latest cart for logged-in users (synced from storefront; cleared after order).
@@ -46,7 +91,50 @@ model Product {
   inStock     Boolean  @default(true)
   featured    Boolean  @default(false)
   popular     Boolean  @default(false)
+  spinPrizes  SpinPrize[]
+  spinProductWins SpinProductWin[]
   createdAt   DateTime @default(now())
+}
+
+/// Configurable wheel segment: points, catalog product prize, or no-win.
+model SpinPrize {
+  id          String   @id @default(cuid())
+  label       String
+  rewardType  String   // points | product | no_win
+  points      Int      @default(0)
+  productId   String?
+  /// USD value for product prizes (e.g. $5 USDT). Uses catalog default if unset.
+  prizeAmountUsd Float?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  weight      Int      @default(10)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Tracks bonus spins granted by admin (sum per day adds to daily allowance).
+model SpinGrantLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spins     Int
+  createdAt DateTime @default(now())
+}
+
+/// Non-points wheel wins — admin fulfills (gift card, wallet/top-up product, etc.).
+model SpinProductWin {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  prizeLabel String
+  status     String   @default("pending") // pending | fulfilled
+  orderId    String?  @unique
+  order      Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  notes      String?
+  createdAt  DateTime @default(now())
 }
 
 model Slide {
@@ -90,7 +178,7 @@ model Quote {
 
 model Rate {
   id        String   @id @default(cuid())
-  type      String   // giftcard | crypto | wallet
+  type      String   // giftcard | crypto | wallet | store_wallet
   value     Int      // MWK per 1 USD
   createdAt DateTime @default(now())
 }
@@ -105,6 +193,8 @@ model Order {
   payment      PaymentSubmission?
   items        OrderItem[]
   pointsReceipt PointsReceipt?
+  spinProductWin SpinProductWin?
+  virtualCards UserVirtualCard[]
   createdAt    DateTime      @default(now())
 }
 
@@ -121,6 +211,62 @@ model OrderItem {
   quantity      Int
   metadata      String? // JSON string for crypto details, wallet email, etc.
   giftCardCodes String? // JSON array of objects: [{"serialNumber": "SN123", "redeemCode": "REDEEM456"}, ...] - one per quantity
+  virtualCards  UserVirtualCard[]
+}
+
+/// Customer virtual card — balance/status/transactions synced manually from Swype by admin.
+model UserVirtualCard {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId          String?  @map("order_id")
+  order            Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItemId      String?  @map("order_item_id")
+  orderItem        OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  unitIndex        Int      @default(0) @map("unit_index")
+  label            String   // e.g. "Virtual Visa $50"
+  cardType         String?  @default("TConnect") @map("card_type")
+  cardLast4        String?  @map("card_last4")
+  balanceUsd       Float    @default(0) @map("balance_usd") // available balance
+  cardValueUsd     Float    @default(0) @map("card_value_usd")
+  totalFeesUsd     Float    @default(0) @map("total_fees_usd")
+  totalSpendingsUsd Float   @default(0) @map("total_spendings_usd")
+  initialBalanceUsd Float?  @map("initial_balance_usd")
+  currency         String   @default("USD")
+  status           String   @default("pending") // pending | active | frozen | expired | closed
+  swypeCardId      String?  @map("swype_card_id")
+  activationUrl    String?  @map("activation_url")
+  userNotes        String?  @map("user_notes")
+  adminNotes       String?  @map("admin_notes")
+  lastSyncedAt     DateTime? @map("last_synced_at")
+  updateRequestedAt DateTime? @map("update_requested_at")
+  transactions     UserVirtualCardTransaction[]
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt])
+  @@index([orderId])
+  @@index([orderItemId, unitIndex])
+  @@map("user_virtual_cards")
+}
+
+model UserVirtualCardTransaction {
+  id          String          @id @default(cuid())
+  cardId      String          @map("card_id")
+  card        UserVirtualCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  type        String          // purchase | refund | fee | topup | adjustment | other
+  amountUsd   Float           @map("amount_usd")
+  feeUsd      Float           @default(0) @map("fee_usd")
+  totalUsd    Float?          @map("total_usd")
+  merchant    String?
+  status      String          @default("completed") // completed | pending | declined
+  occurredAt  DateTime        @map("occurred_at")
+  swypeTxnId  String?         @map("swype_txn_id")
+  notes       String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([cardId, occurredAt])
+  @@map("user_virtual_card_transactions")
 }
 
 model PaymentSubmission {
@@ -254,27 +400,87 @@ model BlogPost {
   @@map("blog_posts")
 }
 
-model Wallet {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  currency  String   @default("MWK") // Store minor units of this currency in balance
-  balance   Int      @default(0)     // Balance in minor units (e.g. tambala/cents)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  transactions WalletTransaction[]
+/// Business inventory ledger — USDT stock, MWK cash flow & expenses.
+model InventoryEntry {
+  id              String   @id @default(cuid())
+  assetType       String   // usdt | giftcard | mwk
+  direction       String   // in | out
+  quantityUsd     Float    @default(0)
+  quantityMwk     Int?
+  buyRateMwk      Float?
+  sellRateMwk     Float?
+  costBasisMwk    Int?
+  revenueMwk      Int?
+  profitLossMwk   Int?
+  purpose         String?
+  reference       String?
+  notes           String?
+  giftCardName    String?
+  balanceAfterUsd Float?
+  balanceAfterMwk Int?
+  avgBuyRateMwk   Float?
+  createdAt       DateTime @default(now())
+
+  @@index([assetType, createdAt])
+  @@map("inventory_entries")
 }
 
-model WalletTransaction {
-  id          String   @id @default(cuid())
-  walletId    String
-  wallet      Wallet   @relation(fields: [walletId], references: [id])
-  type        String   // topup | purchase | withdrawal | adjustment
-  amount      Int      // Positive = credit, Negative = debit (minor units)
-  status      String   @default("pending") // pending | completed | failed
-  externalRef String?  // OneKhusa referenceNumber or TAN
-  metadata    String?  // JSON blob with extra data
-  createdAt   DateTime @default(now())
+/// Monthly marketing budget container — each allocation lot keeps its own frozen rate.
+model MarketingBudget {
+  id        String                   @id @default(cuid())
+  monthKey  String                   @unique @map("month_key") // YYYY-MM
+  notes     String?
+  lots      MarketingAllocationLot[]
+  requests  MarketingFundRequest[]
+  createdAt DateTime                 @default(now()) @map("created_at")
+  updatedAt DateTime                 @updatedAt @map("updated_at")
+
+  @@map("marketing_budgets")
 }
 
+/// One USD allocation at a fixed MWK rate — never recalculated when new lots are added.
+model MarketingAllocationLot {
+  id                  String          @id @default(cuid())
+  budgetId            String          @map("budget_id")
+  budget              MarketingBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  allocatedUsd        Float           @map("allocated_usd")
+  balanceUsdRemaining Float           @map("balance_usd_remaining")
+  balanceMwkRemaining Float           @map("balance_mwk_remaining")
+  rateMwk             Float           @map("rate_mwk") // MWK per $1 — locked for this lot
+  notes               String?
+  createdAt           DateTime        @default(now()) @map("created_at")
+
+  @@index([budgetId, createdAt])
+  @@map("marketing_allocation_lots")
+}
+
+/// Marketing team fund disbursement request — approved by management portal.
+model MarketingFundRequest {
+  id                  String          @id @default(cuid())
+  budgetId            String          @map("budget_id")
+  budget              MarketingBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  requestedByName     String          @map("requested_by_name")
+  amount              Float
+  currency            String          // MWK | USD (payout currency)
+  payoutMethod        String          @map("payout_method") // bank_transfer | mobile_money | virtual_card
+  purpose             String
+  notes               String?
+  bankName            String?         @map("bank_name")
+  bankAccountName     String?         @map("bank_account_name")
+  bankAccountNumber   String?         @map("bank_account_number")
+  mobileMoneyProvider String?         @map("mobile_money_provider")
+  mobileMoneyNumber   String?         @map("mobile_money_number")
+  virtualCardEmail    String?         @map("virtual_card_email")
+  deductedUsd         Float?          @map("deducted_usd")
+  deductedMwk         Float?          @map("deducted_mwk")
+  status              String          @default("pending") // pending | approved | rejected | fulfilled
+  managerNote         String?         @map("manager_note")
+  reviewedAt          DateTime?       @map("reviewed_at")
+  fulfilledAt         DateTime?       @map("fulfilled_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+
+  @@index([budgetId, status])
+  @@index([status, createdAt])
+  @@map("marketing_fund_requests")
+}
 

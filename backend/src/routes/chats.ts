@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { basicAdminAuth } from '../lib/adminAuth';
+import { sendAdminChatAlertEmail } from '../lib/email';
+import { createUserNotification } from '../lib/userNotifications';
 
 const router = Router();
 
@@ -180,16 +182,18 @@ router.post('/:id/messages', async (req, res) => {
             link: `/admin?tab=chats&chatId=${id}`
           }
         });
+        await sendAdminChatAlertEmail({
+          chatId: id,
+          senderName: senderName || chat.userName || chat.userEmail || 'User',
+          preview: content || (imageUrl ? '[Image]' : ''),
+        });
       } else if (senderType === 'agent' && chat.userId) {
-        // Notify user about admin reply
-        await prisma.notification.create({
-          data: {
-            userId: chat.userId,
-            type: 'message_received',
-            title: 'New Reply from Support',
-            message: `${senderName || 'Support'} replied to your message`,
-            link: `/`
-          }
+        await createUserNotification({
+          userId: chat.userId,
+          type: 'message_received',
+          title: 'New Reply from Support',
+          message: `${senderName || 'Support'} replied to your message`,
+          link: '/',
         });
       }
     } catch (notifError) {
@@ -293,14 +297,12 @@ router.post('/:id/agent-message', basicAdminAuth, async (req, res) => {
     // Notify user about admin reply
     try {
       if (chat.userId) {
-        await prisma.notification.create({
-          data: {
-            userId: chat.userId,
-            type: 'message_received',
-            title: 'New Reply from Support',
-            message: `${agentName || 'Support'} replied to your message`,
-            link: `/`
-          }
+        await createUserNotification({
+          userId: chat.userId,
+          type: 'message_received',
+          title: 'New Reply from Support',
+          message: `${agentName || 'Support'} replied to your message`,
+          link: '/',
         });
       }
     } catch (notifError) {

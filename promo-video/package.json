@@ -1,0 +1,13 @@
+{
+  "name": "tconnect-cards-promo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "generate:usage": "node generate-usage.mjs"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "playwright": "^1.51.0"
+  }
+}

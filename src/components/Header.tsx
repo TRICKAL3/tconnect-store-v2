@@ -1,9 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Settings, LogOut, Package, Gift, Home, CreditCard, TrendingUp, User, Tag } from 'lucide-react';
+import {
+  ShoppingCart,
+  Menu,
+  X,
+  Settings,
+  LogOut,
+  Package,
+  Gift,
+  Home,
+  CreditCard,
+  TrendingUp,
+  User,
+  Tag,
+  Sparkles,
+  Wallet,
+  BookOpen,
+} from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { getApiBase } from '../lib/getApiBase';
+import { readResponseJson } from '../lib/parseResponseJson';
+import { getMwkAmountFromUsd } from '../utils/rates';
 import NotificationBell from './NotificationBell';
 
 const Header: React.FC = () => {
@@ -14,36 +32,57 @@ const Header: React.FC = () => {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const [pointsBalance, setPointsBalance] = useState(0);
+  const [walletBalanceUsd, setWalletBalanceUsd] = useState(0);
 
-  // Fetch user points balance
   useEffect(() => {
-    const fetchPoints = async () => {
+    const fetchProfile = async () => {
       if (user?.email) {
         try {
           const API_BASE = getApiBase();
           const res = await fetch(`${API_BASE}/users/profile?email=${encodeURIComponent(user.email)}`);
           if (res.ok) {
-            const profile = await res.json();
+            const profile = (await readResponseJson(res)) as {
+              pointsBalance?: number;
+              walletBalanceUsd?: number;
+            };
             setPointsBalance(profile.pointsBalance || 0);
+            setWalletBalanceUsd(Number(profile.walletBalanceUsd || 0));
           }
         } catch (error) {
           console.error('Failed to fetch points:', error);
         }
       } else {
         setPointsBalance(0);
+        setWalletBalanceUsd(0);
       }
     };
-    fetchPoints();
-    // Refresh points every 30 seconds
-    const interval = setInterval(fetchPoints, 30000);
-    return () => clearInterval(interval);
+    fetchProfile();
+    const onPointsUpdated = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ pointsBalance?: number }>).detail;
+      if (typeof detail?.pointsBalance === 'number') {
+        setPointsBalance(detail.pointsBalance);
+      } else {
+        fetchProfile();
+      }
+    };
+    const onWalletUpdated = () => fetchProfile();
+    window.addEventListener('tconnect-points-updated', onPointsUpdated);
+    window.addEventListener('tconnect-wallet-updated', onWalletUpdated);
+    const interval = setInterval(fetchProfile, 30000);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('tconnect-points-updated', onPointsUpdated);
+      window.removeEventListener('tconnect-wallet-updated', onWalletUpdated);
+    };
   }, [user?.email]);
 
   const navigation = [
     { name: 'Home', href: '/', icon: Home },
     { name: 'Gift Cards', href: '/giftcards', icon: Gift },
+    { name: 'Blog', href: '/blog', icon: BookOpen },
     { name: 'Crypto', href: '/crypto', icon: Package },
     { name: 'Payments', href: '/payments', icon: CreditCard },
+    { name: 'Utility bills', href: '/utility-bills', icon: CreditCard },
     { name: 'Rates', href: '/rates', icon: TrendingUp },
   ];
 
@@ -58,8 +97,19 @@ const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isProfileDropdownOpen) return;
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    if (!isMobile) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isProfileDropdownOpen]);
+
   return (
-    <header className="sticky top-0 z-50 bg-transparent">
+    <header className="sticky top-0 z-50 bg-dark-bg border-b border-dark-border shadow-lg">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center py-3 md:py-4 gap-4">
           {/* Logo */}
@@ -68,7 +118,7 @@ const Header: React.FC = () => {
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="flex items-center group flex-shrink-0"
           >
-            <img src="/tconnect_logo-removebg-preview.png" alt="tConnect" className="h-[4.5rem] sm:h-20 md:h-24 lg:h-28 xl:h-36 w-auto object-contain group-hover:opacity-90 transition-opacity duration-200 brightness-0 invert" />
+            <img src="/tconnect_logo-removebg-preview.png" alt="tConnect" className="h-[6.25rem] sm:h-[5.5rem] md:h-24 lg:h-28 xl:h-36 w-auto object-contain group-hover:opacity-90 transition-opacity duration-200 brightness-0 invert" />
           </Link>
 
           {/* Desktop nav — plain links, no pill bar */}
@@ -123,13 +173,24 @@ const Header: React.FC = () => {
               {/* Dropdown Menu */}
               {isProfileDropdownOpen && (
                 <>
-                  {/* Backdrop for mobile */}
                   <div
-                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                    className="fixed inset-0 bg-black/60 z-[55] md:hidden"
                     onClick={() => setIsProfileDropdownOpen(false)}
+                    aria-hidden
                   />
-                  <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm md:w-56 md:max-w-none bg-dark-card border border-dark-border rounded-lg shadow-xl z-50 overflow-hidden left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0">
-                    <div className="py-2">
+                  <div className="fixed left-3 right-3 top-[7.5rem] z-[60] max-h-[min(85vh,28rem)] flex flex-col bg-dark-card border border-dark-border rounded-xl shadow-2xl md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-64 md:max-h-[80vh]">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border shrink-0 md:hidden">
+                      <span className="text-sm font-semibold text-white">Account</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsProfileDropdownOpen(false)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5"
+                        aria-label="Close menu"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="overflow-y-auto flex-1 overscroll-contain py-2 min-h-0">
                       {user ? (
                         <>
                           <div className="px-4 py-2 border-b border-dark-border">
@@ -149,6 +210,22 @@ const Header: React.FC = () => {
                               ≈ ${((pointsBalance / 1300) * 10).toFixed(2)} value
                             </div>
                           </div>
+                          <Link
+                            to="/wallet"
+                            onClick={() => setIsProfileDropdownOpen(false)}
+                            className="flex items-center justify-between px-4 py-3 border-b border-dark-border bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Wallet className="w-5 h-5 text-amber-400" />
+                              <span className="text-gray-200 text-sm font-medium">Wallet</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-amber-300 font-bold block">
+                                MWK {getMwkAmountFromUsd(walletBalanceUsd, 'store_wallet').toLocaleString()}
+                              </span>
+                              <span className="text-xs text-gray-500">${walletBalanceUsd.toFixed(2)}</span>
+                            </div>
+                          </Link>
                           <Link
                             to="/profile"
                             onClick={() => setIsProfileDropdownOpen(false)}
@@ -172,6 +249,14 @@ const Header: React.FC = () => {
                           >
                             <Tag className="w-5 h-5 mr-3 text-gray-400" />
                             My Promotions
+                          </Link>
+                          <Link
+                            to="/spin"
+                            onClick={() => setIsProfileDropdownOpen(false)}
+                            className="flex items-center px-4 py-3 text-gray-300 hover:text-white hover:bg-dark-surface transition-colors"
+                          >
+                            <Sparkles className="w-5 h-5 mr-3 text-gray-400" />
+                            Spin to Win
                           </Link>
                           <Link
                             to="/settings"
@@ -295,6 +380,13 @@ const Header: React.FC = () => {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     My Promotions
+                  </Link>
+                  <Link
+                    to="/spin"
+                    className="block px-4 py-3 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-dark-surface active:scale-95 transition-all"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Spin to Win
                   </Link>
                   <Link
                     to="/settings"

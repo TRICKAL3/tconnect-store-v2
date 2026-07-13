@@ -7,7 +7,7 @@ export interface CartItem {
   /** Unit price USD (gift card = chosen denomination per card). */
   price: number;
   category: string;
-  type: 'giftcard' | 'crypto' | 'wallet';
+  type: 'giftcard' | 'crypto' | 'wallet' | 'virtual-card' | 'utility-bill';
   image?: string;
   quantity: number;
   metadata?: Record<string, any>;
@@ -17,6 +17,9 @@ export function cartLineKey(item: Pick<CartItem, 'cartLineId' | 'id' | 'type' | 
   if (item.cartLineId) return item.cartLineId;
   if (item.type === 'giftcard') {
     return `gc:${item.id}:${Number(item.price).toFixed(2)}`;
+  }
+  if (item.type === 'virtual-card') {
+    return `vc:${item.id}:${Number(item.price).toFixed(2)}`;
   }
   return item.id;
 }
@@ -54,10 +57,9 @@ export function parseCartItems(raw: unknown): CartItem[] {
     const price = Number(o.price);
     const category = String(o.category || 'general');
     let t = String(o.type || '');
-    if (t === 'virtual-card') t = 'wallet';
     const quantity = Number(o.quantity);
     if (!id || !name || !Number.isFinite(price) || !Number.isFinite(quantity) || quantity <= 0) continue;
-    if (t !== 'giftcard' && t !== 'crypto' && t !== 'wallet') continue;
+    if (t !== 'giftcard' && t !== 'crypto' && t !== 'wallet' && t !== 'virtual-card' && t !== 'utility-bill') continue;
     const item: CartItem = {
       id,
       cartLineId: o.cartLineId != null ? String(o.cartLineId) : undefined,

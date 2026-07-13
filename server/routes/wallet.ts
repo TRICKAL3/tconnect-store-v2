@@ -1,220 +1,188 @@
 import { Router } from 'express';
+import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
-import { initiateRequestToPay } from '../lib/onekhusa';
+import { isPawapayConfigured, pawapayInitiatePaymentPage, getPawapayCountry } from '../lib/pawapay';
+import { getPawapayReturnUrlFor } from '../lib/pawapayReturn';
+import {
+  cancelPendingWalletTopUpsForUser,
+  mwkToUsdForWalletTopUp,
+  roundUsd,
+  usdToMwkAtRate,
+  usdToMwkForWalletTopUp,
+  WALLET_TOPUP_MAX_USD,
+  WALLET_TOPUP_MIN_USD,
+} from '../lib/wallet';
+import { getStoreWalletMwkPerUsd } from '../lib/storeWallet';
+import { fulfillPawapayDeposit } from '../lib/pawapayFulfillment';
 
 const router = Router();
 
-// Helper: get or create wallet in MWK for a user
-async function getOrCreateWallet(userId: string) {
-  let wallet = await prisma.wallet.findFirst({
-    where: { userId, currency: 'MWK' },
-  });
-  if (!wallet) {
-    wallet = await prisma.wallet.create({
-      data: {
-        userId,
-        currency: 'MWK',
-        balance: 0,
-      },
-    });
-  }
-  return wallet;
+function normEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
-// Get direct top-up instructions (merchant account + reference for payment.success flow)
-router.get('/direct-topup-info', async (req: any, res) => {
+async function resolveUserByEmail(emailRaw: string) {
+  const email = normEmail(emailRaw);
+  if (!email) return null;
+  return prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+    select: { id: true, email: true, name: true, walletBalanceUsd: true },
+  });
+}
+
+/** Balance + recent Wallet activity */
+router.get('/', async (req, res) => {
   try {
-    const email = req.query.email as string | undefined;
-    if (!email) {
-      return res.status(400).json({ error: 'email query param is required' });
-    }
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const merchantAccount = process.env.ONEKHUSA_MERCHANT_ACCOUNT || '';
-    const reference = `WALLET-${email}`;
-    res.json({
-      merchantAccountNumber: merchantAccount,
-      reference,
-      instructions:
-        'Send money to the merchant account below from your bank or mobile money. Use the reference exactly as shown so we can credit your wallet.',
-    });
-  } catch (error: any) {
-    console.error('❌ [Wallet] direct-topup-info failed:', error);
-    res.status(500).json({ error: 'Failed to get direct top-up info' });
-  }
-});
+    const email = typeof req.query.email === 'string' ? req.query.email.trim() : '';
+    if (!email) return res.status(400).json({ error: 'email required' });
 
-// Get user's wallet and recent transactions by email
-router.get('/', async (req: any, res) => {
-  try {
-    const email = req.query.email as string | undefined;
-    if (!email) {
-      return res.status(400).json({ error: 'email query param is required' });
-    }
+    const user = await resolveUserByEmail(email);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const userId = user.id;
-
-    const wallet = await getOrCreateWallet(userId);
     const transactions = await prisma.walletTransaction.findMany({
-      where: { walletId: wallet.id },
+      where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      take: 30,
     });
 
-    res.json({
-      wallet: {
-        id: wallet.id,
-        currency: wallet.currency,
-        balanceMinor: wallet.balance,
-      },
+    const pendingTopUp = await prisma.walletTopUp.findFirst({
+      where: { userId: user.id, status: 'pending' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const walletRateMwkPerUsd = await getStoreWalletMwkPerUsd();
+    const balanceUsd = roundUsd(user.walletBalanceUsd || 0);
+
+    return res.json({
+      balanceUsd,
+      balanceMwk: usdToMwkAtRate(balanceUsd, walletRateMwkPerUsd),
+      walletRateMwkPerUsd,
       transactions,
+      pendingTopUp: pendingTopUp
+        ? {
+            id: pendingTopUp.id,
+            amountUsd: pendingTopUp.amountUsd,
+            amountMwk: pendingTopUp.amountMwk,
+            createdAt: pendingTopUp.createdAt,
+          }
+        : null,
     });
-  } catch (error: any) {
-    console.error('❌ [Wallet] Failed to fetch wallet:', error);
-    res.status(500).json({ error: 'Failed to fetch wallet' });
+  } catch (e: unknown) {
+    return res.status(500).json({ error: e instanceof Error ? e.message : 'Failed to load wallet' });
   }
 });
 
-// Initiate wallet top-up using OneKhusa Request To Pay
-router.post('/topup', async (req: any, res) => {
+/** Start PawaPay deposit to add USD to Wallet */
+router.post('/topup/initiate', async (req, res) => {
   try {
-    const { amountMwk, description, userEmail } = req.body || {};
-
-    if (!userEmail) {
-      return res.status(400).json({ error: 'userEmail is required' });
-    }
-    const user = await prisma.user.findUnique({ where: { email: userEmail } });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const userId = user.id;
-    if (!amountMwk || typeof amountMwk !== 'number' || amountMwk <= 0) {
-      return res
-        .status(400)
-        .json({ error: 'amountMwk must be a positive number' });
+    if (!isPawapayConfigured()) {
+      return res.status(503).json({
+        error: 'Mobile money top-up is temporarily unavailable. Please try again later.',
+      });
     }
 
-    const wallet = await getOrCreateWallet(userId);
+    const email = String(req.body?.email || '').trim();
+    const rawMwk = req.body?.amountMwk;
+    const rawUsd = req.body?.amountUsd;
+    let amountUsd: number;
+    let amountMwk: number;
 
-    // Create a pending wallet transaction
-    const reference = `WAL-${Date.now().toString(36).toUpperCase()}`;
-    const tx = await prisma.walletTransaction.create({
+    if (rawMwk != null && rawMwk !== '') {
+      amountMwk = Math.max(1, Math.round(Number(rawMwk)));
+      if (!Number.isFinite(amountMwk)) {
+        return res.status(400).json({ error: 'Enter a valid MWK amount' });
+      }
+      amountUsd = await mwkToUsdForWalletTopUp(amountMwk);
+    } else {
+      amountUsd = roundUsd(Number(rawUsd));
+      if (!Number.isFinite(amountUsd)) {
+        return res.status(400).json({ error: 'Enter a valid amount' });
+      }
+      amountMwk = await usdToMwkForWalletTopUp(amountUsd);
+    }
+
+    if (!email) return res.status(400).json({ error: 'email required' });
+    if (amountUsd < WALLET_TOPUP_MIN_USD) {
+      const minMwk = await usdToMwkForWalletTopUp(WALLET_TOPUP_MIN_USD);
+      return res.status(400).json({ error: `Minimum top-up is MWK ${minMwk.toLocaleString()} (about $${WALLET_TOPUP_MIN_USD})` });
+    }
+    if (amountUsd > WALLET_TOPUP_MAX_USD) {
+      const maxMwk = await usdToMwkForWalletTopUp(WALLET_TOPUP_MAX_USD);
+      return res.status(400).json({ error: `Maximum top-up is MWK ${maxMwk.toLocaleString()} (about $${WALLET_TOPUP_MAX_USD})` });
+    }
+
+    const user = await resolveUserByEmail(email);
+    if (!user) return res.status(404).json({ error: 'User not found. Sign in first.' });
+
+    await cancelPendingWalletTopUpsForUser(user.id);
+
+    const depositId = randomUUID();
+    const returnCfg = getPawapayReturnUrlFor('wallet');
+    if (!returnCfg.url) {
+      return res.status(503).json({
+        error: returnCfg.error || 'Wallet return URL is not configured.',
+      });
+    }
+
+    const started = await pawapayInitiatePaymentPage({
+      depositId,
+      returnUrl: returnCfg.url,
+      amountMwk,
+      reason: `TConnect Wallet top-up $${amountUsd.toFixed(2)}`,
+      country: getPawapayCountry(),
+    });
+
+    if (!started.ok || !started.redirectUrl) {
+      return res.status(400).json({
+        error: started.message || 'Could not start mobile money payment.',
+      });
+    }
+
+    await prisma.walletTopUp.create({
       data: {
-        walletId: wallet.id,
-        type: 'topup',
-        amount: amountMwk,
+        userId: user.id,
+        depositId,
+        amountUsd,
+        amountMwk,
         status: 'pending',
-        externalRef: reference,
-        metadata: JSON.stringify({
-          description: description || 'Wallet top-up',
-          userEmail,
-        }),
       },
     });
 
-    // Call OneKhusa Request To Pay
-    const rtp = await initiateRequestToPay({
-      amount: amountMwk,
-      description:
-        description || `TConnect wallet top-up (${amountMwk.toLocaleString()} MWK)`,
-      referenceNumber: reference,
+    return res.json({
+      redirectUrl: started.redirectUrl,
+      depositId,
+      amountUsd,
+      amountMwk,
     });
-
-    // Store TAN in metadata
-    await prisma.walletTransaction.update({
-      where: { id: tx.id },
-      data: {
-        metadata: JSON.stringify({
-          description: description || 'Wallet top-up',
-          userEmail,
-          timedAccountNumber: rtp.timedAccountNumber,
-          expiryDate: rtp.expiryDate,
-        }),
-      },
-    });
-
-    res.json({
-      reference,
-      timedAccountNumber: rtp.timedAccountNumber,
-      expiryDate: rtp.expiryDate,
-      expiryInMinutes: rtp.expiryInMinutes,
-    });
-  } catch (error: any) {
-    console.error('❌ [Wallet] Failed to initiate top-up:', error);
-    res
-      .status(500)
-      .json({ error: error.message || 'Failed to initiate wallet top-up' });
+  } catch (e: unknown) {
+    console.error('[wallet] topup initiate', e);
+    return res.status(500).json({ error: 'Could not start wallet top-up' });
   }
 });
 
-// Spend from wallet balance (for orders, etc.)
-router.post('/spend', async (req: any, res) => {
+/** After return from PawaPay — credit Wallet if paid */
+router.get('/topup/verify', async (req, res) => {
   try {
-    const { amountMwk, reason, userEmail } = req.body || {};
+    const depositId = String(req.query.depositId || '').trim();
+    if (!depositId) return res.status(400).json({ error: 'depositId required' });
 
-    if (!userEmail) {
-      return res.status(400).json({ error: 'userEmail is required' });
-    }
-    const user = await prisma.user.findUnique({ where: { email: userEmail } });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    const userId = user.id;
-    if (!amountMwk || typeof amountMwk !== 'number' || amountMwk <= 0) {
-      return res
-        .status(400)
-        .json({ error: 'amountMwk must be a positive number' });
-    }
-
-    const wallet = await getOrCreateWallet(userId);
-
-    if (wallet.balance < amountMwk) {
-      return res.status(400).json({ error: 'Insufficient wallet balance' });
-    }
-
-    const updated = await prisma.$transaction(async (txClient) => {
-      const updatedWallet = await txClient.wallet.update({
-        where: { id: wallet.id },
-        data: {
-          balance: { decrement: amountMwk },
-        },
+    const result = await fulfillPawapayDeposit(depositId);
+    if (!result.ok) {
+      return res.status(400).json({
+        error: result.userMessage || 'Payment could not be verified.',
+        reason: result.reason,
       });
-
-      const tx = await txClient.walletTransaction.create({
-        data: {
-          walletId: wallet.id,
-          type: 'purchase',
-          amount: -amountMwk,
-          status: 'completed',
-          metadata: JSON.stringify({ reason: reason || 'Purchase' }),
-        },
-      });
-
-      return { wallet: updatedWallet, transaction: tx };
+    }
+    return res.json({
+      ok: true,
+      kind: result.kind,
+      walletCreditedUsd: result.walletCreditedUsd,
+      orderId: result.orderId,
     });
-
-    res.json({
-      wallet: {
-        id: updated.wallet.id,
-        currency: updated.wallet.currency,
-        balanceMinor: updated.wallet.balance,
-      },
-      transaction: updated.transaction,
-    });
-  } catch (error: any) {
-    console.error('❌ [Wallet] Failed to spend from wallet:', error);
-    res
-      .status(500)
-      .json({ error: error.message || 'Failed to spend from wallet' });
+  } catch (e: unknown) {
+    console.error('[wallet] topup verify', e);
+    return res.status(500).json({ error: 'Verification failed' });
   }
 });
 
 export default router;
-

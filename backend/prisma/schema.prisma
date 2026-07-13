@@ -1,5 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Vercel serverless runs Linux; include both so local (Windows/macOS) and deploy work.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -19,8 +21,9 @@ model User {
   orders       Order[]
   pointsTransactions PointsTransaction[]
   pointsReceipts PointsReceipt[]
-  wallets      Wallet[]
   cartSnapshot UserCartSnapshot?
+  spinGrantLogs SpinGrantLog[]
+  spinProductWins SpinProductWin[]
   createdAt    DateTime            @default(now())
 }
 
@@ -46,7 +49,50 @@ model Product {
   inStock     Boolean  @default(true)
   featured    Boolean  @default(false)
   popular     Boolean  @default(false)
+  spinPrizes  SpinPrize[]
+  spinProductWins SpinProductWin[]
   createdAt   DateTime @default(now())
+}
+
+/// Configurable wheel segment: points, catalog product prize, or no-win.
+model SpinPrize {
+  id          String   @id @default(cuid())
+  label       String
+  rewardType  String   // points | product | no_win
+  points      Int      @default(0)
+  productId   String?
+  /// USD value for product prizes (e.g. $5 USDT). Uses catalog default if unset.
+  prizeAmountUsd Float?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  weight      Int      @default(10)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Tracks bonus spins granted by admin (sum per day adds to daily allowance).
+model SpinGrantLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spins     Int
+  createdAt DateTime @default(now())
+}
+
+/// Non-points wheel wins — admin fulfills (gift card, wallet/top-up product, etc.).
+model SpinProductWin {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  prizeLabel String
+  status     String   @default("pending") // pending | fulfilled
+  orderId    String?  @unique
+  order      Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  notes      String?
+  createdAt  DateTime @default(now())
 }
 
 model Slide {
@@ -105,6 +151,7 @@ model Order {
   payment      PaymentSubmission?
   items        OrderItem[]
   pointsReceipt PointsReceipt?
+  spinProductWin SpinProductWin?
   createdAt    DateTime      @default(now())
 }
 
@@ -253,28 +300,4 @@ model BlogPost {
 
   @@map("blog_posts")
 }
-
-model Wallet {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  currency  String   @default("MWK") // Store minor units of this currency in balance
-  balance   Int      @default(0)     // Balance in minor units (e.g. tambala/cents)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  transactions WalletTransaction[]
-}
-
-model WalletTransaction {
-  id          String   @id @default(cuid())
-  walletId    String
-  wallet      Wallet   @relation(fields: [walletId], references: [id])
-  type        String   // topup | purchase | withdrawal | adjustment
-  amount      Int      // Positive = credit, Negative = debit (minor units)
-  status      String   @default("pending") // pending | completed | failed
-  externalRef String?  // OneKhusa referenceNumber or TAN
-  metadata    String?  // JSON blob with extra data
-  createdAt   DateTime @default(now())
-}
-
 

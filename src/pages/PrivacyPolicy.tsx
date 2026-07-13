@@ -28,9 +28,13 @@ const PrivacyPolicy: React.FC = () => {
               <p className="mb-2">We may collect the following types of information:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li><strong className="text-white">Personal Information:</strong> Name, email address, phone number, and payment details when you register or make a purchase.</li>
+                <li><strong className="text-white">Location Information:</strong> Approximate country, city, and region based on your login IP address to improve security and customer support.</li>
                 <li><strong className="text-white">Transaction Data:</strong> Details of your purchases, wallet activity, and payment history.</li>
                 <li><strong className="text-white">Technical Data:</strong> IP address, browser type, device information, and usage analytics.</li>
               </ul>
+              <p className="mt-4">
+                TConnect collects certain information such as your email address, account information, and location information to improve our services, security, customer support, and user experience.
+              </p>
             </section>
 
             <section>

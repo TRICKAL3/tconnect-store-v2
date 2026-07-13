@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CreditCard, Mail, Phone, MapPin, Shield, Lock, Building2, Instagram, Facebook } from 'lucide-react';
+import { CreditCard, Mail, Phone, MapPin, Shield, Lock, Building2, Instagram, Facebook, Smartphone } from 'lucide-react';
 import tconnectLogo from '../assets/tconnect_logo.png';
 
 const Footer: React.FC = () => {
@@ -138,6 +138,10 @@ const Footer: React.FC = () => {
                   <CreditCard className="w-4 h-4 text-blue-400" />
                   <span>PayPal</span>
                 </li>
+                <li className="flex items-center space-x-2 text-gray-300 text-sm">
+                  <Smartphone className="w-4 h-4 text-neon-green" />
+                  <span>Mobile Money (Airtel / TNM)</span>
+                </li>
               </ul>
             </div>
           </div>
@@ -151,6 +155,9 @@ const Footer: React.FC = () => {
               </p>
               <p className="text-gray-500 text-xs mt-1">
                 Powered by <span className="text-neon-blue font-semibold">TrickalHoldings</span>
+              </p>
+              <p className="text-gray-500 text-xs mt-2 max-w-xl">
+                TConnect collects certain information such as your email address, account information, and location information to improve our services, security, customer support, and user experience.
               </p>
             </div>
             <div className="flex flex-wrap gap-4 md:gap-6 mt-4 md:mt-0">

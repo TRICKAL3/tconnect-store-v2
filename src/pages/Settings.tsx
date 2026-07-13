@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getApiBase } from '../lib/getApiBase';
+import { MIN_LIFETIME_PURCHASE_USD_FOR_POINTS, pointsTermsBullets } from '../lib/tconnectPoints';
 import { Gift, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -9,6 +10,7 @@ const Settings: React.FC = () => {
   const [name, setName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [pointsBalance, setPointsBalance] = useState(0);
+  const [lifetimePurchaseUsd, setLifetimePurchaseUsd] = useState(0);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -22,6 +24,7 @@ const Settings: React.FC = () => {
             setName(profile.name || '');
             setAvatarUrl(profile.avatarUrl || '');
             setPointsBalance(profile.pointsBalance || 0);
+            setLifetimePurchaseUsd(Number(profile.lifetimePurchaseUsd || 0));
           }
         } catch {}
       };
@@ -97,10 +100,19 @@ const Settings: React.FC = () => {
           </Link>
 
           <div className="mt-4 pt-4 border-t border-dark-border">
-            <div className="text-xs text-gray-500 space-y-1">
-              <div><strong>Earning Points:</strong> Earn 2 points for every $10 spent on approved orders</div>
-              <div><strong>Points Expiry:</strong> Points never expire</div>
-            </div>
+            <h3 className="text-white font-semibold mb-2 text-sm">Terms &amp; Conditions</h3>
+            <ul className="text-xs text-gray-400 space-y-2 list-disc list-inside">
+              {pointsTermsBullets().map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-500 mt-3">
+              Your approved purchase total:{' '}
+              <span className="text-white font-medium">${lifetimePurchaseUsd.toFixed(2)}</span>
+              {lifetimePurchaseUsd <= MIN_LIFETIME_PURCHASE_USD_FOR_POINTS && (
+                <span className="text-amber-300"> — spend over ${MIN_LIFETIME_PURCHASE_USD_FOR_POINTS} on TConnect to unlock redemption.</span>
+              )}
+            </p>
           </div>
         </div>
 

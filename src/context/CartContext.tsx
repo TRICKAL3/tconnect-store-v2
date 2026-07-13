@@ -13,9 +13,11 @@ import { cartLineKey, mergeCartLines, withCartLineId } from '../lib/cartTypes';
 import { loadServerCart, syncServerCart, clearServerCart } from '../lib/cartApi';
 import { cartAccountEmail } from '../lib/cartIdentity';
 import {
-  CART_LS_KEY,
+  migrateCartSchemaIfNeeded,
+  migrateLegacyCartIfNeeded,
   readPersistedCartFromStorage,
   writePersistedCartToStorage,
+  clearPersistedCartLocal,
 } from '../lib/cartStorage';
 
 export type { CartItem };
@@ -103,32 +105,53 @@ type CartCtx = {
 
 const CartContext = createContext<CartCtx | null>(null);
 
-const cartInitialLazy = (): CartState => {
-  const parsed = readPersistedCartFromStorage();
-  if (!parsed.length) return { items: [], total: 0, itemCount: 0 };
-  return { items: parsed, ...computeTotals(parsed) };
-};
+/** Never seed from guest localStorage here — Firebase restores session after first paint and guest → account bleed causes “ghost” lines after checkout. */
+const cartInitialLazy = (): CartState => ({ items: [], total: 0, itemCount: 0 });
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [state, dispatch] = useReducer(cartReducer, {}, cartInitialLazy);
 
+  /** Wipe corrupted pre-fix cart keys once; then server + merge rebuild a clean cart if any. */
+  useEffect(() => {
+    migrateCartSchemaIfNeeded();
+  }, []);
+
   const bootstrapKey = useRef<string>('');
+  /** Prevents syncing an empty/edited cart to the server before the first load merges (wiped carts on new devices). */
+  const serverSyncReadyRef = useRef<string>('');
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /** Signed-out users: hydrate from guest bucket only. */
+  useEffect(() => {
+    if (user?.email) return;
+    migrateLegacyCartIfNeeded();
+    const guest = readPersistedCartFromStorage(undefined);
+    dispatch({ type: 'HYDRATE', payload: { items: guest } });
+  }, [user?.email]);
+
+  /** Signed-in but Prisma id not yet — clear any guest lines still in memory so they are not copied into the account key. */
+  useEffect(() => {
+    if (!user?.email || user.dbUserId) return;
+    dispatch({ type: 'HYDRATE', payload: { items: [] } });
+  }, [user?.email, user?.dbUserId]);
+
   /**
-   * Merge server snapshot with what's in localStorage (source of truth for refresh),
-   * then push unified cart to DB so Admin can see it.
+   * Merge server + account disk + guest bucket (assimilate anonymous cart once), then clear guest storage.
    */
   useEffect(() => {
     if (!user?.email || !user.dbUserId) {
       bootstrapKey.current = '';
+      serverSyncReadyRef.current = '';
       return;
     }
     const canon = cartAccountEmail(user.email);
-    const key = `${canon}:${user.dbUserId}`;
-    if (bootstrapKey.current === key) return;
-    bootstrapKey.current = key;
+    const sessionKey = `${canon}:${user.dbUserId}`;
+    if (bootstrapKey.current === sessionKey) {
+      return;
+    }
+    bootstrapKey.current = sessionKey;
+    serverSyncReadyRef.current = '';
 
     let cancelled = false;
     (async () => {
@@ -136,11 +159,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const serverItems = await loadServerCart(user.email!, user.dbUserId!);
         if (cancelled) return;
 
-        const fromDisk = readPersistedCartFromStorage();
-        const merged = mergeCartLines(serverItems, fromDisk);
+        const fromAccount = readPersistedCartFromStorage(user.email);
+        const fromGuest = readPersistedCartFromStorage(undefined);
+        const mergedLocal = mergeCartLines(fromAccount, fromGuest);
+        const merged = mergeCartLines(serverItems, mergedLocal);
 
         dispatch({ type: 'HYDRATE', payload: { items: merged } });
-        writePersistedCartToStorage(merged);
+        writePersistedCartToStorage(merged, user.email);
+        writePersistedCartToStorage([], undefined);
 
         const ok = await syncServerCart(user.email!, user.dbUserId!, merged);
         if (!ok && !cancelled) {
@@ -148,6 +174,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (e) {
         console.warn('[cart] bootstrap failed', e);
+      } finally {
+        if (!cancelled) {
+          serverSyncReadyRef.current = sessionKey;
+        }
       }
     })();
 
@@ -156,17 +186,29 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [user?.email, user?.dbUserId]);
 
-  /** Persist to browser + debounced sync for edits */
+  /** Persist: guest only when logged out; account only after bootstrap finished (never copy guest into account early). */
   useEffect(() => {
-    writePersistedCartToStorage(state.items);
+    const email = user?.email?.trim();
+    const dbUserId = user?.dbUserId?.trim();
+    const sessionKey = email && dbUserId ? `${cartAccountEmail(email)}:${dbUserId}` : '';
 
-    if (!user?.email || !user.dbUserId) {
+    if (!email) {
+      writePersistedCartToStorage(state.items, undefined);
+    } else if (sessionKey && serverSyncReadyRef.current === sessionKey) {
+      writePersistedCartToStorage(state.items, email);
+    }
+
+    if (!email || !dbUserId) {
+      return;
+    }
+
+    if (serverSyncReadyRef.current !== sessionKey) {
       return;
     }
 
     if (syncTimer.current) clearTimeout(syncTimer.current);
     syncTimer.current = setTimeout(() => {
-      syncServerCart(user.email!, user.dbUserId!, state.items).then((ok) => {
+      syncServerCart(email, dbUserId, state.items).then((ok) => {
         if (!ok) console.warn('[cart] autosave to server failed (check DB migration + api).');
       });
     }, SYNC_MS);
@@ -178,11 +220,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const clearPersistedCart = useCallback(async () => {
     dispatch({ type: 'CLEAR_CART' });
-    try {
-      localStorage.removeItem(CART_LS_KEY);
-    } catch {
-      /* ignore */
-    }
+    clearPersistedCartLocal(user?.email);
     if (user?.email && user?.dbUserId) {
       await clearServerCart(user.email, user.dbUserId);
     }
